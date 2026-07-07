@@ -56,15 +56,23 @@ sync_repo() {
 
   if [[ ! -d "$path/.git" ]]; then
     echo "  Cloning $url -> $dir"
-    git clone "$url" "$path"
+    if [[ -n "$branch" ]]; then
+      git clone --branch "$branch" --single-branch "$url" "$path"
+    else
+      git clone "$url" "$path"
+    fi
   else
     echo "  Pulling latest"
     git -C "$path" fetch origin --prune
     local current
     current=$(git -C "$path" branch --show-current 2>/dev/null || echo "")
     if [[ -n "$current" ]]; then
-      git -C "$path" pull --ff-only origin "$current" 2>/dev/null || \
-        git -C "$path" pull --ff-only 2>/dev/null || true
+      if ! git -C "$path" pull --ff-only origin "$current" 2>/dev/null; then
+        if ! git -C "$path" pull --ff-only 2>/dev/null; then
+          echo "  ERROR: pull failed (non-fast-forward, auth, or remote error)"
+          return 1
+        fi
+      fi
     fi
   fi
 

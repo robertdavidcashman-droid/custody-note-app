@@ -1,4 +1,4 @@
 {
-  "install": "bash scripts/bootstrap-github-repos.sh && bash scripts/sync-all-workspaces.sh && bash scripts/verify-workspaces.sh || true",
+  "install": "bash scripts/bootstrap-github-repos.sh && bash scripts/sync-all-workspaces.sh && bash scripts/verify-workspaces.sh",
   "start": "bash scripts/sync-all-workspaces.sh"
 }

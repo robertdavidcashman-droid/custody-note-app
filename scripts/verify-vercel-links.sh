@@ -47,10 +47,10 @@ for project in "${!EXPECTED[@]}"; do
 
   inspect_json=""
   if inspect_json="$("$VERCEL_BIN" project inspect "$project" --token "$VERCEL_TOKEN" --json 2>/dev/null)"; then
-    actual_full="$(python3 - "$expected_full" <<'PY'
-import json,sys
+    actual_full="$(python3 - "$expected_full" 3<<<"$inspect_json" <<'PY'
+import json,os,sys
 expected = sys.argv[1]
-data = json.load(sys.stdin)
+data = json.load(os.fdopen(3))
 link = data.get("link") or {}
 repo = (link.get("repo") or "").strip()
 print(repo)
