@@ -1,0 +1,107 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# .gitignore — Custody Note (legal-sector hardening pass)
+# Treat everything below as required: leaking any of these files via git can
+# breach the SRA duty of confidentiality, UK GDPR, and legal professional
+# privilege. Review changes carefully.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Node / build ────────────────────────────────────────────────────────────
+node_modules/
+dist/
+build/output/
+playwright-report/
+test-results/
+extracted-installed/
+test-extract/
+test-extract*/
+orig-extract/
+verify-pj/
+vfy/
+# ── Secrets / env ───────────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.csr
+*.pfx
+*.p12
+*.cer
+*.der
+id_rsa
+id_dsa
+id_ed25519
+id_ecdsa
+*.gpg
+*.asc
+*credentials*
+!*credentials*.md
+!*credentials*.example*
+*secret*
+!*secret*.md
+*service-account*
+*serviceaccount*
+# ── Code-signing / notarisation material (Apple + generic keystores) ─────────
+# Apple App Store Connect API keys, provisioning profiles and Java keystores
+# must never be committed; leaking them lets an attacker publish a malicious
+# signed auto-update.
+*.p8
+AuthKey_*.p8
+*.mobileprovision
+*.provisionprofile
+*.jks
+*.keystore
+*.pkcs12
+*.cert
+
+# ── Encrypted local stores (live client data on developer machines) ─────────
+encryption.key
+master.fallback
+recovery.dat
+admin-auth.dat
+attendances.db
+attendances.db-*
+attendances.db.*.tmp
+attendances.db.*.bak
+licences.db.enc
+licence-config.json
+photos/
+userData/
+# Defensive catch-all for any SQLite/db artefact containing client data.
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
+# ── Logs ────────────────────────────────────────────────────────────────────
+*.log
+logs/
+cn-auto-update.log
+cn-auto-update-state.json
+security.log
+security.log.*
+
+# ── Generated client artefacts ──────────────────────────────────────────────
+exports/
+attendance-*.pdf
+attendance-*.docx
+attendance-*.csv
+attendance-backup-*.db
+custody-note-*.pdf
+custody-note-*.docx
+
+# ── Misc ────────────────────────────────────────────────────────────────────
+.vercel
+.DS_Store
+Thumbs.db
+*.bak
+*.tmp
+*.swp
+*.swo
+.idea/
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json

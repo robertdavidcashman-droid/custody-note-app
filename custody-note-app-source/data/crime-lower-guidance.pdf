@@ -1,0 +1,1512 @@
+
+
+<!DOCTYPE html>
+<html class="govuk-template govuk-template--rebranded" lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title lang="en">Submit a Bulk Claim (SaBC) - GOV.UK</title>
+
+    <script src="/assets/frontend/govuk_publishing_components/vendor/lux/lux-measurer-d66192b1b665d415e1874e49a48138b7ae339548aa6cdb8687c7f9933e72b969.js" async="async"></script>
+    <script src="/assets/frontend/govuk_publishing_components/rum-custom-data-b9e1806d1da2fa8ef1855d01aa71ba5eb0afc010dd2c4de3672cc7c7a39b0c8c.js" type="module"></script>
+    <script src="/assets/frontend/govuk_publishing_components/rum-loader-a65b10e18ceeba3bd8a2eac507c7f2c513cdc82f35097df903fdea87f1dc2e33.js" async="async" data-lux-reporter-script="/assets/frontend/govuk_publishing_components/vendor/lux/lux-reporter-e42a1713aaa518087d9c67fbb0cc21d379b9e6dc85be80347c7e0d3ed98bcbf0.js"></script>
+
+    <meta name="govuk:components_gem_version" content="64.1.0">
+    <script src="/assets/frontend/govuk_publishing_components/load-analytics-c0b21edf0d79bd3dd6172b0c5be4dfd3c073a8aab9275e31253be3a26762c9a9.js" type="module"></script>
+
+    <meta name="csrf-param" content="authenticity_token" />
+<meta name="csrf-token" content="bxjm9GPUR8ACc-e9YJge0diuQMwEghgHFNlHWz2aoX0G_jD74ur6jpeZR6T3Why4se_r0TbKn5Ajz-n8siN2eA" />
+
+    <link rel="stylesheet" href="/assets/frontend/application-799f1c46338b5fb0704830c0c3d8e56dc9b30f70414afdca62183cbad4f063db.css" media="all" />
+    <link rel="icon" sizes="48x48" href="/assets/frontend/favicon-24f9fbe064118d58937932e73edafd1d50cb60f7bd84f52308382a309bc2d655.ico">
+    <link rel="icon" sizes="any" href="/assets/frontend/favicon-d962d21b5bb443f546c097ea21b567cde639adef7370da45be5e349ba8d62d33.svg" type="image/svg+xml">
+    <link rel="mask-icon" href="/assets/frontend/govuk-icon-mask-cdf4265165f8d7f9eec54aa2c1dfbb3d8b6d297c5d7919f0313e0836a5804bb6.svg" color="#1d70b8">
+    <link rel="apple-touch-icon" href="/assets/frontend/govuk-icon-180-d45a306f0549414cfa5085f16e4a3816a77558b139e5bc226f23162d1d0decb0.png">
+
+    <meta name="theme-color" content="#1d70b8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <meta property="og:image" content="https://www.gov.uk/assets/frontend/govuk-opengraph-image-4196a4d6333cf92aaf720047f56cfd91b3532d7635fc21ebcf0d5897df6b5f77.png">
+
+      
+<script type="application/ld+json">
+  {
+  "@context": "http://schema.org",
+  "@type": "FAQPage",
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://www.gov.uk/guidance/submit-a-bulk-claim-sabc"
+  },
+  "name": "Submit a Bulk Claim (SaBC)",
+  "datePublished": "2025-10-13T00:00:00+01:00",
+  "dateModified": "2026-02-16T15:09:09+00:00",
+  "text": "How SaBC works: how to claim, bulkloading, fee codes and guidance.",
+  "publisher": {
+    "@type": "Organization",
+    "name": "GOV.UK",
+    "url": "https://www.gov.uk",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://www.gov.uk/assets/frontend/govuk_publishing_components/govuk-logo-b8553f688131fad665e52a8c2df7633f9cd1c0fffb9f69703cc68c728e7b3b74.png"
+    }
+  },
+  "image": [
+    "https://www.gov.uk/assets/frontend/govuk_publishing_components/govuk-schema-placeholder-1x1-2672c0fb7a5d5f947d880522c509ebe7f2be090885883cc94418f6860e812e15.png",
+    "https://www.gov.uk/assets/frontend/govuk_publishing_components/govuk-schema-placeholder-4x3-194fde4197f00e669f6f52c182df2ed707bfb2024c9ef39f7a2ed20da62b90eb.png",
+    "https://www.gov.uk/assets/frontend/govuk_publishing_components/govuk-schema-placeholder-16x9-30e6c0e035636ee6b9dc72ae254bcd4a925182805afe7c5b7170cf2394894b28.png"
+  ],
+  "author": {
+    "@type": "Organization",
+    "name": "Legal Aid Agency",
+    "url": "https://www.gov.uk/government/organisations/legal-aid-agency"
+  },
+  "about": [
+    {
+      "@context": "http://schema.org",
+      "@type": "Thing",
+      "sameAs": "https://www.gov.uk/crime-justice-and-law/legal-aid-for-providers-crime"
+    },
+    {
+      "@context": "http://schema.org",
+      "@type": "Thing",
+      "sameAs": "https://www.gov.uk/crime-justice-and-law/legal-aid-for-providers-electronic-working"
+    },
+    {
+      "@context": "http://schema.org",
+      "@type": "Thing",
+      "sameAs": "https://www.gov.uk/crime-justice-and-law/legal-aid-for-providers-payments-processing"
+    }
+  ],
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Submit a Bulk Claim (SaBC)",
+      "url": "https://www.gov.uk/guidance/submit-a-bulk-claim-sabc",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "url": "https://www.gov.uk/guidance/submit-a-bulk-claim-sabc",
+        "text": "\u003cdiv class=\"govspeak\"\u003e\n\u003cp\u003eSubmit a Bulk Claim enables providers to upload Legal Help, Crime Lower and Mediation monthly submissions.\u003c/p\u003e\n\n\u003ch2 id=\"launch-of-submit-a-bulk-claim-sabc--4-february-2026\"\u003eLaunch of Submit a Bulk Claim (SaBC) – 4 February 2026\u003c/h2\u003e\n\n\u003cp\u003eThe Submit a Bulk Claim (SaBC) service will go live on 4 February. All legal aid providers received direct communication regarding the go-live date via the LAA Bulletin on Friday 16 January.\u003c/p\u003e\n\n\u003cp\u003eThis is a significant moment, as unlike other systems that we have restored following the cyber-attack, this will be a brand new service, all be it with some similarities to how our CWA system previously functioned.\u003c/p\u003e\n\n\u003cp\u003eProviders will need to use SaBC to upload their January submission, by 17 February.\u003c/p\u003e\n\n\u003cp\u003eThis early deadline is to allow the processing time required to ensure payments are made on time at the start of March. No further changes to the deadline of the 20th are expected in 2026.\u003c/p\u003e\n\n\u003cp\u003eThe monthly contingency process ends on 20 January, and all future submissions must be via SaBC.\u003c/p\u003e\n\n\u003cp\u003eIn preparation, there will be a series of provider webinars to guide users through the new service and ensure they are ready to submit through SaBC. Sign-up links will be sent out for you to register.\u003c/p\u003e\n\n\u003cp\u003eWe have already contacted the Software Vendors (SVs) for which we have details, to ensure they are engaging with providers; however, we would encourage providers to liaise with their own SV to confirm they are prepared for go-live.\u003c/p\u003e\n\n\u003cp\u003eTo ensure that you are prepared for the launch of SaBC, we would encourage providers to:\u003c/p\u003e\n\n\u003cul\u003e\n  \u003cli\u003eSign up to the weekly webinars we will be scheduling throughout January and February\u003c/li\u003e\n  \u003cli\u003eReview the guidance materials available below\u003c/li\u003e\n  \u003cli\u003eWatch the recorded system walkthrough on the LAA Training website\u003c/li\u003e\n  \u003cli\u003eSeek support from us early if you require any assistance\u003c/li\u003e\n\u003c/ul\u003e\n\n\u003cp\u003eThis will help ensure providers are able to submit their claims on time by 17 February through SaBC.\u003c/p\u003e\n\n\u003cp\u003eIt is particularly important that any provider experiencing difficulties contacts us as soon as possible so that we can offer support. Early engagement will help providers avoid delays and make future submissions through SaBC significantly simpler.\u003c/p\u003e\n\n\u003cp\u003eIf you have any queries, please either contact your Contract Manager or email \u003ca href=\"mailto:SubmitABulkClaimQueries@justice.gov.uk\"\u003eSubmitABulkClaimQueries@justice.gov.uk\u003c/a\u003e. Please do refer to the published guidance in the first instance as this will likely address your query.\u003c/p\u003e\n\n\u003ch2 id=\"government-confirms-increases-to-some-civil-and-crime-legal-aid-fees-taking-effect-on-22-december\"\u003eGovernment confirms increases to some Civil and Crime legal aid fees taking effect on 22 December.\u003c/h2\u003e\n\n\u003ch3 id=\"civil\"\u003eCivil \u003c/h3\u003e\n\n\u003cp\u003eOn 1 December, the statutory instrument uplifting all claimable rates for immigration and housing-controlled work was laid. This came into effect for matters opened on or after 22 December 2025. The uprated  fees, linked to the single fee codes, can be found here \u003cspan class=\"gem-c-attachment-link\"\u003e\n  \u003ca class=\"govuk-link\" href=\"https://assets.publishing.service.gov.uk/media/696a1b2acbe2202b384248b3/New_Fee_Codes__2_.xlsx\"\u003eNew Fee Codes\u003c/a\u003e  (\u003cspan class=\"gem-c-attachment-link__attribute\"\u003eMS Excel Spreadsheet\u003c/span\u003e, \u003cspan class=\"gem-c-attachment-link__attribute\"\u003e176 KB\u003c/span\u003e)\u003c/span\u003e.\u003c/p\u003e\n\n\u003cp\u003eWhere applicable and only for uplifted fees, we have uplifted the immigration profit cost and total cost limits that are set out in the 2024 Standard Civil Contract Immigration Specification.\u003c/p\u003e\n\n\u003ch3 id=\"crime\"\u003eCrime \u003c/h3\u003e\n\n\u003cp\u003eRegulations were also laid on 1 December which will introduce the following fee increases for criminal legal aid cases beginning on or after 22 December 2025: \u003c/p\u003e\n\n\u003cul\u003e\n  \u003cli\u003eHarmonised police station fees to £320 with the police station escape fee threshold revised from £960 to £650 (excl. VAT).\u003c/li\u003e\n  \u003cli\u003e10% uplifts to fees for the magistrates’ court (including the Youth Court)\u003c/li\u003e\n  \u003cli\u003ePrison law fees increased by 24%\u003c/li\u003e\n  \u003cli\u003e10% uplift to solicitor fees for some appeals work\u003c/li\u003e\n\u003c/ul\u003e\n\n\u003cp\u003eFrequently asked questions on the uplifted fees - \u003cspan class=\"gem-c-attachment-link\"\u003e\n  \u003ca class=\"govuk-link\" href=\"https://assets.publishing.service.gov.uk/media/696a1b65448fedc1eb4248a8/Fee_Uplifts_FAQs.pdf\"\u003eFee Uplift FAQs\u003c/a\u003e  (\u003cspan class=\"gem-c-attachment-link__attribute\"\u003e\u003cabbr title=\"Portable Document Format\" class=\"gem-c-attachment-link__abbr\"\u003ePDF\u003c/abbr\u003e\u003c/span\u003e, \u003cspan class=\"gem-c-attachment-link__attribute\"\u003e250 KB\u003c/span\u003e, \u003cspan class=\"gem-c-attachment-link__attribute\"\u003e4 pages\u003c/span\u003e)\u003c/span\u003e\u003c/p\u003e\n\n\u003cp\u003eThe \u003cspan class=\"gem-c-attachment-link\"\u003e\n  \u003ca class=\"govuk-link\" href=\"https://assets.publishing.service.gov.uk/media/696a1b7d0c654a0ec44022e5/Fees_Uplift_Guidance.pdf\"\u003eFee Uplift Guidance\u003c/a\u003e  (\u003cspan class=\"gem-c-attachment-link__attribute\"\u003e\u003cabbr title=\"Portable Document Format\" class=\"gem-c-attachment-link__abbr\"\u003ePDF\u003c/abbr\u003e\u003c/span\u003e, \u003cspan class=\"gem-c-attachment-link__attribute\"\u003e139 KB\u003c/span\u003e, \u003cspan class=\"gem-c-attachment-link__attribute\"\u003e9 pages\u003c/span\u003e)\u003c/span\u003e is guidance on how to claim the higher Housing and Debt and Immigration and Asylum fees for matters opened on or after 22 December.\u003c/p\u003e\n\n\u003ch2 id=\"monthly-claim-submissions\"\u003eMonthly Claim Submissions\u003c/h2\u003e\n\n\u003cp\u003eThe contingency process has now ended and all future monthly submissions for controlled work, crime lower and mediation must be made using Submit a Bulk Claim (SaBC).\u003c/p\u003e\n\n\u003cp\u003eThe first submission you must make via SaBC, will be your January submission which must be uploaded by 17 February.\u003c/p\u003e\n\n\u003cp\u003eProviders can find further guidance on the submission of claims for matters for which you made use of the monthly contingency process, below.\u003c/p\u003e\n\n\u003ch2 id=\"when-to-submit-your-claim\"\u003eWhen to submit your claim\u003c/h2\u003e\n\n\u003cp\u003eSaBC will be available for use by providers from 4 February 2026. The deadline  for making January submissions in SaBC is 17 February 2026.\u003c/p\u003e\n\n\u003cp\u003eTry to make sure your submission is at the beginning of the month as this allows maximum time to offer support and resolve any questions.\u003c/p\u003e\n\n\u003ch2 id=\"how-to-access-sabc\"\u003eHow to access SaBC\u003c/h2\u003e\n\n\u003cp\u003eAll claims for controlled work, mediation and crime lower work must now be submitted via Submit a Bulk Claim (SaBC).\u003c/p\u003e\n\n\u003cp\u003eSaBC is a digital billing service that allows and validates monthly submissions online and calculates fees.\u003c/p\u003e\n\n\u003cp\u003eTo access Submit a Bulk Claim, you will need to have a verified account with Sign in to legal aid services (SILAS) and Submit a Bulk Claim will need to have been added to your profile. Once this has been done, and you are logged into SILAS, you will be able to click on a link to access the Submit a Bulk Claim landing page. See the \u003ca rel=\"external\" href=\"https://legalaidlearning.justice.gov.uk/sign-in-to-legal-aid-services/\"\u003eLegal Aid Agency training website\u003c/a\u003e for guidance on how to create an account with and use SILAS.\u003c/p\u003e\n\n\u003cp\u003eOnce the system is launched on 4 February, those individuals who are providers’ SILAS Firm admins, will need to assign the ‘Submit a bulk claim’ app to the users that need it. This can only be done once the system is launched on 4 February and not before. The SaBC app will not appear in SILAS until then. Firm Admins should refer to the published guidance at that point, to assign the app: \u003ca rel=\"external\" href=\"https://legalaidlearning.justice.gov.uk/sign-in-to-legal-aid-services/#1-Setupandmanaginguseraccess\"\u003ehttps://legalaidlearning.justice.gov.uk/sign-in-to-legal-aid-services/#1-Setupandmanaginguseraccess\u003c/a\u003e\u003c/p\u003e\n\n\u003ch2 id=\"how-sabc-works\"\u003eHow SaBC works\u003c/h2\u003e\n\n\u003cp\u003eProviders will be able to access the service via SILAS and can upload their bulkload or case management system exported data file directly into SaBC. The service will check the file and calculate the price of each claim within it. If any information is missing or if fundamental errors have been made within the submission, it will be rejected prior to calculating costs.\u003c/p\u003e\n\n\u003cp\u003eYou can find further information on how to use SaBC in the Submit a Bulk Claim User Guide which can be found in the Guidance section below.\u003c/p\u003e\n\n\u003ch2 id=\"changes-for-providers\"\u003eChanges for providers\u003c/h2\u003e\n\n\u003cp\u003eUnlike in CWA, providers are unable to enter the details of each claim directly into SaBC – instead the submission must be uploaded via a bulkload spreadsheet export or via a file exported from their case management system (updated CSV, XML, and TXT exports).\u003c/p\u003e\n\n\u003ch2 id=\"using-the-bulkload-spreadsheet-and-compatibility\"\u003eUsing the bulkload spreadsheet and compatibility\u003c/h2\u003e\n\n\u003cp\u003eIf your case management system export isn’t compatible with SaBC or if you don’t have one, you can still bulkload your submission data using the bulk upload spreadsheet (links below).\u003c/p\u003e\n\n\u003cp\u003eWe have updated the bulkload spreadsheet to improve its functionality for providers, this includes:\u003c/p\u003e\n\n\u003cul\u003e\n  \u003cli\u003eFor Windows users, adding in a drop-down menu for providers to select a Fee Code for each claim\u003c/li\u003e\n  \u003cli\u003eFor Windows users, Updating the example references to reflect current Contracts and schedules\u003c/li\u003e\n  \u003cli\u003eUpdating validation to reduce the likelihood of any rejects when claims are uploaded to SaBC\u003c/li\u003e\n  \u003cli\u003eUpdating links and references to support guidance\u003c/li\u003e\n\u003c/ul\u003e\n\n\u003cp\u003eWe have also created a version of the spreadsheet designed specifically for those using MacBook operating systems. While this version does not have all the updated functionality of the Windows version (such as the Fee Code dropdown), it should assist providers who encountered compatibility issues when trying to use the Windows version.  The MacBook version will have further iterations in due course, to ensure it fully reflects the Windows version.\u003c/p\u003e\n\n\u003cp\u003eThe supporting guide has also been updated, and there are now two – one for Windows and one for MacBooks, reflecting the slight differences in functionality between the two.\u003c/p\u003e\n\n\u003cp\u003eProviders should ensure that they use the latest version of the spreadsheets for any submissions.\u003c/p\u003e\n\n\u003cp\u003e\u003cspan class=\"gem-c-attachment-link\"\u003e\n  \u003ca class=\"govuk-link\" href=\"https://assets.publishing.service.gov.uk/media/696a1c311c8a70fc0a3b0461/Provider_Bulkload_Spreadsheet_v1.39_Provider_release.xlsm\"\u003eBulkload spreadsheet\u003c/a\u003e  (\u003cspan class=\"gem-c-attachment-link__attribute\"\u003e\u003cabbr title=\"MS Excel Macro-Enabled Workbook\" class=\"gem-c-attachment-link__abbr\"\u003eXLSM\u003c/abbr\u003e\u003c/span\u003e, \u003cspan class=\"gem-c-attachment-link__attribute\"\u003e3.37 MB\u003c/span\u003e)\u003c/span\u003e\u003c/p\u003e\n\n\u003cp\u003e\u003cspan class=\"gem-c-attachment-link\"\u003e\n  \u003ca class=\"govuk-link\" href=\"https://assets.publishing.service.gov.uk/media/696a1bff448fedc1eb4248a9/Provider_Bulkload_Spreadsheet_mac_v1.01.xlsm\"\u003eBulkload spreadsheet mac\u003c/a\u003e  (\u003cspan class=\"gem-c-attachment-link__attribute\"\u003e\u003cabbr title=\"MS Excel Macro-Enabled Workbook\" class=\"gem-c-attachment-link__abbr\"\u003eXLSM\u003c/abbr\u003e\u003c/span\u003e, \u003cspan class=\"gem-c-attachment-link__attribute\"\u003e3.26 MB\u003c/span\u003e)\u003c/span\u003e\u003c/p\u003e\n\n\u003cp\u003eThe \u003cspan class=\"gem-c-attachment-link\"\u003e\n  \u003ca class=\"govuk-link\" href=\"https://assets.publishing.service.gov.uk/media/696a1c6a1c8a70fc0a3b0462/SaBC_bulkload-spreadsheet-guidance_v1.22__Windows_only_.docx\"\u003eBulkload spreadsheet guidance Windows\u003c/a\u003e  (\u003cspan class=\"gem-c-attachment-link__attribute\"\u003eMS Word Document\u003c/span\u003e, \u003cspan class=\"gem-c-attachment-link__attribute\"\u003e2.27 MB\u003c/span\u003e)\u003c/span\u003e and \u003cspan class=\"gem-c-attachment-link\"\u003e\n  \u003ca class=\"govuk-link\" href=\"https://assets.publishing.service.gov.uk/media/696a1c907b7f37aa8e4022ed/SaBC_bulkload-spreadsheet-guidance_v1.0__Mac_only_.docx\"\u003eBulkload spreadsheet guidance Mac\u003c/a\u003e  (\u003cspan class=\"gem-c-attachment-link__attribute\"\u003eMS Word Document\u003c/span\u003e, \u003cspan class=\"gem-c-attachment-link__attribute\"\u003e4.38 MB\u003c/span\u003e)\u003c/span\u003e provides guidance on how to use the spreadsheet(s) to draft your monthly submission, validate it and create an export file.\u003c/p\u003e\n\n\u003ch3 id=\"use-of-macros\"\u003eUse of Macros\u003c/h3\u003e\n\n\u003cp\u003eWe have been made aware of some providers experiencing issues with macros on the bulkload spreadsheet. The spreadsheet is published on the official GOV.UK website, which is the trusted source of documentation for the Legal Aid Agency.  You should have confidence in downloading files from here.  All materials undergo standard assurance and integrity checks before publication.  \u003c/p\u003e\n\n\u003cp\u003eThe spreadsheet makes use of macros for data validation and generation of a file for upload into our systems.  Unfortunately, it is not possible to provide a non-macro version without removing this functionality.  The file can be opened with macros disabled, but users would need to complete data validation and file generation manually.    \u003c/p\u003e\n\n\u003cp\u003eWe understand that you may have a policy in place to restrict the use of macros.  Where possible, you may wish to review these settings to allow macros from trusted and verified sources, such as the GOV.UK website.    \u003c/p\u003e\n\n\u003cp\u003eThank you for raising your concerns and for working with us as we establish these new processes.\u003c/p\u003e\n\n\u003ch2 id=\"claim-amendments\"\u003eClaim amendments\u003c/h2\u003e\n\n\u003ch2 id=\"amendments-to-claims-submitted-on-cwa\"\u003eAmendments to claims submitted on CWA \u003c/h2\u003e\n\n\u003cp\u003eMake changes to any of your previously submitted CWA claims using 1 of 3 amendment forms and guidance:\u003c/p\u003e\n\n\u003cul\u003e\n  \u003cli\u003e\u003cspan class=\"gem-c-attachment-link\"\u003e\n  \u003ca class=\"govuk-link\" href=\"https://assets.publishing.service.gov.uk/media/696a1d73cbe2202b384248b5/Civil_CWA_Amendment_Form_Ext.xlsx\"\u003eCivil CWA Amendment form\u003c/a\u003e  (\u003cspan class=\"gem-c-attachment-link__attribute\"\u003eMS Excel Spreadsheet\u003c/span\u003e, \u003cspan class=\"gem-c-attachment-link__attribute\"\u003e101 KB\u003c/span\u003e)\u003c/span\u003e\u003c/li\u003e\n  \u003cli\u003e\u003cspan class=\"gem-c-attachment-link\"\u003e\n  \u003ca class=\"govuk-link\" href=\"https://assets.publishing.service.gov.uk/media/696a1db40c654a0ec44022e6/Crime_CWA_Amendment_Form_Ext.xlsx\"\u003eCrime CWA Amendment form\u003c/a\u003e  (\u003cspan class=\"gem-c-attachment-link__attribute\"\u003eMS Excel Spreadsheet\u003c/span\u003e, \u003cspan class=\"gem-c-attachment-link__attribute\"\u003e78.3 KB\u003c/span\u003e)\u003c/span\u003e\u003c/li\u003e\n  \u003cli\u003e\u003cspan class=\"gem-c-attachment-link\"\u003e\n  \u003ca class=\"govuk-link\" href=\"https://assets.publishing.service.gov.uk/media/696a1df17b7f37aa8e4022ee/Mediation_CWA_Amendment_Form_Ext.xlsx\"\u003eMediation CWA Amendment form\u003c/a\u003e  (\u003cspan class=\"gem-c-attachment-link__attribute\"\u003eMS Excel Spreadsheet\u003c/span\u003e, \u003cspan class=\"gem-c-attachment-link__attribute\"\u003e83.6 KB\u003c/span\u003e)\u003c/span\u003e\u003c/li\u003e\n  \u003cli\u003e\u003cspan class=\"gem-c-attachment-link\"\u003e\n  \u003ca class=\"govuk-link\" href=\"https://assets.publishing.service.gov.uk/media/696a1cd6cbe2202b384248b4/legal-aid-claim-amendment-guidance.docx\"\u003eAmendments guidance\u003c/a\u003e  (\u003cspan class=\"gem-c-attachment-link__attribute\"\u003eMS Word Document\u003c/span\u003e, \u003cspan class=\"gem-c-attachment-link__attribute\"\u003e58.9 KB\u003c/span\u003e)\u003c/span\u003e\u003c/li\u003e\n\u003c/ul\u003e\n\n\u003cp\u003eEmail amendment requests to: \u003ca href=\"mailto:PA-ClaimAmend@justice.gov.uk\"\u003ePA-ClaimAmend@justice.gov.uk\u003c/a\u003e\u003c/p\u003e\n\n\u003cp\u003eWhen completing the spreadsheet remember to:\u003c/p\u003e\n\n\u003cul\u003e\n  \u003cli\u003einclude the net revised cost, not gross\u003c/li\u003e\n  \u003cli\u003echeck the compatibility of cost and code combinations within revised claims\u003c/li\u003e\n  \u003cli\u003eput your name and account number in the subject header\u003c/li\u003e\n\u003c/ul\u003e\n\n\u003cp\u003eWhilst we are currently unable to process any amendments, a solution on how these will be amended is being developed so the forms can be submitted pending a confirmed approach.\u003c/p\u003e\n\n\u003ch2 id=\"amendments-to-claims-submitted-on-sabc\"\u003eAmendments to claims submitted on SaBC\u003c/h2\u003e\n\n\u003cp\u003eThe ability to amend a claim submitted on SaBC, will not be available for launch. If you have requested payment for cases under the monthly contingency, and have identified    that there was an error affecting the amount you were entitled to claim, if possible, please correct these claims prior to submitting them on SaBC.\u003c/p\u003e\n\n\u003cp\u003eAn approach to amendments for claims submitted on SaBC, will be communicated in due course. Please do continue to complete and send an amendment form where you identify an amendment is needed to a claim submitted on SaBC.  \u003c/p\u003e\n\n\u003cul\u003e\n  \u003cli\u003e\u003cspan class=\"gem-c-attachment-link\"\u003e\n  \u003ca class=\"govuk-link\" href=\"https://assets.publishing.service.gov.uk/media/698b28f06c8ef8db1fcfd852/Civil_SaBC_Claim_Amendment_Form_Ext.xlsx\"\u003eCivil SaBC Amendment form\u003c/a\u003e  (\u003cspan class=\"gem-c-attachment-link__attribute\"\u003eMS Excel Spreadsheet\u003c/span\u003e, \u003cspan class=\"gem-c-attachment-link__attribute\"\u003e95.5 KB\u003c/span\u003e)\u003c/span\u003e\u003c/li\u003e\n  \u003cli\u003e\u003cspan class=\"gem-c-attachment-link\"\u003e\n  \u003ca class=\"govuk-link\" href=\"https://assets.publishing.service.gov.uk/media/696a1dd6448fedc1eb4248aa/Crime_SaBC_Claim_Amendment_Form_Ext.xlsx\"\u003eCrime SaBC Amendment form\u003c/a\u003e  (\u003cspan class=\"gem-c-attachment-link__attribute\"\u003eMS Excel Spreadsheet\u003c/span\u003e, \u003cspan class=\"gem-c-attachment-link__attribute\"\u003e78.9 KB\u003c/span\u003e)\u003c/span\u003e\u003c/li\u003e\n  \u003cli\u003e\u003cspan class=\"gem-c-attachment-link\"\u003e\n  \u003ca class=\"govuk-link\" href=\"https://assets.publishing.service.gov.uk/media/696a1e0f0c654a0ec44022e7/Mediation_SaBC_Amendment_Form_Ext.xlsx\"\u003eMediation SaBC Amendment form\u003c/a\u003e  (\u003cspan class=\"gem-c-attachment-link__attribute\"\u003eMS Excel Spreadsheet\u003c/span\u003e, \u003cspan class=\"gem-c-attachment-link__attribute\"\u003e84.1 KB\u003c/span\u003e)\u003c/span\u003e\u003c/li\u003e\n\u003c/ul\u003e\n\n\u003ch2 id=\"submit-a-bulk-claim-and-new-fee-code-field\"\u003eSubmit a Bulk Claim and new Fee Code field\u003c/h2\u003e\n\n\u003cp\u003eEach claim submitted through Submit a Bulk Claim, will need to include a new, single fee code.\u003c/p\u003e\n\n\u003cp\u003eThis change has been required to enable us to deliver the new service at speed.\u003c/p\u003e\n\n\u003cp\u003eYou will need to include the new fee codes in any SaBC submission for them to be accepted by the new service. The spreadsheet below sets out how the new Fee Codes map to an existing matter type or other reporting code (which may have previously triggered pricing rules in CWA). Where the matter type or other codes has N/A listed, you still need to enter a valid code in that field, but it no longer triggers the fee that you are paid; the Fee Code does that.\u003c/p\u003e\n\n\u003cp\u003eYou should refer to the Guide for SaBC claims and Guidance for reporting Crime Lower for the detail of what should be reported in each field.\u003c/p\u003e\n\n\u003cp\u003e\u003cspan class=\"gem-c-attachment-link\"\u003e\n  \u003ca class=\"govuk-link\" href=\"https://assets.publishing.service.gov.uk/media/698ca098bb6023ea0f7123cc/New_fee_codes_with_mapping_v9.xlsx\"\u003eNew fee codes with mapping\u003c/a\u003e  (\u003cspan class=\"gem-c-attachment-link__attribute\"\u003eMS Excel Spreadsheet\u003c/span\u003e, \u003cspan class=\"gem-c-attachment-link__attribute\"\u003e176 KB\u003c/span\u003e)\u003c/span\u003e\u003c/p\u003e\n\n\u003cp\u003eTo support you to make this change, we have worked with software vendors who have been updating their systems to accommodate and enable the new fee codes. Most vendors have confirmed that they are going to auto-generate the codes in the claim exports.  If you have any concerns as to whether your case management system has been updated accordingly, please contact your software vendor.\u003c/p\u003e\n\n\u003cp\u003eWe acknowledge that this is a considerable change and we are working as hard as possible to minimise the impact for providers, including working with a group of providers to design the service. However, due to the need to deliver a working service as early as possible, the initial release will only support the submission and pricing of claims.\u003c/p\u003e\n\n\u003cp\u003eTo aid providers understand how the new fee code ‘maps’ across to an existing matter type or other reporting code (which may have previously triggered pricing rules in CWA), we have developed a series of recorded webinars and slide packs for providers to refer to.\u003c/p\u003e\n\n\u003cp\u003eProviders can access these webinars and slide packs via the Legal Aid Learning website:\u003c/p\u003e\n\n\u003cp\u003e Civil - \u003ca rel=\"external\" href=\"https://legalaidlearning.justice.gov.uk/submit-a-bulk-claim-civil/\"\u003elegalaidlearning.justice.gov.uk/submit-a-bulk-claim-civil/\u003c/a\u003e\u003c/p\u003e\n\n\u003cp\u003eCrime - \u003ca rel=\"external\" href=\"https://legalaidlearning.justice.gov.uk/submit-a-bulk-claim-crime/\"\u003elegalaidlearning.justice.gov.uk/submit-a-bulk-claim-crime\u003c/a\u003e\u003c/p\u003e\n\n\u003cp\u003eWe have also published key information on the new system to help you prepare for implementation.\u003c/p\u003e\n\n\u003cul\u003e\n  \u003cli\u003e\u003cspan class=\"gem-c-attachment-link\"\u003e\n  \u003ca class=\"govuk-link\" href=\"https://assets.publishing.service.gov.uk/media/696a1e64cbe2202b384248b7/Validation_overview_for_Providers__v1_.pdf\"\u003eValidation overview for providers\u003c/a\u003e  (\u003cspan class=\"gem-c-attachment-link__attribute\"\u003e\u003cabbr title=\"Portable Document Format\" class=\"gem-c-attachment-link__abbr\"\u003ePDF\u003c/abbr\u003e\u003c/span\u003e, \u003cspan class=\"gem-c-attachment-link__attribute\"\u003e143 KB\u003c/span\u003e, \u003cspan class=\"gem-c-attachment-link__attribute\"\u003e3 pages\u003c/span\u003e)\u003c/span\u003e\u003c/li\u003e\n\u003c/ul\u003e\n\n\u003ch2 id=\"calculating-value-of-an-outcome\"\u003eCalculating value of an outcome\u003c/h2\u003e\n\n\u003cp\u003eUpon successful uploading and acceptance of the submission, SaBC will price each line and will provide the total value of the submission.\u003c/p\u003e\n\n\u003cp\u003eProviders will also be able to view the calculated price of each line of the submission and can click on each individually to view how that sum has been determined.\u003c/p\u003e\n\n\u003cp\u003eIn future, providers will be able to export the details of the claims and the calculated price, from SaBC.\u003c/p\u003e\n\n\u003cp\u003eThe value for each claim will be calculated will be in accordance with the relevant provisions in the respective Civil/Crime Remuneration Regulations and Standard Civil/Crime Contracts, with further information available in the reporting codes guidance below.\u003c/p\u003e\n\n\u003ch2 id=\"reporting-new-matter-starts-for-controlled-work-and-mediation\"\u003eReporting New matter starts for controlled work and mediation\u003c/h2\u003e\n\n\u003cp\u003e‘New matter starts’ is the LAA contracting term used for controlled work and mediation, e.g., the first meeting a provider has with a client.\u003c/p\u003e\n\n\u003cp\u003eHow to report new matter starts depends on what method of submission you’re using.\u003c/p\u003e\n\n\u003ch2 id=\"laas-bulkload-spreadsheet\"\u003eLAA’s bulkload spreadsheet\u003c/h2\u003e\n\n\u003cp\u003eEnter new matter starts into the controlled matter start form (CMSF) area of the spreadsheet.\u003c/p\u003e\n\n\u003ch2 id=\"cms-file\"\u003eCMS file\u003c/h2\u003e\n\n\u003cp\u003eContact your software supplier to find out if your CMS bulkload file contains your new matter starts.\u003c/p\u003e\n\n\u003ch2 id=\"claims-relating-to-the-contingency-period\"\u003eClaims relating to the contingency period\u003c/h2\u003e\n\n\u003cp\u003eSaBC must be used to upload your historic contingency submissions from April to December 2025. These should be uploaded by 20 March 2026.\u003c/p\u003e\n\n\u003cp\u003eWe are conducting some private beta testing on the submission of contingency claims with a small number of Providers between now and go-live to ensure the process is as smooth as possible.\u003c/p\u003e\n\n\u003cp\u003e You should upload a submission for each individual month (one file per office and per area of law); this will aid the reconciliation of your accounts as we will be able to identify which (if any) months differ between amounts requested via contingency, and the value of the subsequent claims reported. It will also help you in reconciling contingency payments received and enable quick identification of any significant, unexpected discrepancies.\u003c/p\u003e\n\n\u003cp\u003eOnce submissions are uploaded, a review will take place in April 2026 before any reconciliation takes place, and providers will be supplied with confirmation of any difference in value between contingency submissions and actual submissions by their Contract Manager. Your Contract Manager will reach out for a discussion where there are significant differences in the figures and there will be an opportunity to rectify any issues or omissions.\u003c/p\u003e\n\n\u003cp\u003eFinal reconciliation will take place on the payment due 4 May 2026.\u003c/p\u003e\n\n\u003ch3 id=\"immigration-providers\"\u003eImmigration providers\u003c/h3\u003e\n\n\u003cp\u003eWe have identified two issues via testing which will impact Immigration providers who have used earlier versions of the bulkload spreadsheet, preceding v1.39: \u003c/p\u003e\n\n\u003cul\u003e\n  \u003cli\u003eThe first we had already identified and contacted you regarding, was that any Immigration submission prepared on v1.36-1.38 of the bulkload spreadsheet, did not permit the data in the Travel Time field to feed through to the export.\u003c/li\u003e\n  \u003cli\u003eThe second issue is that you cannot copy from a version pre-ceding v1.39, into v1.39 without the Fee Scheme and Fee Code data being omitted from the export file due to compatibility issues\u003c/li\u003e\n\u003c/ul\u003e\n\n\u003cp\u003eUnfortunately, this second issue means that our previously suggested approach of copying from an older version into v1.39 to resolve the first issue, will not work. \u003c/p\u003e\n\n\u003cp\u003eTo resolve these issues, we require that any contingency submissions you have drafted to date in versions 1.35-1.38 (or earlier), are imported into our Fee Code Mapping tool and this will create a new, compatible set of data that you can then copy into version 1.39 of the bulkload spreadsheet to produce your export file.  \u003c/p\u003e\n\n\u003cp\u003eWe have written to all immigration providers to confirm this to them and to provide them with a copy of the Civil Fee Mapping Tool (v1.1) and accompanying guidance. \u003c/p\u003e\n\n\u003cp\u003eWhile this does involve some administrative action on your part, it will prevent submissions being rejected or incomplete.  \u003c/p\u003e\n\n\u003ch3 id=\"please-note-if-your-case-management-system-prepares-and-creates-your-export-file-for-uploading-intosabc-then-the-above-does-notapply-to-you-those-export-files-are-unaffected\"\u003ePlease note – if your case management system prepares and creates your export file for uploading into SaBC, then the above does not apply to you. Those export files are unaffected. \u003c/h3\u003e\n\n\u003ch3 id=\"if-you-have-yet-to-draft-your-contingency-submissions-or-if-you-drafted-them-in-v139-of-thebulkloadspreadsheet-then-the-above-guidance-will-not-apply-to-you-those-export-files-are-unaffected-\"\u003eIf you have yet to draft your contingency submissions or if you drafted them in v1.39 of the bulkload spreadsheet, then the above guidance will not apply to you. Those export files are unaffected.   \u003c/h3\u003e\n\n\u003ch3 id=\"if-you-need-to-rely-on-using-the-laabulkloadspreadsheet-then-you-should-ensure-that-you-draft-your-submission-on-the-latest-version-v139\"\u003eIf you need to rely on using the LAA bulkload spreadsheet then you should ensure that you draft your submission on the latest version, v1.39. \u003c/h3\u003e\n\n\u003cp\u003eAny further issues or questions regarding the above please email \u003ca href=\"mailto:SubmitABulkClaimQueries@justice.gov.uk\"\u003eSubmitABulkClaimQueries@justice.gov.uk\u003c/a\u003e with the subject line “Imm contingency claims”\u003c/p\u003e\n\n\u003ch2 id=\"prepared-submissions-missing-fee-codes\"\u003ePrepared submissions missing fee codes\u003c/h2\u003e\n\n\u003cp\u003eMost software vendors have also confirmed that they can enable claim exports generated during the contingency period to be re-run with the new codes included, which supports the requirements for all contingency submissions to be made in Submit a Bulk Claim. However, we recognise that there may be additional work for you to update claim exports from the contingency.\u003c/p\u003e\n\n\u003cp\u003eTo assist you with such updates, we have created a tool which providers can upload these exports into, and the tool will generate the applicable fee code based on the information in that export. This data can then be copied into a version of the bulkload spreadsheet and a new export created.\u003c/p\u003e\n\n\u003cp\u003eNot all providers will need to make use of this tool. To aid you in identifying whether it may be of assistance to you, we have created this short survey \u003ca rel=\"external\" href=\"https://www.smartsurvey.co.uk/s/FeeCodes_Triage/\"\u003eCheck if you need to use the fee code assigning tool for contingency period claims\u003c/a\u003e If the survey concludes that you would benefit from use of the tool, we will contact you from the dedicated \u003ca href=\"mailto:SubmitABulkClaimQueries@justice.gov.uk\"\u003eSubmitABulkClaimQueries@justice.gov.uk\u003c/a\u003e email, providing a copy of the tool and supporting guidance. The tool will only be sent to those providers who have used the survey and been shown to potentially benefit from it.\u003c/p\u003e\n\n\u003ch2 id=\"exceptional-case-funding-ecf\"\u003eExceptional Case Funding (ECF)\u003c/h2\u003e\n\n\u003cp\u003eWe are aware that previously CWA would generate an ECF payment reference which providers would then report in CWA in the ECF field. Providers will not need to report such a reference in SaBC, therefore if a provider has any matters which obtained Exceptional Case Funding during the contingency period, they will not need to report a reference as part of their claim uploaded into SaBC. A copy of the letter confirming the grant of Exceptional Case Funding should continue to be retained on file.\u003c/p\u003e\n\n\u003ch2 id=\"guidance-documents\"\u003eGuidance Documents\u003c/h2\u003e\n\n\u003cp\u003eThe \u003cspan class=\"gem-c-attachment-link\"\u003e\n  \u003ca class=\"govuk-link\" href=\"https://assets.publishing.service.gov.uk/media/698b2acb235b57593bc1be39/Submit_a_Bulk_Claim_User_Guide_0602026_V1.3.docx\"\u003eSaBC User Guide\u003c/a\u003e  (\u003cspan class=\"gem-c-attachment-link__attribute\"\u003eMS Word Document\u003c/span\u003e, \u003cspan class=\"gem-c-attachment-link__attribute\"\u003e4.37 MB\u003c/span\u003e)\u003c/span\u003e sets out instructions on how to use the new system, SaBC, to bulk upload a monthly submission for Civil (Legal Help), Crime Lower or Mediation for legal aid providers.\u003c/p\u003e\n\n\u003cp\u003eThe \u003cspan class=\"gem-c-attachment-link\"\u003e\n  \u003ca class=\"govuk-link\" href=\"https://assets.publishing.service.gov.uk/media/69932fdb7da91680ad7f44af/Guidance_for_Reporting_Legal_Help_and_Mediation_Work_on_SaBC_V5.0__13_February_2026.pdf\"\u003eGuidance for Reporting Legal Help and Mediation Work on SaBC_V5.0_ 13 February 2026\u003c/a\u003e  (\u003cspan class=\"gem-c-attachment-link__attribute\"\u003e\u003cabbr title=\"Portable Document Format\" class=\"gem-c-attachment-link__abbr\"\u003ePDF\u003c/abbr\u003e\u003c/span\u003e, \u003cspan class=\"gem-c-attachment-link__attribute\"\u003e1.82 MB\u003c/span\u003e, \u003cspan class=\"gem-c-attachment-link__attribute\"\u003e181 pages\u003c/span\u003e)\u003c/span\u003e includes help on selecting the appropriate Fee Code and other codes (e.g. matter types) when reporting completed civil and mediation work.\u003c/p\u003e\n\n\u003cp\u003eThe \u003cspan class=\"gem-c-attachment-link\"\u003e\n  \u003ca class=\"govuk-link\" href=\"https://assets.publishing.service.gov.uk/media/69735fa221a2f53a6a4fd4f4/Procurement_Areas_and_Access_Points_v1.10_11_September_2024__HLPAs_revision_.pdf\"\u003eProcurement Area and Access Points\u003c/a\u003e  (\u003cspan class=\"gem-c-attachment-link__attribute\"\u003e\u003cabbr title=\"Portable Document Format\" class=\"gem-c-attachment-link__abbr\"\u003ePDF\u003c/abbr\u003e\u003c/span\u003e, \u003cspan class=\"gem-c-attachment-link__attribute\"\u003e4.01 MB\u003c/span\u003e, \u003cspan class=\"gem-c-attachment-link__attribute\"\u003e119 pages\u003c/span\u003e)\u003c/span\u003e Code document contains all valid Category, Procurement Area and Access Point combinations and codes.\u003c/p\u003e\n\n\u003cp\u003eThe \u003cspan class=\"gem-c-attachment-link\"\u003e\n  \u003ca class=\"govuk-link\" href=\"https://assets.publishing.service.gov.uk/media/696a1ef70c654a0ec44022e8/Guidance_for_Reporting_Crime_Lower_Work__Jan_26.pdf\"\u003eGuidance for reporting crime lower\u003c/a\u003e  (\u003cspan class=\"gem-c-attachment-link__attribute\"\u003e\u003cabbr title=\"Portable Document Format\" class=\"gem-c-attachment-link__abbr\"\u003ePDF\u003c/abbr\u003e\u003c/span\u003e, \u003cspan class=\"gem-c-attachment-link__attribute\"\u003e2.33 MB\u003c/span\u003e, \u003cspan class=\"gem-c-attachment-link__attribute\"\u003e135 pages\u003c/span\u003e)\u003c/span\u003e includes help on selecting the appropriate Fee Code and other codes (e.g. stage reached) for completed criminal work. The changes made are also summarised in the \u003cspan class=\"gem-c-attachment-link\"\u003e\n  \u003ca class=\"govuk-link\" href=\"https://assets.publishing.service.gov.uk/media/696a1f21448fedc1eb4248ad/Guide_to_the_Changes_in_Reporting_Crime_Lower_Work.pdf\"\u003eGuidance to the changes in Crime Lower\u003c/a\u003e  (\u003cspan class=\"gem-c-attachment-link__attribute\"\u003e\u003cabbr title=\"Portable Document Format\" class=\"gem-c-attachment-link__abbr\"\u003ePDF\u003c/abbr\u003e\u003c/span\u003e, \u003cspan class=\"gem-c-attachment-link__attribute\"\u003e599 KB\u003c/span\u003e, \u003cspan class=\"gem-c-attachment-link__attribute\"\u003e40 pages\u003c/span\u003e)\u003c/span\u003e\u003c/p\u003e\n\n\u003cp\u003eThe \u003cspan class=\"gem-c-attachment-link\"\u003e\n  \u003ca class=\"govuk-link\" href=\"https://assets.publishing.service.gov.uk/media/6993002a492ea446ea7f4452/SaBC_FAQs_Feb_12.pdf\"\u003eSaBC FAQs\u003c/a\u003e  (\u003cspan class=\"gem-c-attachment-link__attribute\"\u003e\u003cabbr title=\"Portable Document Format\" class=\"gem-c-attachment-link__abbr\"\u003ePDF\u003c/abbr\u003e\u003c/span\u003e, \u003cspan class=\"gem-c-attachment-link__attribute\"\u003e409 KB\u003c/span\u003e, \u003cspan class=\"gem-c-attachment-link__attribute\"\u003e21 pages\u003c/span\u003e)\u003c/span\u003e summarises those questions received from providers in relation to the new service.\u003c/p\u003e\n\n\u003ch2 id=\"contact\"\u003eContact\u003c/h2\u003e\n\n\u003cp\u003eEmail \u003ca href=\"mailto:SubmitABulkClaimQueries@justice.gov.uk\"\u003eSubmitABulkClaimQueries@justice.gov.uk\u003c/a\u003e if you have any questions regarding your submission.\u003c/p\u003e\n\n\u003cp\u003eWe understand this is a significant change, at short notice, and are committed to working closely with you to support a smooth transition.\u003c/p\u003e\n\n\u003cp\u003eWe are keen to understand more about your monthly submissions, how you usually submit and the impacts of this change on your usual operations, you can help us by sharing your feedback using this link  - \u003ca rel=\"external\" href=\"https://www.smartsurvey.co.uk/s/TV8D51/\"\u003eNew ‘Submit a Bulk Claim’ service - Provider feedback form\u003c/a\u003e.\u003c/p\u003e\n\u003c/div\u003e"
+      }
+    }
+  ]
+}
+</script>
+
+<link rel="canonical" href="https://www.gov.uk/guidance/submit-a-bulk-claim-sabc">
+
+<meta property="og:site_name" content="GOV.UK">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://www.gov.uk/guidance/submit-a-bulk-claim-sabc">
+<meta property="og:title" content="Submit a Bulk Claim (SaBC)">
+<meta property="og:description" content="How SaBC works: how to claim, bulkloading, fee codes and guidance.">
+
+  <meta name="twitter:card" content="summary">
+
+  <meta name="description" content="How SaBC works: how to claim, bulkloading, fee codes and guidance.">
+
+
+  <link rel="stylesheet" href="/assets/frontend/views/_publisher_metadata-744fb5bd85ef60d2c6547ba601b36b8543ed931f1dd9bae0e6020018309a9a2b.css" media="all" />
+  <link rel="stylesheet" href="/assets/frontend/views/_published-dates-button-group-72393e81651841507f025ebaaf569a353bd99d290437564d194e3e4a27bb18b5.css" media="all" />
+  <link rel="stylesheet" href="/assets/frontend/views/_sidebar-navigation-960af22d00fa9dfe708acf9207cace7b8e786d34f3b47d676a2ea29d5e59e128.css" media="all" />
+
+  <meta name="csp-nonce" content="beiV4BDxDC099KdhhsLRhA==" />
+  <link title="Search" rel="search" type="application/opensearchdescription+xml" href="/search/opensearch.xml">
+    
+  <meta name="govuk:format" content="detailed_guide">
+  <meta name="govuk:publishing-app" content="whitehall">
+  <meta name="govuk:rendering-app" content="frontend">
+  <meta name="govuk:schema-name" content="detailed_guide">
+  <meta name="govuk:content-id" content="030da3ab-e9c0-45e9-aa54-1a21bb02496c">
+  <meta name="govuk:content-has-history" content="true">
+  <meta name="govuk:ga4-base-path" content="/guidance/submit-a-bulk-claim-sabc">
+  <meta name="govuk:first-published-at" content="2025-10-13T00:00:00+01:00">
+  <meta name="govuk:updated-at" content="2026-02-16T15:09:10+00:00">
+  <meta name="govuk:public-updated-at" content="2026-02-16T15:09:09+00:00">
+  <meta name="govuk:primary-publishing-organisation" content="Legal Aid Agency">
+  <meta name="govuk:organisations" content="&lt;EA556&gt;">
+  <meta name="govuk:taxonomy_level1" content="crime-justice-and-law">
+  <meta name="govuk:taxon-id" content="c9fc34e6-bef5-44f6-b1c6-9824ac088dca">
+  <meta name="govuk:taxon-ids" content="c9fc34e6-bef5-44f6-b1c6-9824ac088dca,f34e6a61-d245-4dbb-824a-9cfdf0cda873,85e30de3-a8e4-4b44-a904-dfeaaa697ff1">
+  <meta name="govuk:taxon-slug" content="legal-aid-for-providers-crime">
+  <meta name="govuk:taxon-slugs" content="legal-aid-for-providers-crime,legal-aid-for-providers-electronic-working,legal-aid-for-providers-payments-processing">
+
+
+  
+  
+
+  </head>
+  <body class="gem-c-layout-for-public govuk-template__body">
+    <script nonce="beiV4BDxDC099KdhhsLRhA==">
+//<![CDATA[
+      document.body.className += ' js-enabled' + ('noModule' in HTMLScriptElement.prototype ? ' govuk-frontend-supported' : '');
+
+//]]>
+</script>      
+<div id="global-cookie-message" data-module="cookie-banner" data-nosnippet="" aria-label="Cookies on GOV.UK" class="gem-c-cookie-banner govuk-clearfix govuk-cookie-banner js-banner-wrapper" role="region" hidden="hidden">
+  <div class="govuk-cookie-banner__message govuk-width-container">
+    <div class="govuk-grid-row">
+      <div class="govuk-grid-column-two-thirds">
+        <h2 class="govuk-cookie-banner__heading govuk-heading-m">Cookies on GOV.UK</h2>
+        <div tabindex="-1" class="govuk-cookie-banner__content gem-c-cookie-banner__confirmation">
+          <div class="gem-c-cookie-banner__content"><p class='govuk-body'>We use some essential cookies to make this website work.</p><p class='govuk-body'>We’d like to set additional cookies to understand how you use GOV.UK, remember your settings and improve government services.</p><p class='govuk-body'>We also use cookies set by other sites to help us deliver content from their services.</p></div>
+          <p class="gem-c-cookie-banner__confirmation-message--accepted govuk-body" hidden
+            data-ga4-cookie-banner 
+            data-module="ga4-link-tracker"
+            data-ga4-track-links-only
+            data-ga4-set-indexes
+            data-ga4-link='{"event_name":"navigation","type":"cookie banner","section":"You have accepted additional cookies"}'
+          >You have accepted additional cookies. <span class="gem-c-cookie-banner__confirmation-message">You can <a class="govuk-link" href="/help/cookies">change your cookie settings</a> at any time.</span></p>
+          <p class="gem-c-cookie-banner__confirmation-message--rejected govuk-body" hidden>You have rejected additional cookies. <span class="gem-c-cookie-banner__confirmation-message">You can <a class="govuk-link" href="/help/cookies">change your cookie settings</a> at any time.</span></p>
+        </div>
+      </div>
+    </div>
+    <div class="js-confirmation-buttons govuk-button-group">
+        
+
+  <button class="gem-c-button govuk-button" type="submit" data-accept-cookies="true" data-cookie-types="all">Accept additional cookies</button>
+
+
+        
+
+  <button class="gem-c-button govuk-button" type="submit" data-reject-cookies="true">Reject additional cookies</button>
+
+
+        <a class="govuk-link" href="/help/cookies">View cookies</a>
+    </div>
+    <div hidden class="js-hide-button govuk-button-group">
+      <button
+        class="gem-c-cookie-banner__hide-button govuk-button"
+        data-hide-cookie-banner="true"
+        data-module="ga4-event-tracker"
+         data-ga4-event='{"event_name":"select_content","type":"cookie banner","action":"closed","section":"You have accepted additional cookies"}' >
+          Hide cookie message
+        </button>
+    </div>
+  </div>
+</div>
+      <a data-module="govuk-skip-link" class="gem-c-skip-link govuk-skip-link govuk-!-display-none-print" href="#content">Skip to main content</a>
+
+          <header data-module="ga4-event-tracker ga4-link-tracker" data-ga4-expandable="" class="gem-c-layout-super-navigation-header">
+<div class="gem-c-layout-super-navigation-header__container govuk-width-container">
+  <nav
+    aria-labelledby="super-navigation-menu-heading"
+    class="gem-c-layout-super-navigation-header__content"
+    data-module="super-navigation-mega-menu">
+    <div class="gem-c-layout-super-navigation-header__header-logo">
+      <a class="govuk-header__link govuk-header__link--homepage" data-ga4-link='{"event_name":"navigation","type":"header menu bar","external":"false","text":"GOV.UK","section":"Logo","index_link":1,"index_section":0,"index_section_count":2,"index_total":1}' id="logo" aria-label="Go to the GOV.UK homepage" href="/">
+        <svg
+  xmlns="http://www.w3.org/2000/svg"
+  focusable="false"
+  role="img"
+  viewBox="0 0 324 60"
+  height="30"
+  width="162"
+  fill="currentcolor"
+  class="govuk-header__logotype"
+  aria-label="GOV.UK">
+  <title>GOV.UK</title>
+  <g>
+    <circle cx="20" cy="17.6" r="3.7"></circle>
+    <circle cx="10.2" cy="23.5" r="3.7"></circle>
+    <circle cx="3.7" cy="33.2" r="3.7"></circle>
+    <circle cx="31.7" cy="30.6" r="3.7"></circle>
+    <circle cx="43.3" cy="17.6" r="3.7"></circle>
+    <circle cx="53.2" cy="23.5" r="3.7"></circle>
+    <circle cx="59.7" cy="33.2" r="3.7"></circle>
+    <circle cx="31.7" cy="30.6" r="3.7"></circle>
+    <path d="M33.1,9.8c.2-.1.3-.3.5-.5l4.6,2.4v-6.8l-4.6,1.5c-.1-.2-.3-.3-.5-.5l1.9-5.9h-6.7l1.9,5.9c-.2.1-.3.3-.5.5l-4.6-1.5v6.8l4.6-2.4c.1.2.3.3.5.5l-2.6,8c-.9,2.8,1.2,5.7,4.1,5.7h0c3,0,5.1-2.9,4.1-5.7l-2.6-8ZM37,37.9s-3.4,3.8-4.1,6.1c2.2,0,4.2-.5,6.4-2.8l-.7,8.5c-2-2.8-4.4-4.1-5.7-3.8.1,3.1.5,6.7,5.8,7.2,3.7.3,6.7-1.5,7-3.8.4-2.6-2-4.3-3.7-1.6-1.4-4.5,2.4-6.1,4.9-3.2-1.9-4.5-1.8-7.7,2.4-10.9,3,4,2.6,7.3-1.2,11.1,2.4-1.3,6.2,0,4,4.6-1.2-2.8-3.7-2.2-4.2.2-.3,1.7.7,3.7,3,4.2,1.9.3,4.7-.9,7-5.9-1.3,0-2.4.7-3.9,1.7l2.4-8c.6,2.3,1.4,3.7,2.2,4.5.6-1.6.5-2.8,0-5.3l5,1.8c-2.6,3.6-5.2,8.7-7.3,17.5-7.4-1.1-15.7-1.7-24.5-1.7h0c-8.8,0-17.1.6-24.5,1.7-2.1-8.9-4.7-13.9-7.3-17.5l5-1.8c-.5,2.5-.6,3.7,0,5.3.8-.8,1.6-2.3,2.2-4.5l2.4,8c-1.5-1-2.6-1.7-3.9-1.7,2.3,5,5.2,6.2,7,5.9,2.3-.4,3.3-2.4,3-4.2-.5-2.4-3-3.1-4.2-.2-2.2-4.6,1.6-6,4-4.6-3.7-3.7-4.2-7.1-1.2-11.1,4.2,3.2,4.3,6.4,2.4,10.9,2.5-2.8,6.3-1.3,4.9,3.2-1.8-2.7-4.1-1-3.7,1.6.3,2.3,3.3,4.1,7,3.8,5.4-.5,5.7-4.2,5.8-7.2-1.3-.2-3.7,1-5.7,3.8l-.7-8.5c2.2,2.3,4.2,2.7,6.4,2.8-.7-2.3-4.1-6.1-4.1-6.1h10.6,0Z"></path>
+  </g>
+  <circle class="govuk-logo-dot" cx="226" cy="36" r="7.3"></circle>
+  <path d="M93.94 41.25c.4 1.81 1.2 3.21 2.21 4.62 1 1.4 2.21 2.41 3.61 3.21s3.21 1.2 5.22 1.2 3.61-.4 4.82-1c1.4-.6 2.41-1.4 3.21-2.41.8-1 1.4-2.01 1.61-3.01s.4-2.01.4-3.01v.14h-10.86v-7.02h20.07v24.08h-8.03v-5.56c-.6.8-1.38 1.61-2.19 2.41-.8.8-1.81 1.2-2.81 1.81-1 .4-2.21.8-3.41 1.2s-2.41.4-3.81.4a18.56 18.56 0 0 1-14.65-6.63c-1.6-2.01-3.01-4.41-3.81-7.02s-1.4-5.62-1.4-8.83.4-6.02 1.4-8.83a20.45 20.45 0 0 1 19.46-13.65c3.21 0 4.01.2 5.82.8 1.81.4 3.61 1.2 5.02 2.01 1.61.8 2.81 2.01 4.01 3.21s2.21 2.61 2.81 4.21l-7.63 4.41c-.4-1-1-1.81-1.61-2.61-.6-.8-1.4-1.4-2.21-2.01-.8-.6-1.81-1-2.81-1.4-1-.4-2.21-.4-3.61-.4-2.01 0-3.81.4-5.22 1.2-1.4.8-2.61 1.81-3.61 3.21s-1.61 2.81-2.21 4.62c-.4 1.81-.6 3.71-.6 5.42s.8 5.22.8 5.22Zm57.8-27.9c3.21 0 6.22.6 8.63 1.81 2.41 1.2 4.82 2.81 6.62 4.82S170.2 24.39 171 27s1.4 5.62 1.4 8.83-.4 6.02-1.4 8.83-2.41 5.02-4.01 7.02-4.01 3.61-6.62 4.82-5.42 1.81-8.63 1.81-6.22-.6-8.63-1.81-4.82-2.81-6.42-4.82-3.21-4.41-4.01-7.02-1.4-5.62-1.4-8.83.4-6.02 1.4-8.83 2.41-5.02 4.01-7.02 4.01-3.61 6.42-4.82 5.42-1.81 8.63-1.81Zm0 36.73c1.81 0 3.61-.4 5.02-1s2.61-1.81 3.61-3.01 1.81-2.81 2.21-4.41c.4-1.81.8-3.61.8-5.62 0-2.21-.2-4.21-.8-6.02s-1.2-3.21-2.21-4.62c-1-1.2-2.21-2.21-3.61-3.01s-3.21-1-5.02-1-3.61.4-5.02 1c-1.4.8-2.61 1.81-3.61 3.01s-1.81 2.81-2.21 4.62c-.4 1.81-.8 3.61-.8 5.62 0 2.41.2 4.21.8 6.02.4 1.81 1.2 3.21 2.21 4.41s2.21 2.21 3.61 3.01c1.4.8 3.21 1 5.02 1Zm36.32 7.96-12.24-44.15h9.83l8.43 32.77h.4l8.23-32.77h9.83L200.3 58.04h-12.24Zm74.14-7.96c2.18 0 3.51-.6 3.51-.6 1.2-.6 2.01-1 2.81-1.81s1.4-1.81 1.81-2.81a13 13 0 0 0 .8-4.01V13.9h8.63v28.15c0 2.41-.4 4.62-1.4 6.62-.8 2.01-2.21 3.61-3.61 5.02s-3.41 2.41-5.62 3.21-4.62 1.2-7.02 1.2-5.02-.4-7.02-1.2c-2.21-.8-4.01-1.81-5.62-3.21s-2.81-3.01-3.61-5.02-1.4-4.21-1.4-6.62V13.9h8.63v26.95c0 1.61.2 3.01.8 4.01.4 1.2 1.2 2.21 2.01 2.81.8.8 1.81 1.4 2.81 1.81 0 0 1.34.6 3.51.6Zm34.22-36.18v18.92l15.65-18.92h10.82l-15.03 17.32 16.03 26.83h-10.21l-11.44-20.21-5.62 6.22v13.99h-8.83V13.9"></path>
+</svg>
+
+</a></div>    <h2 id="super-navigation-menu-heading" class="govuk-visually-hidden">
+      Navigation menu
+    </h2>
+
+
+    <div class="gem-c-layout-super-navigation-header__navigation-item">
+      <a class="gem-c-layout-super-navigation-header__navigation-item-link" href="/browse"><span class="gem-c-layout-super-navigation-header__navigation-item-link-inner">          Menu
+</span></a>
+      <button aria-controls="super-navigation-menu" aria-expanded="false" aria-label="Show navigation menu" class="gem-c-layout-super-navigation-header__navigation-top-toggle-button" data-text-for-hide="Hide navigation menu" data-text-for-show="Show navigation menu" data-toggle-desktop-group="top" data-toggle-mobile-group="top" data-ga4-event='{"event_name":"select_content","type":"header menu bar","text":"Menu","index_section":1,"index_section_count":2,"section":"Menu"}' hidden="hidden" id="super-navigation-menu-toggle" type="button">
+        <span class="gem-c-layout-super-navigation-header__navigation-top-toggle-button-inner">Menu</span>
+</button>    </div>
+    <div id="super-navigation-menu" hidden="hidden" class="gem-c-layout-super-navigation-header__navigation-dropdown-menu">
+      <div class="govuk-grid-row gem-c-layout-super-navigation-header__navigation-items">
+
+
+          <div class="govuk-grid-column-two-thirds-from-desktop gem-c-layout-super-navigation-header__column--services-and-information">
+            <h3 class="govuk-heading-m gem-c-layout-super-navigation-header__column-header">
+              Services and information
+            </h3>
+            <ul class="gem-c-layout-super-navigation-header__navigation-second-items gem-c-layout-super-navigation-header__navigation-second-items--services-and-information">
+                  <li class="gem-c-layout-super-navigation-header__dropdown-list-item">
+                    <a class="govuk-link gem-c-layout-super-navigation-header__navigation-second-item-link" data-ga4-link='{"event_name":"navigation","type":"header menu bar","index_section":1,"index_link":1,"index_section_count":3,"index_total":16,"section":"Services and information"}' href="/browse/benefits">Benefits</a>
+                    
+                  </li>
+                  <li class="gem-c-layout-super-navigation-header__dropdown-list-item">
+                    <a class="govuk-link gem-c-layout-super-navigation-header__navigation-second-item-link" data-ga4-link='{"event_name":"navigation","type":"header menu bar","index_section":1,"index_link":2,"index_section_count":3,"index_total":16,"section":"Services and information"}' href="/browse/births-deaths-marriages">Births, death, marriages and care</a>
+                    
+                  </li>
+                  <li class="gem-c-layout-super-navigation-header__dropdown-list-item">
+                    <a class="govuk-link gem-c-layout-super-navigation-header__navigation-second-item-link" data-ga4-link='{"event_name":"navigation","type":"header menu bar","index_section":1,"index_link":3,"index_section_count":3,"index_total":16,"section":"Services and information"}' href="/browse/business">Business and self-employed</a>
+                    
+                  </li>
+                  <li class="gem-c-layout-super-navigation-header__dropdown-list-item">
+                    <a class="govuk-link gem-c-layout-super-navigation-header__navigation-second-item-link" data-ga4-link='{"event_name":"navigation","type":"header menu bar","index_section":1,"index_link":4,"index_section_count":3,"index_total":16,"section":"Services and information"}' href="/browse/childcare-parenting">Childcare and parenting</a>
+                    
+                  </li>
+                  <li class="gem-c-layout-super-navigation-header__dropdown-list-item">
+                    <a class="govuk-link gem-c-layout-super-navigation-header__navigation-second-item-link" data-ga4-link='{"event_name":"navigation","type":"header menu bar","index_section":1,"index_link":5,"index_section_count":3,"index_total":16,"section":"Services and information"}' href="/browse/citizenship">Citizenship and living in the UK</a>
+                    
+                  </li>
+                  <li class="gem-c-layout-super-navigation-header__dropdown-list-item">
+                    <a class="govuk-link gem-c-layout-super-navigation-header__navigation-second-item-link" data-ga4-link='{"event_name":"navigation","type":"header menu bar","index_section":1,"index_link":6,"index_section_count":3,"index_total":16,"section":"Services and information"}' href="/browse/justice">Crime, justice and the law</a>
+                    
+                  </li>
+                  <li class="gem-c-layout-super-navigation-header__dropdown-list-item">
+                    <a class="govuk-link gem-c-layout-super-navigation-header__navigation-second-item-link" data-ga4-link='{"event_name":"navigation","type":"header menu bar","index_section":1,"index_link":7,"index_section_count":3,"index_total":16,"section":"Services and information"}' href="/browse/disabilities">Disabled people</a>
+                    
+                  </li>
+                  <li class="gem-c-layout-super-navigation-header__dropdown-list-item">
+                    <a class="govuk-link gem-c-layout-super-navigation-header__navigation-second-item-link" data-ga4-link='{"event_name":"navigation","type":"header menu bar","index_section":1,"index_link":8,"index_section_count":3,"index_total":16,"section":"Services and information"}' href="/browse/driving">Driving and transport</a>
+                    
+                  </li>
+                  <li class="gem-c-layout-super-navigation-header__dropdown-list-item">
+                    <a class="govuk-link gem-c-layout-super-navigation-header__navigation-second-item-link" data-ga4-link='{"event_name":"navigation","type":"header menu bar","index_section":1,"index_link":9,"index_section_count":3,"index_total":16,"section":"Services and information"}' href="/browse/education">Education and learning</a>
+                    
+                  </li>
+                  <li class="gem-c-layout-super-navigation-header__dropdown-list-item">
+                    <a class="govuk-link gem-c-layout-super-navigation-header__navigation-second-item-link" data-ga4-link='{"event_name":"navigation","type":"header menu bar","index_section":1,"index_link":10,"index_section_count":3,"index_total":16,"section":"Services and information"}' href="/browse/employing-people">Employing people</a>
+                    
+                  </li>
+                  <li class="gem-c-layout-super-navigation-header__dropdown-list-item">
+                    <a class="govuk-link gem-c-layout-super-navigation-header__navigation-second-item-link" data-ga4-link='{"event_name":"navigation","type":"header menu bar","index_section":1,"index_link":11,"index_section_count":3,"index_total":16,"section":"Services and information"}' href="/browse/environment-countryside">Environment and countryside</a>
+                    
+                  </li>
+                  <li class="gem-c-layout-super-navigation-header__dropdown-list-item">
+                    <a class="govuk-link gem-c-layout-super-navigation-header__navigation-second-item-link" data-ga4-link='{"event_name":"navigation","type":"header menu bar","index_section":1,"index_link":12,"index_section_count":3,"index_total":16,"section":"Services and information"}' href="/browse/housing-local-services">Housing and local services</a>
+                    
+                  </li>
+                  <li class="gem-c-layout-super-navigation-header__dropdown-list-item">
+                    <a class="govuk-link gem-c-layout-super-navigation-header__navigation-second-item-link" data-ga4-link='{"event_name":"navigation","type":"header menu bar","index_section":1,"index_link":13,"index_section_count":3,"index_total":16,"section":"Services and information"}' href="/browse/tax">Money and tax</a>
+                    
+                  </li>
+                  <li class="gem-c-layout-super-navigation-header__dropdown-list-item">
+                    <a class="govuk-link gem-c-layout-super-navigation-header__navigation-second-item-link" data-ga4-link='{"event_name":"navigation","type":"header menu bar","index_section":1,"index_link":14,"index_section_count":3,"index_total":16,"section":"Services and information"}' href="/browse/abroad">Passports, travel and living abroad</a>
+                    
+                  </li>
+                  <li class="gem-c-layout-super-navigation-header__dropdown-list-item">
+                    <a class="govuk-link gem-c-layout-super-navigation-header__navigation-second-item-link" data-ga4-link='{"event_name":"navigation","type":"header menu bar","index_section":1,"index_link":15,"index_section_count":3,"index_total":16,"section":"Services and information"}' href="/browse/visas-immigration">Visas and immigration</a>
+                    
+                  </li>
+                  <li class="gem-c-layout-super-navigation-header__dropdown-list-item">
+                    <a class="govuk-link gem-c-layout-super-navigation-header__navigation-second-item-link" data-ga4-link='{"event_name":"navigation","type":"header menu bar","index_section":1,"index_link":16,"index_section_count":3,"index_total":16,"section":"Services and information"}' href="/browse/working">Working, jobs and pensions</a>
+                    
+                  </li>
+            </ul>
+          </div>
+
+          <div class="govuk-grid-column-one-third-from-desktop gem-c-layout-super-navigation-header__column--government-activity">
+            <h3 class="govuk-heading-m gem-c-layout-super-navigation-header__column-header">
+              Government activity
+            </h3>
+            <ul class="gem-c-layout-super-navigation-header__navigation-second-items gem-c-layout-super-navigation-header__navigation-second-items--government-activity">
+                  <li class="gem-c-layout-super-navigation-header__dropdown-list-item">
+                    <a class="govuk-link gem-c-layout-super-navigation-header__navigation-second-item-link gem-c-layout-super-navigation-header__navigation-second-item-link--with-description" data-ga4-link='{"event_name":"navigation","type":"header menu bar","index_section":2,"index_link":1,"index_section_count":3,"index_total":6,"section":"Government activity"}' href="/government/organisations">Departments</a>
+                    <p class="gem-c-layout-super-navigation-header__navigation-second-item-description">Departments, agencies and public bodies</p>
+                  </li>
+                  <li class="gem-c-layout-super-navigation-header__dropdown-list-item">
+                    <a class="govuk-link gem-c-layout-super-navigation-header__navigation-second-item-link gem-c-layout-super-navigation-header__navigation-second-item-link--with-description" data-ga4-link='{"event_name":"navigation","type":"header menu bar","index_section":2,"index_link":2,"index_section_count":3,"index_total":6,"section":"Government activity"}' href="/search/news-and-communications">News</a>
+                    <p class="gem-c-layout-super-navigation-header__navigation-second-item-description">News stories, speeches, letters and notices</p>
+                  </li>
+                  <li class="gem-c-layout-super-navigation-header__dropdown-list-item">
+                    <a class="govuk-link gem-c-layout-super-navigation-header__navigation-second-item-link gem-c-layout-super-navigation-header__navigation-second-item-link--with-description" data-ga4-link='{"event_name":"navigation","type":"header menu bar","index_section":2,"index_link":3,"index_section_count":3,"index_total":6,"section":"Government activity"}' href="/search/guidance-and-regulation">Guidance and regulation</a>
+                    <p class="gem-c-layout-super-navigation-header__navigation-second-item-description">Detailed guidance, regulations and rules</p>
+                  </li>
+                  <li class="gem-c-layout-super-navigation-header__dropdown-list-item">
+                    <a class="govuk-link gem-c-layout-super-navigation-header__navigation-second-item-link gem-c-layout-super-navigation-header__navigation-second-item-link--with-description" data-ga4-link='{"event_name":"navigation","type":"header menu bar","index_section":2,"index_link":4,"index_section_count":3,"index_total":6,"section":"Government activity"}' href="/search/research-and-statistics">Research and statistics</a>
+                    <p class="gem-c-layout-super-navigation-header__navigation-second-item-description">Reports, analysis and official statistics</p>
+                  </li>
+                  <li class="gem-c-layout-super-navigation-header__dropdown-list-item">
+                    <a class="govuk-link gem-c-layout-super-navigation-header__navigation-second-item-link gem-c-layout-super-navigation-header__navigation-second-item-link--with-description" data-ga4-link='{"event_name":"navigation","type":"header menu bar","index_section":2,"index_link":5,"index_section_count":3,"index_total":6,"section":"Government activity"}' href="/search/policy-papers-and-consultations">Policy papers and consultations</a>
+                    <p class="gem-c-layout-super-navigation-header__navigation-second-item-description">Consultations and strategy</p>
+                  </li>
+                  <li class="gem-c-layout-super-navigation-header__dropdown-list-item">
+                    <a class="govuk-link gem-c-layout-super-navigation-header__navigation-second-item-link gem-c-layout-super-navigation-header__navigation-second-item-link--with-description" data-ga4-link='{"event_name":"navigation","type":"header menu bar","index_section":2,"index_link":6,"index_section_count":3,"index_total":6,"section":"Government activity"}' href="/search/transparency-and-freedom-of-information-releases">Transparency</a>
+                    <p class="gem-c-layout-super-navigation-header__navigation-second-item-description">Data, Freedom of Information releases and corporate reports</p>
+                  </li>
+            </ul>
+          </div>
+      </div>
+</div>    <div class="gem-c-layout-super-navigation-header__search-item">
+      <button id="super-search-menu-toggle" class="gem-c-layout-super-navigation-header__search-toggle-button" aria-controls="super-search-menu" aria-expanded="true" aria-label="Hide search menu" data-text-for-hide="Hide search menu" data-text-for-show="Show search menu" data-toggle-mobile-group="top" data-toggle-desktop-group="top" data-ga4-event='{"event_name":"select_content","type":"header menu bar","text":"Search","index_section":2,"index_section_count":2,"section":"Search"}' hidden="hidden" type="button">
+        <span class="govuk-visually-hidden">
+          Search GOV.UK
+        </span>
+        
+<svg
+  class="gem-c-layout-super-navigation-header__search-toggle-button-link-icon"
+  width="27"
+  height="27"
+  viewBox="0 0 27 27"
+  fill="none"
+  xmlns="http://www.w3.org/2000/svg"
+  aria-hidden="true"
+  focusable="false">
+  <circle
+    cx="12.0161"
+    cy="11.0161"
+    r="8.51613"
+    stroke="currentColor"
+    stroke-width="3" />
+  <line
+    x1="17.8668"
+    y1="17.3587"
+    x2="26.4475"
+    y2="25.9393"
+    stroke="currentColor"
+    stroke-width="3" />
+</svg>
+
+        <span
+          aria-hidden="true"
+          class="gem-c-layout-super-navigation-header__navigation-top-toggle-close-icon">
+          &times;
+        </span>
+</button>
+      <a class="gem-c-layout-super-navigation-header__search-item-link" href="/search">
+        <span class="govuk-visually-hidden">
+          Search GOV.UK
+        </span>
+        
+<svg
+  class="gem-c-layout-super-navigation-header__search-item-link-icon"
+  width="27"
+  height="27"
+  viewBox="0 0 27 27"
+  fill="none"
+  xmlns="http://www.w3.org/2000/svg"
+  aria-hidden="true"
+  focusable="false">
+  <circle
+    cx="12.0161"
+    cy="11.0161"
+    r="8.51613"
+    stroke="currentColor"
+    stroke-width="3" />
+  <line
+    x1="17.8668"
+    y1="17.3587"
+    x2="26.4475"
+    y2="25.9393"
+    stroke="currentColor"
+    stroke-width="3" />
+</svg>
+
+</a>    </div>
+    <div id="super-search-menu" hidden="hidden" class="gem-c-layout-super-navigation-header__navigation-dropdown-menu">
+      <div class="gem-c-layout-super-navigation-header__search-container gem-c-layout-super-navigation-header__search-items">
+        <h3 class="govuk-visually-hidden">
+          Search
+        </h3>
+        <div class="govuk-grid-row">
+          <div class="govuk-grid-column-full">
+            <form class="gem-c-layout-super-navigation-header__search-form" id="search" data-module="ga4-search-tracker" data-ga4-search-type="header menu bar" data-ga4-search-url="/search/all" data-ga4-search-section="Search GOV.UK" data-ga4-search-index-section="3" data-ga4-search-index-section-count="3" action="/search/all" method="get" role="search" aria-label="Site-wide">
+              <div class="gem-c-search-with-autocomplete gem-c-search-with-autocomplete--large govuk-!-margin-bottom-0" data-module="gem-search-with-autocomplete" data-source-url="https://www.gov.uk/api/search/autocomplete.json" data-source-key="suggestions">
+  <div data-module="gem-toggle-input-class-on-focus" class="gem-c-search govuk-!-display-none-print gem-c-search--large gem-c-search--on-white gem-c-search--separate-label govuk-!-margin-bottom-0">
+    <label for="search-main-444fb871" class="govuk-label govuk-label--m gem-c-layout-super-navigation-header__search-label--large-navbar">Search GOV.UK</label>
+  <div class="gem-c-search__item-wrapper">
+    <div class="js-search-input-wrapper">
+      <input enterkeyhint="search" class="gem-c-search__item gem-c-search__input js-class-toggle" id="search-main-444fb871" name="keywords" title="Search" type="search" value="" autocorrect="off" autocapitalize="off">
+    </div>
+    <div class="gem-c-search__item gem-c-search__submit-wrapper">
+      <button class="gem-c-search__submit" type="submit" enterkeyhint="search">
+        Search
+        
+<svg
+  class="gem-c-search__icon"
+  width="27"
+  height="27"
+  viewBox="0 0 27 27"
+  fill="none"
+  xmlns="http://www.w3.org/2000/svg"
+  aria-hidden="true"
+  focusable="false">
+  <circle
+    cx="12.0161"
+    cy="11.0161"
+    r="8.51613"
+    stroke="currentColor"
+    stroke-width="3" />
+  <line
+    x1="17.8668"
+    y1="17.3587"
+    x2="26.4475"
+    y2="25.9393"
+    stroke="currentColor"
+    stroke-width="3" />
+</svg>
+
+</button>    </div>
+  </div>
+</div>
+</div>
+</form>          </div>
+        </div>
+      </div>
+</div>  </nav>
+</div>
+</header>
+
+    
+
+
+      
+  
+
+  <div class="govuk-width-container">
+
+      
+<div class="gem-c-contextual-breadcrumbs">
+    <div class="govuk-!-display-none-print">
+      
+<script type="application/ld+json">
+  {
+  "@context": "http://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "item": {
+        "name": "Home",
+        "@id": "https://www.gov.uk/"
+      }
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "item": {
+        "name": "Crime, justice and law",
+        "@id": "https://www.gov.uk/crime-justice-and-law"
+      }
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "item": {
+        "name": "Legal aid",
+        "@id": "https://www.gov.uk/crime-justice-and-law/legal-aid-for-providers"
+      }
+    },
+    {
+      "@type": "ListItem",
+      "position": 4,
+      "item": {
+        "name": "Crime",
+        "@id": "https://www.gov.uk/crime-justice-and-law/legal-aid-for-providers-crime"
+      }
+    }
+  ]
+}
+</script>
+
+<nav data-module="ga4-link-tracker" aria-label="Breadcrumb" class="gem-c-breadcrumbs govuk-breadcrumbs govuk-breadcrumbs--collapse-on-mobile">
+  <ol class="govuk-breadcrumbs__list">
+        <li class="govuk-breadcrumbs__list-item">
+          <a data-ga4-link='{"event_name":"navigation","type":"breadcrumb","index_link":"1","index_total":"4"}' class="govuk-breadcrumbs__link" href="/">Home</a>
+        </li>
+        <li class="govuk-breadcrumbs__list-item">
+          <a data-ga4-link='{"event_name":"navigation","type":"breadcrumb","index_link":"2","index_total":"4"}' class="govuk-breadcrumbs__link" href="/crime-justice-and-law">Crime, justice and law</a>
+        </li>
+        <li class="govuk-breadcrumbs__list-item">
+          <a data-ga4-link='{"event_name":"navigation","type":"breadcrumb","index_link":"3","index_total":"4"}' class="govuk-breadcrumbs__link" href="/crime-justice-and-law/legal-aid-for-providers">Legal aid</a>
+        </li>
+        <li class="govuk-breadcrumbs__list-item">
+          <a data-ga4-link='{"event_name":"navigation","type":"breadcrumb","index_link":"4","index_total":"4"}' class="govuk-breadcrumbs__link" href="/crime-justice-and-law/legal-aid-for-providers-crime">Crime</a>
+        </li>
+  </ol>
+</nav>
+    </div>
+</div>
+
+    
+
+    
+
+    <main role="main" id="content" class="govuk-main-wrapper  " >
+      <span id="Top"></span>
+      
+
+
+
+<div class="govuk-grid-row gem-print-columns-none translation-nav-header">
+  <div class="govuk-grid-column-two-thirds translation-nav-header__child">
+    
+<div class="gem-c-heading govuk-!-margin-bottom-0" dir="ltr">
+      <span class="govuk-caption-xl gem-c-heading__context" >
+    Guidance
+  </span>
+
+
+  <h1 class="gem-c-heading__text govuk-heading-l">
+    Submit a Bulk Claim (SaBC)
+</h1></div>
+  </div>
+</div>
+
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+        <p class="gem-c-lead-paragraph" dir="ltr">
+    How SaBC works: how to claim, bulkloading, fee codes and guidance.
+</p>
+    </div>
+  </div>
+
+
+
+<div class="govuk-grid-row">
+  <div class="metadata-wrapper gem-print-columns-none ">
+    <div class="govuk-grid-column-two-thirds metadata-column">
+      <div data-module="metadata" class="gem-c-metadata">
+  <dl class="gem-c-metadata__list">
+      <dt class="gem-c-metadata__term">From:</dt>
+      <dd class="gem-c-metadata__definition" data-module="gem-toggle">
+        <a href='/government/organisations/legal-aid-agency' class='govuk-link'>Legal Aid Agency</a>
+
+      </dd>
+      <dt class="gem-c-metadata__term">Published</dt>
+      <dd class="gem-c-metadata__definition">13 October 2025</dd>
+      <dt class="gem-c-metadata__term">Last updated</dt>
+      <dd class="gem-c-metadata__definition">
+        16 February 2026
+          &#8212; <a href="#full-publication-update-history"
+                    class="gem-c-metadata__definition-link govuk-!-display-none-print js-see-all-updates-link">
+            See all updates
+          </a>
+      </dd>
+  </dl>
+</div>
+    </div>
+    <div class="govuk-grid-column-one-third">
+    </div>
+  </div>
+</div>
+
+
+
+  <div data-button-location="top" data-button-text-subscribe="Get emails about this page" data-button-text-unsubscribe="Stop getting emails about this page" data-module="ga4-link-tracker" class="gem-c-single-page-notification-button govuk-!-display-none-print govuk-!-margin-bottom-6">
+  <form action="/email/subscriptions/single-page/new" method="POST">
+    <input type="hidden" name="base_path" value="/guidance/submit-a-bulk-claim-sabc">
+    <button class="gem-c-single-page-notification-button__submit" type="submit" data-ga4-link='{"event_name":"navigation","type":"subscribe","index_link":1,"index_total":2,"section":"Top","url":"/email/subscriptions/single-page/new"}'>  <svg class="gem-c-single-page-notification-button__icon" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" height="18" width="18" viewBox="0 0 459.334 459.334"><path fill="currentColor" d="M177.216 404.514c-.001.12-.009.239-.009.359 0 30.078 24.383 54.461 54.461 54.461s54.461-24.383 54.461-54.461c0-.12-.008-.239-.009-.359H175.216zM403.549 336.438l-49.015-72.002v-89.83c0-60.581-43.144-111.079-100.381-122.459V24.485C254.152 10.963 243.19 0 229.667 0s-24.485 10.963-24.485 24.485v27.663c-57.237 11.381-100.381 61.879-100.381 122.459v89.83l-49.015 72.002a24.76 24.76 0 0 0 20.468 38.693H383.08a24.761 24.761 0 0 0 20.469-38.694z" /></svg><span class="gem-c-single-page-notication-button__text">Get emails about this page</span>
+</button>
+</form></div>
+
+
+<div class="govuk-grid-row gem-print-columns-none">
+  <div class="govuk-grid-column-two-thirds">
+      
+  <section data-ga4-devolved-nations-banner="England, Wales" data-module="ga4-link-tracker" data-ga4-track-links-only="" data-ga4-set-indexes="" data-ga4-link='{"event_name":"navigation","type":"devolved nations banner","section":"Applies to England and Wales"}' aria-label="Nation" class="gem-c-devolved-nations">
+    <h2 class="govuk-heading-s govuk-!-margin-bottom-0">
+      Applies to England and Wales
+</h2>
+</section>
+
+      <div id="contents" data-module="contents-list-with-body" class="gem-c-contents-list-with-body">
+      <div class="gem-c-contents-list-with-body__list-container">
+          <nav data-module="ga4-link-tracker" aria-label="Contents" class="gem-c-contents-list govuk-!-margin-bottom-4">
+    <h2 class="gem-c-contents-list__title">
+      Contents
+</h2>
+    <ol class="gem-c-contents-list__list">
+        <li class="gem-c-contents-list__list-item gem-c-contents-list__list-item--dashed" >
+          <span class="gem-c-contents-list__list-item-dash" aria-hidden="true"></span>
+          <a class="gem-c-contents-list__link govuk-link gem-print-force-link-styles govuk-link--no-underline" data-ga4-link='{"event_name":"select_content","section":"Contents","type":"contents list","index_total":21,"index_link":1}' href="#launch-of-submit-a-bulk-claim-sabc--4-february-2026">Launch of Submit a Bulk Claim (SaBC) – 4 February 2026</a>
+        </li>
+        <li class="gem-c-contents-list__list-item gem-c-contents-list__list-item--dashed" >
+          <span class="gem-c-contents-list__list-item-dash" aria-hidden="true"></span>
+          <a class="gem-c-contents-list__link govuk-link gem-print-force-link-styles govuk-link--no-underline" data-ga4-link='{"event_name":"select_content","section":"Contents","type":"contents list","index_total":21,"index_link":2}' href="#government-confirms-increases-to-some-civil-and-crime-legal-aid-fees-taking-effect-on-22-december">Government confirms increases to some Civil and Crime legal aid fees taking effect on 22 December.</a>
+        </li>
+        <li class="gem-c-contents-list__list-item gem-c-contents-list__list-item--dashed" >
+          <span class="gem-c-contents-list__list-item-dash" aria-hidden="true"></span>
+          <a class="gem-c-contents-list__link govuk-link gem-print-force-link-styles govuk-link--no-underline" data-ga4-link='{"event_name":"select_content","section":"Contents","type":"contents list","index_total":21,"index_link":3}' href="#monthly-claim-submissions">Monthly Claim Submissions</a>
+        </li>
+        <li class="gem-c-contents-list__list-item gem-c-contents-list__list-item--dashed" >
+          <span class="gem-c-contents-list__list-item-dash" aria-hidden="true"></span>
+          <a class="gem-c-contents-list__link govuk-link gem-print-force-link-styles govuk-link--no-underline" data-ga4-link='{"event_name":"select_content","section":"Contents","type":"contents list","index_total":21,"index_link":4}' href="#when-to-submit-your-claim">When to submit your claim</a>
+        </li>
+        <li class="gem-c-contents-list__list-item gem-c-contents-list__list-item--dashed" >
+          <span class="gem-c-contents-list__list-item-dash" aria-hidden="true"></span>
+          <a class="gem-c-contents-list__link govuk-link gem-print-force-link-styles govuk-link--no-underline" data-ga4-link='{"event_name":"select_content","section":"Contents","type":"contents list","index_total":21,"index_link":5}' href="#how-to-access-sabc">How to access SaBC</a>
+        </li>
+        <li class="gem-c-contents-list__list-item gem-c-contents-list__list-item--dashed" >
+          <span class="gem-c-contents-list__list-item-dash" aria-hidden="true"></span>
+          <a class="gem-c-contents-list__link govuk-link gem-print-force-link-styles govuk-link--no-underline" data-ga4-link='{"event_name":"select_content","section":"Contents","type":"contents list","index_total":21,"index_link":6}' href="#how-sabc-works">How SaBC works</a>
+        </li>
+        <li class="gem-c-contents-list__list-item gem-c-contents-list__list-item--dashed" >
+          <span class="gem-c-contents-list__list-item-dash" aria-hidden="true"></span>
+          <a class="gem-c-contents-list__link govuk-link gem-print-force-link-styles govuk-link--no-underline" data-ga4-link='{"event_name":"select_content","section":"Contents","type":"contents list","index_total":21,"index_link":7}' href="#changes-for-providers">Changes for providers</a>
+        </li>
+        <li class="gem-c-contents-list__list-item gem-c-contents-list__list-item--dashed" >
+          <span class="gem-c-contents-list__list-item-dash" aria-hidden="true"></span>
+          <a class="gem-c-contents-list__link govuk-link gem-print-force-link-styles govuk-link--no-underline" data-ga4-link='{"event_name":"select_content","section":"Contents","type":"contents list","index_total":21,"index_link":8}' href="#using-the-bulkload-spreadsheet-and-compatibility">Using the bulkload spreadsheet and compatibility</a>
+        </li>
+        <li class="gem-c-contents-list__list-item gem-c-contents-list__list-item--dashed" >
+          <span class="gem-c-contents-list__list-item-dash" aria-hidden="true"></span>
+          <a class="gem-c-contents-list__link govuk-link gem-print-force-link-styles govuk-link--no-underline" data-ga4-link='{"event_name":"select_content","section":"Contents","type":"contents list","index_total":21,"index_link":9}' href="#claim-amendments">Claim amendments</a>
+        </li>
+        <li class="gem-c-contents-list__list-item gem-c-contents-list__list-item--dashed" >
+          <span class="gem-c-contents-list__list-item-dash" aria-hidden="true"></span>
+          <a class="gem-c-contents-list__link govuk-link gem-print-force-link-styles govuk-link--no-underline" data-ga4-link='{"event_name":"select_content","section":"Contents","type":"contents list","index_total":21,"index_link":10}' href="#amendments-to-claims-submitted-on-cwa">Amendments to claims submitted on CWA</a>
+        </li>
+        <li class="gem-c-contents-list__list-item gem-c-contents-list__list-item--dashed" >
+          <span class="gem-c-contents-list__list-item-dash" aria-hidden="true"></span>
+          <a class="gem-c-contents-list__link govuk-link gem-print-force-link-styles govuk-link--no-underline" data-ga4-link='{"event_name":"select_content","section":"Contents","type":"contents list","index_total":21,"index_link":11}' href="#amendments-to-claims-submitted-on-sabc">Amendments to claims submitted on SaBC</a>
+        </li>
+        <li class="gem-c-contents-list__list-item gem-c-contents-list__list-item--dashed" >
+          <span class="gem-c-contents-list__list-item-dash" aria-hidden="true"></span>
+          <a class="gem-c-contents-list__link govuk-link gem-print-force-link-styles govuk-link--no-underline" data-ga4-link='{"event_name":"select_content","section":"Contents","type":"contents list","index_total":21,"index_link":12}' href="#submit-a-bulk-claim-and-new-fee-code-field">Submit a Bulk Claim and new Fee Code field</a>
+        </li>
+        <li class="gem-c-contents-list__list-item gem-c-contents-list__list-item--dashed" >
+          <span class="gem-c-contents-list__list-item-dash" aria-hidden="true"></span>
+          <a class="gem-c-contents-list__link govuk-link gem-print-force-link-styles govuk-link--no-underline" data-ga4-link='{"event_name":"select_content","section":"Contents","type":"contents list","index_total":21,"index_link":13}' href="#calculating-value-of-an-outcome">Calculating value of an outcome</a>
+        </li>
+        <li class="gem-c-contents-list__list-item gem-c-contents-list__list-item--dashed" >
+          <span class="gem-c-contents-list__list-item-dash" aria-hidden="true"></span>
+          <a class="gem-c-contents-list__link govuk-link gem-print-force-link-styles govuk-link--no-underline" data-ga4-link='{"event_name":"select_content","section":"Contents","type":"contents list","index_total":21,"index_link":14}' href="#reporting-new-matter-starts-for-controlled-work-and-mediation">Reporting New matter starts for controlled work and mediation</a>
+        </li>
+        <li class="gem-c-contents-list__list-item gem-c-contents-list__list-item--dashed" >
+          <span class="gem-c-contents-list__list-item-dash" aria-hidden="true"></span>
+          <a class="gem-c-contents-list__link govuk-link gem-print-force-link-styles govuk-link--no-underline" data-ga4-link='{"event_name":"select_content","section":"Contents","type":"contents list","index_total":21,"index_link":15}' href="#laas-bulkload-spreadsheet">LAA’s bulkload spreadsheet</a>
+        </li>
+        <li class="gem-c-contents-list__list-item gem-c-contents-list__list-item--dashed" >
+          <span class="gem-c-contents-list__list-item-dash" aria-hidden="true"></span>
+          <a class="gem-c-contents-list__link govuk-link gem-print-force-link-styles govuk-link--no-underline" data-ga4-link='{"event_name":"select_content","section":"Contents","type":"contents list","index_total":21,"index_link":16}' href="#cms-file">CMS file</a>
+        </li>
+        <li class="gem-c-contents-list__list-item gem-c-contents-list__list-item--dashed" >
+          <span class="gem-c-contents-list__list-item-dash" aria-hidden="true"></span>
+          <a class="gem-c-contents-list__link govuk-link gem-print-force-link-styles govuk-link--no-underline" data-ga4-link='{"event_name":"select_content","section":"Contents","type":"contents list","index_total":21,"index_link":17}' href="#claims-relating-to-the-contingency-period">Claims relating to the contingency period</a>
+        </li>
+        <li class="gem-c-contents-list__list-item gem-c-contents-list__list-item--dashed" >
+          <span class="gem-c-contents-list__list-item-dash" aria-hidden="true"></span>
+          <a class="gem-c-contents-list__link govuk-link gem-print-force-link-styles govuk-link--no-underline" data-ga4-link='{"event_name":"select_content","section":"Contents","type":"contents list","index_total":21,"index_link":18}' href="#prepared-submissions-missing-fee-codes">Prepared submissions missing fee codes</a>
+        </li>
+        <li class="gem-c-contents-list__list-item gem-c-contents-list__list-item--dashed" >
+          <span class="gem-c-contents-list__list-item-dash" aria-hidden="true"></span>
+          <a class="gem-c-contents-list__link govuk-link gem-print-force-link-styles govuk-link--no-underline" data-ga4-link='{"event_name":"select_content","section":"Contents","type":"contents list","index_total":21,"index_link":19}' href="#exceptional-case-funding-ecf">Exceptional Case Funding (ECF)</a>
+        </li>
+        <li class="gem-c-contents-list__list-item gem-c-contents-list__list-item--dashed" >
+          <span class="gem-c-contents-list__list-item-dash" aria-hidden="true"></span>
+          <a class="gem-c-contents-list__link govuk-link gem-print-force-link-styles govuk-link--no-underline" data-ga4-link='{"event_name":"select_content","section":"Contents","type":"contents list","index_total":21,"index_link":20}' href="#guidance-documents">Guidance Documents</a>
+        </li>
+        <li class="gem-c-contents-list__list-item gem-c-contents-list__list-item--dashed" >
+          <span class="gem-c-contents-list__list-item-dash" aria-hidden="true"></span>
+          <a class="gem-c-contents-list__link govuk-link gem-print-force-link-styles govuk-link--no-underline" data-ga4-link='{"event_name":"select_content","section":"Contents","type":"contents list","index_total":21,"index_link":21}' href="#contact">Contact</a>
+        </li>
+    </ol>
+</nav>
+      </div>
+    
+      <div class="gem-c-print-link govuk-!-display-none-print govuk-!-margin-bottom-6">
+    <button class="govuk-link gem-c-print-link__button" data-module="print-link">Print this page</button>
+</div>
+
+      <div data-module="govspeak" class="gem-c-govspeak govuk-govspeak govuk-!-margin-bottom-0">
+    
+        <div class="govspeak"><p>Submit a Bulk Claim enables providers to upload Legal Help, Crime Lower and Mediation monthly submissions.</p>
+
+<h2 id="launch-of-submit-a-bulk-claim-sabc--4-february-2026">Launch of Submit a Bulk Claim (SaBC) – 4 February 2026</h2>
+
+<p>The Submit a Bulk Claim (SaBC) service will go live on 4 February. All legal aid providers received direct communication regarding the go-live date via the LAA Bulletin on Friday 16 January.</p>
+
+<p>This is a significant moment, as unlike other systems that we have restored following the cyber-attack, this will be a brand new service, all be it with some similarities to how our CWA system previously functioned.</p>
+
+<p>Providers will need to use SaBC to upload their January submission, by 17 February.</p>
+
+<p>This early deadline is to allow the processing time required to ensure payments are made on time at the start of March. No further changes to the deadline of the 20th are expected in 2026.</p>
+
+<p>The monthly contingency process ends on 20 January, and all future submissions must be via SaBC.</p>
+
+<p>In preparation, there will be a series of provider webinars to guide users through the new service and ensure they are ready to submit through SaBC. Sign-up links will be sent out for you to register.</p>
+
+<p>We have already contacted the Software Vendors (SVs) for which we have details, to ensure they are engaging with providers; however, we would encourage providers to liaise with their own SV to confirm they are prepared for go-live.</p>
+
+<p>To ensure that you are prepared for the launch of SaBC, we would encourage providers to:</p>
+
+<ul>
+  <li>Sign up to the weekly webinars we will be scheduling throughout January and February</li>
+  <li>Review the guidance materials available below</li>
+  <li>Watch the recorded system walkthrough on the LAA Training website</li>
+  <li>Seek support from us early if you require any assistance</li>
+</ul>
+
+<p>This will help ensure providers are able to submit their claims on time by 17 February through SaBC.</p>
+
+<p>It is particularly important that any provider experiencing difficulties contacts us as soon as possible so that we can offer support. Early engagement will help providers avoid delays and make future submissions through SaBC significantly simpler.</p>
+
+<p>If you have any queries, please either contact your Contract Manager or email <a href="mailto:SubmitABulkClaimQueries@justice.gov.uk">SubmitABulkClaimQueries@justice.gov.uk</a>. Please do refer to the published guidance in the first instance as this will likely address your query.</p>
+
+<h2 id="government-confirms-increases-to-some-civil-and-crime-legal-aid-fees-taking-effect-on-22-december">Government confirms increases to some Civil and Crime legal aid fees taking effect on 22 December.</h2>
+
+<h3 id="civil">Civil </h3>
+
+<p>On 1 December, the statutory instrument uplifting all claimable rates for immigration and housing-controlled work was laid. This came into effect for matters opened on or after 22 December 2025. The uprated  fees, linked to the single fee codes, can be found here <span class="gem-c-attachment-link">
+  <a class="govuk-link" href="https://assets.publishing.service.gov.uk/media/696a1b2acbe2202b384248b3/New_Fee_Codes__2_.xlsx">New Fee Codes</a>  (<span class="gem-c-attachment-link__attribute">MS Excel Spreadsheet</span>, <span class="gem-c-attachment-link__attribute">176 KB</span>)</span>.</p>
+
+<p>Where applicable and only for uplifted fees, we have uplifted the immigration profit cost and total cost limits that are set out in the 2024 Standard Civil Contract Immigration Specification.</p>
+
+<h3 id="crime">Crime </h3>
+
+<p>Regulations were also laid on 1 December which will introduce the following fee increases for criminal legal aid cases beginning on or after 22 December 2025: </p>
+
+<ul>
+  <li>Harmonised police station fees to £320 with the police station escape fee threshold revised from £960 to £650 (excl. VAT).</li>
+  <li>10% uplifts to fees for the magistrates’ court (including the Youth Court)</li>
+  <li>Prison law fees increased by 24%</li>
+  <li>10% uplift to solicitor fees for some appeals work</li>
+</ul>
+
+<p>Frequently asked questions on the uplifted fees - <span class="gem-c-attachment-link">
+  <a class="govuk-link" href="https://assets.publishing.service.gov.uk/media/696a1b65448fedc1eb4248a8/Fee_Uplifts_FAQs.pdf">Fee Uplift FAQs</a>  (<span class="gem-c-attachment-link__attribute"><abbr title="Portable Document Format" class="gem-c-attachment-link__abbr">PDF</abbr></span>, <span class="gem-c-attachment-link__attribute">250 KB</span>, <span class="gem-c-attachment-link__attribute">4 pages</span>)</span></p>
+
+<p>The <span class="gem-c-attachment-link">
+  <a class="govuk-link" href="https://assets.publishing.service.gov.uk/media/696a1b7d0c654a0ec44022e5/Fees_Uplift_Guidance.pdf">Fee Uplift Guidance</a>  (<span class="gem-c-attachment-link__attribute"><abbr title="Portable Document Format" class="gem-c-attachment-link__abbr">PDF</abbr></span>, <span class="gem-c-attachment-link__attribute">139 KB</span>, <span class="gem-c-attachment-link__attribute">9 pages</span>)</span> is guidance on how to claim the higher Housing and Debt and Immigration and Asylum fees for matters opened on or after 22 December.</p>
+
+<h2 id="monthly-claim-submissions">Monthly Claim Submissions</h2>
+
+<p>The contingency process has now ended and all future monthly submissions for controlled work, crime lower and mediation must be made using Submit a Bulk Claim (SaBC).</p>
+
+<p>The first submission you must make via SaBC, will be your January submission which must be uploaded by 17 February.</p>
+
+<p>Providers can find further guidance on the submission of claims for matters for which you made use of the monthly contingency process, below.</p>
+
+<h2 id="when-to-submit-your-claim">When to submit your claim</h2>
+
+<p>SaBC will be available for use by providers from 4 February 2026. The deadline  for making January submissions in SaBC is 17 February 2026.</p>
+
+<p>Try to make sure your submission is at the beginning of the month as this allows maximum time to offer support and resolve any questions.</p>
+
+<h2 id="how-to-access-sabc">How to access SaBC</h2>
+
+<p>All claims for controlled work, mediation and crime lower work must now be submitted via Submit a Bulk Claim (SaBC).</p>
+
+<p>SaBC is a digital billing service that allows and validates monthly submissions online and calculates fees.</p>
+
+<p>To access Submit a Bulk Claim, you will need to have a verified account with Sign in to legal aid services (SILAS) and Submit a Bulk Claim will need to have been added to your profile. Once this has been done, and you are logged into SILAS, you will be able to click on a link to access the Submit a Bulk Claim landing page. See the <a rel="external" href="https://legalaidlearning.justice.gov.uk/sign-in-to-legal-aid-services/">Legal Aid Agency training website</a> for guidance on how to create an account with and use SILAS.</p>
+
+<p>Once the system is launched on 4 February, those individuals who are providers’ SILAS Firm admins, will need to assign the ‘Submit a bulk claim’ app to the users that need it. This can only be done once the system is launched on 4 February and not before. The SaBC app will not appear in SILAS until then. Firm Admins should refer to the published guidance at that point, to assign the app: <a rel="external" href="https://legalaidlearning.justice.gov.uk/sign-in-to-legal-aid-services/#1-Setupandmanaginguseraccess">https://legalaidlearning.justice.gov.uk/sign-in-to-legal-aid-services/#1-Setupandmanaginguseraccess</a></p>
+
+<h2 id="how-sabc-works">How SaBC works</h2>
+
+<p>Providers will be able to access the service via SILAS and can upload their bulkload or case management system exported data file directly into SaBC. The service will check the file and calculate the price of each claim within it. If any information is missing or if fundamental errors have been made within the submission, it will be rejected prior to calculating costs.</p>
+
+<p>You can find further information on how to use SaBC in the Submit a Bulk Claim User Guide which can be found in the Guidance section below.</p>
+
+<h2 id="changes-for-providers">Changes for providers</h2>
+
+<p>Unlike in CWA, providers are unable to enter the details of each claim directly into SaBC – instead the submission must be uploaded via a bulkload spreadsheet export or via a file exported from their case management system (updated CSV, XML, and TXT exports).</p>
+
+<h2 id="using-the-bulkload-spreadsheet-and-compatibility">Using the bulkload spreadsheet and compatibility</h2>
+
+<p>If your case management system export isn’t compatible with SaBC or if you don’t have one, you can still bulkload your submission data using the bulk upload spreadsheet (links below).</p>
+
+<p>We have updated the bulkload spreadsheet to improve its functionality for providers, this includes:</p>
+
+<ul>
+  <li>For Windows users, adding in a drop-down menu for providers to select a Fee Code for each claim</li>
+  <li>For Windows users, Updating the example references to reflect current Contracts and schedules</li>
+  <li>Updating validation to reduce the likelihood of any rejects when claims are uploaded to SaBC</li>
+  <li>Updating links and references to support guidance</li>
+</ul>
+
+<p>We have also created a version of the spreadsheet designed specifically for those using MacBook operating systems. While this version does not have all the updated functionality of the Windows version (such as the Fee Code dropdown), it should assist providers who encountered compatibility issues when trying to use the Windows version.  The MacBook version will have further iterations in due course, to ensure it fully reflects the Windows version.</p>
+
+<p>The supporting guide has also been updated, and there are now two – one for Windows and one for MacBooks, reflecting the slight differences in functionality between the two.</p>
+
+<p>Providers should ensure that they use the latest version of the spreadsheets for any submissions.</p>
+
+<p><span class="gem-c-attachment-link">
+  <a class="govuk-link" href="https://assets.publishing.service.gov.uk/media/696a1c311c8a70fc0a3b0461/Provider_Bulkload_Spreadsheet_v1.39_Provider_release.xlsm">Bulkload spreadsheet</a>  (<span class="gem-c-attachment-link__attribute"><abbr title="MS Excel Macro-Enabled Workbook" class="gem-c-attachment-link__abbr">XLSM</abbr></span>, <span class="gem-c-attachment-link__attribute">3.37 MB</span>)</span></p>
+
+<p><span class="gem-c-attachment-link">
+  <a class="govuk-link" href="https://assets.publishing.service.gov.uk/media/696a1bff448fedc1eb4248a9/Provider_Bulkload_Spreadsheet_mac_v1.01.xlsm">Bulkload spreadsheet mac</a>  (<span class="gem-c-attachment-link__attribute"><abbr title="MS Excel Macro-Enabled Workbook" class="gem-c-attachment-link__abbr">XLSM</abbr></span>, <span class="gem-c-attachment-link__attribute">3.26 MB</span>)</span></p>
+
+<p>The <span class="gem-c-attachment-link">
+  <a class="govuk-link" href="https://assets.publishing.service.gov.uk/media/696a1c6a1c8a70fc0a3b0462/SaBC_bulkload-spreadsheet-guidance_v1.22__Windows_only_.docx">Bulkload spreadsheet guidance Windows</a>  (<span class="gem-c-attachment-link__attribute">MS Word Document</span>, <span class="gem-c-attachment-link__attribute">2.27 MB</span>)</span> and <span class="gem-c-attachment-link">
+  <a class="govuk-link" href="https://assets.publishing.service.gov.uk/media/696a1c907b7f37aa8e4022ed/SaBC_bulkload-spreadsheet-guidance_v1.0__Mac_only_.docx">Bulkload spreadsheet guidance Mac</a>  (<span class="gem-c-attachment-link__attribute">MS Word Document</span>, <span class="gem-c-attachment-link__attribute">4.38 MB</span>)</span> provides guidance on how to use the spreadsheet(s) to draft your monthly submission, validate it and create an export file.</p>
+
+<h3 id="use-of-macros">Use of Macros</h3>
+
+<p>We have been made aware of some providers experiencing issues with macros on the bulkload spreadsheet. The spreadsheet is published on the official GOV.UK website, which is the trusted source of documentation for the Legal Aid Agency.  You should have confidence in downloading files from here.  All materials undergo standard assurance and integrity checks before publication.  </p>
+
+<p>The spreadsheet makes use of macros for data validation and generation of a file for upload into our systems.  Unfortunately, it is not possible to provide a non-macro version without removing this functionality.  The file can be opened with macros disabled, but users would need to complete data validation and file generation manually.    </p>
+
+<p>We understand that you may have a policy in place to restrict the use of macros.  Where possible, you may wish to review these settings to allow macros from trusted and verified sources, such as the GOV.UK website.    </p>
+
+<p>Thank you for raising your concerns and for working with us as we establish these new processes.</p>
+
+<h2 id="claim-amendments">Claim amendments</h2>
+
+<h2 id="amendments-to-claims-submitted-on-cwa">Amendments to claims submitted on CWA </h2>
+
+<p>Make changes to any of your previously submitted CWA claims using 1 of 3 amendment forms and guidance:</p>
+
+<ul>
+  <li><span class="gem-c-attachment-link">
+  <a class="govuk-link" href="https://assets.publishing.service.gov.uk/media/696a1d73cbe2202b384248b5/Civil_CWA_Amendment_Form_Ext.xlsx">Civil CWA Amendment form</a>  (<span class="gem-c-attachment-link__attribute">MS Excel Spreadsheet</span>, <span class="gem-c-attachment-link__attribute">101 KB</span>)</span></li>
+  <li><span class="gem-c-attachment-link">
+  <a class="govuk-link" href="https://assets.publishing.service.gov.uk/media/696a1db40c654a0ec44022e6/Crime_CWA_Amendment_Form_Ext.xlsx">Crime CWA Amendment form</a>  (<span class="gem-c-attachment-link__attribute">MS Excel Spreadsheet</span>, <span class="gem-c-attachment-link__attribute">78.3 KB</span>)</span></li>
+  <li><span class="gem-c-attachment-link">
+  <a class="govuk-link" href="https://assets.publishing.service.gov.uk/media/696a1df17b7f37aa8e4022ee/Mediation_CWA_Amendment_Form_Ext.xlsx">Mediation CWA Amendment form</a>  (<span class="gem-c-attachment-link__attribute">MS Excel Spreadsheet</span>, <span class="gem-c-attachment-link__attribute">83.6 KB</span>)</span></li>
+  <li><span class="gem-c-attachment-link">
+  <a class="govuk-link" href="https://assets.publishing.service.gov.uk/media/696a1cd6cbe2202b384248b4/legal-aid-claim-amendment-guidance.docx">Amendments guidance</a>  (<span class="gem-c-attachment-link__attribute">MS Word Document</span>, <span class="gem-c-attachment-link__attribute">58.9 KB</span>)</span></li>
+</ul>
+
+<p>Email amendment requests to: <a href="mailto:PA-ClaimAmend@justice.gov.uk">PA-ClaimAmend@justice.gov.uk</a></p>
+
+<p>When completing the spreadsheet remember to:</p>
+
+<ul>
+  <li>include the net revised cost, not gross</li>
+  <li>check the compatibility of cost and code combinations within revised claims</li>
+  <li>put your name and account number in the subject header</li>
+</ul>
+
+<p>Whilst we are currently unable to process any amendments, a solution on how these will be amended is being developed so the forms can be submitted pending a confirmed approach.</p>
+
+<h2 id="amendments-to-claims-submitted-on-sabc">Amendments to claims submitted on SaBC</h2>
+
+<p>The ability to amend a claim submitted on SaBC, will not be available for launch. If you have requested payment for cases under the monthly contingency, and have identified    that there was an error affecting the amount you were entitled to claim, if possible, please correct these claims prior to submitting them on SaBC.</p>
+
+<p>An approach to amendments for claims submitted on SaBC, will be communicated in due course. Please do continue to complete and send an amendment form where you identify an amendment is needed to a claim submitted on SaBC.  </p>
+
+<ul>
+  <li><span class="gem-c-attachment-link">
+  <a class="govuk-link" href="https://assets.publishing.service.gov.uk/media/698b28f06c8ef8db1fcfd852/Civil_SaBC_Claim_Amendment_Form_Ext.xlsx">Civil SaBC Amendment form</a>  (<span class="gem-c-attachment-link__attribute">MS Excel Spreadsheet</span>, <span class="gem-c-attachment-link__attribute">95.5 KB</span>)</span></li>
+  <li><span class="gem-c-attachment-link">
+  <a class="govuk-link" href="https://assets.publishing.service.gov.uk/media/696a1dd6448fedc1eb4248aa/Crime_SaBC_Claim_Amendment_Form_Ext.xlsx">Crime SaBC Amendment form</a>  (<span class="gem-c-attachment-link__attribute">MS Excel Spreadsheet</span>, <span class="gem-c-attachment-link__attribute">78.9 KB</span>)</span></li>
+  <li><span class="gem-c-attachment-link">
+  <a class="govuk-link" href="https://assets.publishing.service.gov.uk/media/696a1e0f0c654a0ec44022e7/Mediation_SaBC_Amendment_Form_Ext.xlsx">Mediation SaBC Amendment form</a>  (<span class="gem-c-attachment-link__attribute">MS Excel Spreadsheet</span>, <span class="gem-c-attachment-link__attribute">84.1 KB</span>)</span></li>
+</ul>
+
+<h2 id="submit-a-bulk-claim-and-new-fee-code-field">Submit a Bulk Claim and new Fee Code field</h2>
+
+<p>Each claim submitted through Submit a Bulk Claim, will need to include a new, single fee code.</p>
+
+<p>This change has been required to enable us to deliver the new service at speed.</p>
+
+<p>You will need to include the new fee codes in any SaBC submission for them to be accepted by the new service. The spreadsheet below sets out how the new Fee Codes map to an existing matter type or other reporting code (which may have previously triggered pricing rules in CWA). Where the matter type or other codes has N/A listed, you still need to enter a valid code in that field, but it no longer triggers the fee that you are paid; the Fee Code does that.</p>
+
+<p>You should refer to the Guide for SaBC claims and Guidance for reporting Crime Lower for the detail of what should be reported in each field.</p>
+
+<p><span class="gem-c-attachment-link">
+  <a class="govuk-link" href="https://assets.publishing.service.gov.uk/media/698ca098bb6023ea0f7123cc/New_fee_codes_with_mapping_v9.xlsx">New fee codes with mapping</a>  (<span class="gem-c-attachment-link__attribute">MS Excel Spreadsheet</span>, <span class="gem-c-attachment-link__attribute">176 KB</span>)</span></p>
+
+<p>To support you to make this change, we have worked with software vendors who have been updating their systems to accommodate and enable the new fee codes. Most vendors have confirmed that they are going to auto-generate the codes in the claim exports.  If you have any concerns as to whether your case management system has been updated accordingly, please contact your software vendor.</p>
+
+<p>We acknowledge that this is a considerable change and we are working as hard as possible to minimise the impact for providers, including working with a group of providers to design the service. However, due to the need to deliver a working service as early as possible, the initial release will only support the submission and pricing of claims.</p>
+
+<p>To aid providers understand how the new fee code ‘maps’ across to an existing matter type or other reporting code (which may have previously triggered pricing rules in CWA), we have developed a series of recorded webinars and slide packs for providers to refer to.</p>
+
+<p>Providers can access these webinars and slide packs via the Legal Aid Learning website:</p>
+
+<p> Civil - <a rel="external" href="https://legalaidlearning.justice.gov.uk/submit-a-bulk-claim-civil/">legalaidlearning.justice.gov.uk/submit-a-bulk-claim-civil/</a></p>
+
+<p>Crime - <a rel="external" href="https://legalaidlearning.justice.gov.uk/submit-a-bulk-claim-crime/">legalaidlearning.justice.gov.uk/submit-a-bulk-claim-crime</a></p>
+
+<p>We have also published key information on the new system to help you prepare for implementation.</p>
+
+<ul>
+  <li><span class="gem-c-attachment-link">
+  <a class="govuk-link" href="https://assets.publishing.service.gov.uk/media/696a1e64cbe2202b384248b7/Validation_overview_for_Providers__v1_.pdf">Validation overview for providers</a>  (<span class="gem-c-attachment-link__attribute"><abbr title="Portable Document Format" class="gem-c-attachment-link__abbr">PDF</abbr></span>, <span class="gem-c-attachment-link__attribute">143 KB</span>, <span class="gem-c-attachment-link__attribute">3 pages</span>)</span></li>
+</ul>
+
+<h2 id="calculating-value-of-an-outcome">Calculating value of an outcome</h2>
+
+<p>Upon successful uploading and acceptance of the submission, SaBC will price each line and will provide the total value of the submission.</p>
+
+<p>Providers will also be able to view the calculated price of each line of the submission and can click on each individually to view how that sum has been determined.</p>
+
+<p>In future, providers will be able to export the details of the claims and the calculated price, from SaBC.</p>
+
+<p>The value for each claim will be calculated will be in accordance with the relevant provisions in the respective Civil/Crime Remuneration Regulations and Standard Civil/Crime Contracts, with further information available in the reporting codes guidance below.</p>
+
+<h2 id="reporting-new-matter-starts-for-controlled-work-and-mediation">Reporting New matter starts for controlled work and mediation</h2>
+
+<p>‘New matter starts’ is the LAA contracting term used for controlled work and mediation, e.g., the first meeting a provider has with a client.</p>
+
+<p>How to report new matter starts depends on what method of submission you’re using.</p>
+
+<h2 id="laas-bulkload-spreadsheet">LAA’s bulkload spreadsheet</h2>
+
+<p>Enter new matter starts into the controlled matter start form (CMSF) area of the spreadsheet.</p>
+
+<h2 id="cms-file">CMS file</h2>
+
+<p>Contact your software supplier to find out if your CMS bulkload file contains your new matter starts.</p>
+
+<h2 id="claims-relating-to-the-contingency-period">Claims relating to the contingency period</h2>
+
+<p>SaBC must be used to upload your historic contingency submissions from April to December 2025. These should be uploaded by 20 March 2026.</p>
+
+<p>We are conducting some private beta testing on the submission of contingency claims with a small number of Providers between now and go-live to ensure the process is as smooth as possible.</p>
+
+<p> You should upload a submission for each individual month (one file per office and per area of law); this will aid the reconciliation of your accounts as we will be able to identify which (if any) months differ between amounts requested via contingency, and the value of the subsequent claims reported. It will also help you in reconciling contingency payments received and enable quick identification of any significant, unexpected discrepancies.</p>
+
+<p>Once submissions are uploaded, a review will take place in April 2026 before any reconciliation takes place, and providers will be supplied with confirmation of any difference in value between contingency submissions and actual submissions by their Contract Manager. Your Contract Manager will reach out for a discussion where there are significant differences in the figures and there will be an opportunity to rectify any issues or omissions.</p>
+
+<p>Final reconciliation will take place on the payment due 4 May 2026.</p>
+
+<h3 id="immigration-providers">Immigration providers</h3>
+
+<p>We have identified two issues via testing which will impact Immigration providers who have used earlier versions of the bulkload spreadsheet, preceding v1.39: </p>
+
+<ul>
+  <li>The first we had already identified and contacted you regarding, was that any Immigration submission prepared on v1.36-1.38 of the bulkload spreadsheet, did not permit the data in the Travel Time field to feed through to the export.</li>
+  <li>The second issue is that you cannot copy from a version pre-ceding v1.39, into v1.39 without the Fee Scheme and Fee Code data being omitted from the export file due to compatibility issues</li>
+</ul>
+
+<p>Unfortunately, this second issue means that our previously suggested approach of copying from an older version into v1.39 to resolve the first issue, will not work. </p>
+
+<p>To resolve these issues, we require that any contingency submissions you have drafted to date in versions 1.35-1.38 (or earlier), are imported into our Fee Code Mapping tool and this will create a new, compatible set of data that you can then copy into version 1.39 of the bulkload spreadsheet to produce your export file.  </p>
+
+<p>We have written to all immigration providers to confirm this to them and to provide them with a copy of the Civil Fee Mapping Tool (v1.1) and accompanying guidance. </p>
+
+<p>While this does involve some administrative action on your part, it will prevent submissions being rejected or incomplete.  </p>
+
+<h3 id="please-note-if-your-case-management-system-prepares-and-creates-your-export-file-for-uploading-intosabc-then-the-above-does-notapply-to-you-those-export-files-are-unaffected">Please note – if your case management system prepares and creates your export file for uploading into SaBC, then the above does not apply to you. Those export files are unaffected. </h3>
+
+<h3 id="if-you-have-yet-to-draft-your-contingency-submissions-or-if-you-drafted-them-in-v139-of-thebulkloadspreadsheet-then-the-above-guidance-will-not-apply-to-you-those-export-files-are-unaffected-">If you have yet to draft your contingency submissions or if you drafted them in v1.39 of the bulkload spreadsheet, then the above guidance will not apply to you. Those export files are unaffected.   </h3>
+
+<h3 id="if-you-need-to-rely-on-using-the-laabulkloadspreadsheet-then-you-should-ensure-that-you-draft-your-submission-on-the-latest-version-v139">If you need to rely on using the LAA bulkload spreadsheet then you should ensure that you draft your submission on the latest version, v1.39. </h3>
+
+<p>Any further issues or questions regarding the above please email <a href="mailto:SubmitABulkClaimQueries@justice.gov.uk">SubmitABulkClaimQueries@justice.gov.uk</a> with the subject line “Imm contingency claims”</p>
+
+<h2 id="prepared-submissions-missing-fee-codes">Prepared submissions missing fee codes</h2>
+
+<p>Most software vendors have also confirmed that they can enable claim exports generated during the contingency period to be re-run with the new codes included, which supports the requirements for all contingency submissions to be made in Submit a Bulk Claim. However, we recognise that there may be additional work for you to update claim exports from the contingency.</p>
+
+<p>To assist you with such updates, we have created a tool which providers can upload these exports into, and the tool will generate the applicable fee code based on the information in that export. This data can then be copied into a version of the bulkload spreadsheet and a new export created.</p>
+
+<p>Not all providers will need to make use of this tool. To aid you in identifying whether it may be of assistance to you, we have created this short survey <a rel="external" href="https://www.smartsurvey.co.uk/s/FeeCodes_Triage/">Check if you need to use the fee code assigning tool for contingency period claims</a> If the survey concludes that you would benefit from use of the tool, we will contact you from the dedicated <a href="mailto:SubmitABulkClaimQueries@justice.gov.uk">SubmitABulkClaimQueries@justice.gov.uk</a> email, providing a copy of the tool and supporting guidance. The tool will only be sent to those providers who have used the survey and been shown to potentially benefit from it.</p>
+
+<h2 id="exceptional-case-funding-ecf">Exceptional Case Funding (ECF)</h2>
+
+<p>We are aware that previously CWA would generate an ECF payment reference which providers would then report in CWA in the ECF field. Providers will not need to report such a reference in SaBC, therefore if a provider has any matters which obtained Exceptional Case Funding during the contingency period, they will not need to report a reference as part of their claim uploaded into SaBC. A copy of the letter confirming the grant of Exceptional Case Funding should continue to be retained on file.</p>
+
+<h2 id="guidance-documents">Guidance Documents</h2>
+
+<p>The <span class="gem-c-attachment-link">
+  <a class="govuk-link" href="https://assets.publishing.service.gov.uk/media/698b2acb235b57593bc1be39/Submit_a_Bulk_Claim_User_Guide_0602026_V1.3.docx">SaBC User Guide</a>  (<span class="gem-c-attachment-link__attribute">MS Word Document</span>, <span class="gem-c-attachment-link__attribute">4.37 MB</span>)</span> sets out instructions on how to use the new system, SaBC, to bulk upload a monthly submission for Civil (Legal Help), Crime Lower or Mediation for legal aid providers.</p>
+
+<p>The <span class="gem-c-attachment-link">
+  <a class="govuk-link" href="https://assets.publishing.service.gov.uk/media/69932fdb7da91680ad7f44af/Guidance_for_Reporting_Legal_Help_and_Mediation_Work_on_SaBC_V5.0__13_February_2026.pdf">Guidance for Reporting Legal Help and Mediation Work on SaBC_V5.0_ 13 February 2026</a>  (<span class="gem-c-attachment-link__attribute"><abbr title="Portable Document Format" class="gem-c-attachment-link__abbr">PDF</abbr></span>, <span class="gem-c-attachment-link__attribute">1.82 MB</span>, <span class="gem-c-attachment-link__attribute">181 pages</span>)</span> includes help on selecting the appropriate Fee Code and other codes (e.g. matter types) when reporting completed civil and mediation work.</p>
+
+<p>The <span class="gem-c-attachment-link">
+  <a class="govuk-link" href="https://assets.publishing.service.gov.uk/media/69735fa221a2f53a6a4fd4f4/Procurement_Areas_and_Access_Points_v1.10_11_September_2024__HLPAs_revision_.pdf">Procurement Area and Access Points</a>  (<span class="gem-c-attachment-link__attribute"><abbr title="Portable Document Format" class="gem-c-attachment-link__abbr">PDF</abbr></span>, <span class="gem-c-attachment-link__attribute">4.01 MB</span>, <span class="gem-c-attachment-link__attribute">119 pages</span>)</span> Code document contains all valid Category, Procurement Area and Access Point combinations and codes.</p>
+
+<p>The <span class="gem-c-attachment-link">
+  <a class="govuk-link" href="https://assets.publishing.service.gov.uk/media/696a1ef70c654a0ec44022e8/Guidance_for_Reporting_Crime_Lower_Work__Jan_26.pdf">Guidance for reporting crime lower</a>  (<span class="gem-c-attachment-link__attribute"><abbr title="Portable Document Format" class="gem-c-attachment-link__abbr">PDF</abbr></span>, <span class="gem-c-attachment-link__attribute">2.33 MB</span>, <span class="gem-c-attachment-link__attribute">135 pages</span>)</span> includes help on selecting the appropriate Fee Code and other codes (e.g. stage reached) for completed criminal work. The changes made are also summarised in the <span class="gem-c-attachment-link">
+  <a class="govuk-link" href="https://assets.publishing.service.gov.uk/media/696a1f21448fedc1eb4248ad/Guide_to_the_Changes_in_Reporting_Crime_Lower_Work.pdf">Guidance to the changes in Crime Lower</a>  (<span class="gem-c-attachment-link__attribute"><abbr title="Portable Document Format" class="gem-c-attachment-link__abbr">PDF</abbr></span>, <span class="gem-c-attachment-link__attribute">599 KB</span>, <span class="gem-c-attachment-link__attribute">40 pages</span>)</span></p>
+
+<p>The <span class="gem-c-attachment-link">
+  <a class="govuk-link" href="https://assets.publishing.service.gov.uk/media/6993002a492ea446ea7f4452/SaBC_FAQs_Feb_12.pdf">SaBC FAQs</a>  (<span class="gem-c-attachment-link__attribute"><abbr title="Portable Document Format" class="gem-c-attachment-link__abbr">PDF</abbr></span>, <span class="gem-c-attachment-link__attribute">409 KB</span>, <span class="gem-c-attachment-link__attribute">21 pages</span>)</span> summarises those questions received from providers in relation to the new service.</p>
+
+<h2 id="contact">Contact</h2>
+
+<p>Email <a href="mailto:SubmitABulkClaimQueries@justice.gov.uk">SubmitABulkClaimQueries@justice.gov.uk</a> if you have any questions regarding your submission.</p>
+
+<p>We understand this is a significant change, at short notice, and are committed to working closely with you to support a smooth transition.</p>
+
+<p>We are keen to understand more about your monthly submissions, how you usually submit and the impacts of this change on your usual operations, you can help us by sharing your feedback using this link  - <a rel="external" href="https://www.smartsurvey.co.uk/s/TV8D51/">New ‘Submit a Bulk Claim’ service - Provider feedback form</a>.</p>
+</div>
+
+</div>
+      
+  <div id="full-publication-update-history" data-module="gem-toggle" class="gem-c-published-dates gem-c-published-dates--history govuk-!-margin-bottom-5" lang="en">
+    <h2 class="govuk-visually-hidden">Updates to this page</h2>
+      <div>Published 13 October 2025</div>
+      Last updated 16 February 2026
+        <a href="#full-history"
+        class="gem-c-published-dates__toggle govuk-link"
+        data-controls="full-history"
+        data-expanded="false"
+        data-toggled-text="<span aria-hidden='true'>‐ </span>hide all updates"
+        data-module="ga4-event-tracker"
+        data-ga4-event='{"event_name":"select_content","type":"content history","section":"Footer"}'
+        data-ga4-expandable><span aria-hidden="true">+ </span>show all updates</a>
+        <div class="gem-c-published-dates__change-history js-hidden" id="full-history">
+          <ol class="gem-c-published-dates__list">
+              <li class="gem-c-published-dates__change-item">
+                <time class="gem-c-published-dates__change-date timestamp" datetime="2026-02-16T15:09:09Z">16 February 2026</time>
+                <p class="gem-c-published-dates__change-note">Guidance updated</p>
+              </li>
+              <li class="gem-c-published-dates__change-item">
+                <time class="gem-c-published-dates__change-date timestamp" datetime="2026-02-16T11:34:21Z">16 February 2026</time>
+                <p class="gem-c-published-dates__change-note">SaBC FAQs document updated</p>
+              </li>
+              <li class="gem-c-published-dates__change-item">
+                <time class="gem-c-published-dates__change-date timestamp" datetime="2026-02-11T16:13:24Z">11 February 2026</time>
+                <p class="gem-c-published-dates__change-note">New fee codes with mapping spreadsheet has been updated.</p>
+              </li>
+              <li class="gem-c-published-dates__change-item">
+                <time class="gem-c-published-dates__change-date timestamp" datetime="2026-02-11T13:07:10Z">11 February 2026</time>
+                <p class="gem-c-published-dates__change-note">Civil SaBC amendment form, SaBC FAQs and SaBC User Guide updated</p>
+              </li>
+              <li class="gem-c-published-dates__change-item">
+                <time class="gem-c-published-dates__change-date timestamp" datetime="2026-02-04T14:31:10Z">4 February 2026</time>
+                <p class="gem-c-published-dates__change-note">Information for Immigration Providers, under &#39;Claims relating o the contingency period&#39;, has been updated.
+
+The SaBC FAQs document has also been updated.</p>
+              </li>
+              <li class="gem-c-published-dates__change-item">
+                <time class="gem-c-published-dates__change-date timestamp" datetime="2026-02-02T16:28:07Z">2 February 2026</time>
+                <p class="gem-c-published-dates__change-note">Under Guidance Documents, Submit a Bulk Claim User Guide has been updated.</p>
+              </li>
+              <li class="gem-c-published-dates__change-item">
+                <time class="gem-c-published-dates__change-date timestamp" datetime="2026-01-29T14:09:39Z">29 January 2026</time>
+                <p class="gem-c-published-dates__change-note">The SaBC FAQs and information under, &#39;Claims relating to the contingency period&#39; have been updated.</p>
+              </li>
+              <li class="gem-c-published-dates__change-item">
+                <time class="gem-c-published-dates__change-date timestamp" datetime="2026-01-26T17:12:14Z">26 January 2026</time>
+                <p class="gem-c-published-dates__change-note">Information under &#39;How to access SaBC&#39; has been updated.</p>
+              </li>
+              <li class="gem-c-published-dates__change-item">
+                <time class="gem-c-published-dates__change-date timestamp" datetime="2026-01-23T11:58:46Z">23 January 2026</time>
+                <p class="gem-c-published-dates__change-note">Under Guidance Documents, the Procurement Area and Access Point Code document has been added.</p>
+              </li>
+              <li class="gem-c-published-dates__change-item">
+                <time class="gem-c-published-dates__change-date timestamp" datetime="2026-01-22T11:20:15Z">22 January 2026</time>
+                <p class="gem-c-published-dates__change-note">Document updated</p>
+              </li>
+              <li class="gem-c-published-dates__change-item">
+                <time class="gem-c-published-dates__change-date timestamp" datetime="2026-01-21T17:21:43Z">21 January 2026</time>
+                <p class="gem-c-published-dates__change-note">Information under Claims relating to the contingency period, has been updated.</p>
+              </li>
+              <li class="gem-c-published-dates__change-item">
+                <time class="gem-c-published-dates__change-date timestamp" datetime="2026-01-21T16:26:47Z">21 January 2026</time>
+                <p class="gem-c-published-dates__change-note">Document updated.</p>
+              </li>
+              <li class="gem-c-published-dates__change-item">
+                <time class="gem-c-published-dates__change-date timestamp" datetime="2026-01-16T11:53:29Z">16 January 2026</time>
+                <p class="gem-c-published-dates__change-note">Information on the Submit a Bulk Claim (SaBC) page has been updated and the attachments have been refreshed.</p>
+              </li>
+              <li class="gem-c-published-dates__change-item">
+                <time class="gem-c-published-dates__change-date timestamp" datetime="2025-12-17T16:38:19Z">17 December 2025</time>
+                <p class="gem-c-published-dates__change-note">Full list of fee codes has been added.</p>
+              </li>
+              <li class="gem-c-published-dates__change-item">
+                <time class="gem-c-published-dates__change-date timestamp" datetime="2025-12-11T16:11:37Z">11 December 2025</time>
+                <p class="gem-c-published-dates__change-note">Fee Codes updated</p>
+              </li>
+              <li class="gem-c-published-dates__change-item">
+                <time class="gem-c-published-dates__change-date timestamp" datetime="2025-12-09T10:41:22Z">9 December 2025</time>
+                <p class="gem-c-published-dates__change-note">Frequently asked questions on the uplifted fees added.</p>
+              </li>
+              <li class="gem-c-published-dates__change-item">
+                <time class="gem-c-published-dates__change-date timestamp" datetime="2025-12-01T16:40:55Z">1 December 2025</time>
+                <p class="gem-c-published-dates__change-note">Fee uplift guidance</p>
+              </li>
+              <li class="gem-c-published-dates__change-item">
+                <time class="gem-c-published-dates__change-date timestamp" datetime="2025-11-07T16:33:43Z">7 November 2025</time>
+                <p class="gem-c-published-dates__change-note">Submit a Bulk Claim FAQs have been updated.</p>
+              </li>
+              <li class="gem-c-published-dates__change-item">
+                <time class="gem-c-published-dates__change-date timestamp" datetime="2025-10-23T10:47:25Z">23 October 2025</time>
+                <p class="gem-c-published-dates__change-note">Bulk claim user guide has been added</p>
+              </li>
+              <li class="gem-c-published-dates__change-item">
+                <time class="gem-c-published-dates__change-date timestamp" datetime="2025-10-21T14:43:53Z">21 October 2025</time>
+                <p class="gem-c-published-dates__change-note">Submit a Bulk Claim (SaBC) guidance has been updated.</p>
+              </li>
+              <li class="gem-c-published-dates__change-item">
+                <time class="gem-c-published-dates__change-date timestamp" datetime="2025-10-17T14:22:40Z">17 October 2025</time>
+                <p class="gem-c-published-dates__change-note">Replacement of CWA monthly submissions system – Contingency claims has been updated. Submit a Bulk Claim (SaBC) FAQs have also been updated.</p>
+              </li>
+              <li class="gem-c-published-dates__change-item">
+                <time class="gem-c-published-dates__change-date timestamp" datetime="2025-10-15T11:52:44Z">15 October 2025</time>
+                <p class="gem-c-published-dates__change-note">Guidance for SaBC has been updated.</p>
+              </li>
+              <li class="gem-c-published-dates__change-item">
+                <time class="gem-c-published-dates__change-date timestamp" datetime="2025-10-13T16:03:17Z">13 October 2025</time>
+                <p class="gem-c-published-dates__change-note">SaBC guidance has been added.</p>
+              </li>
+              <li class="gem-c-published-dates__change-item">
+                <time class="gem-c-published-dates__change-date timestamp" datetime="2025-10-12T23:00:00Z">13 October 2025</time>
+                <p class="gem-c-published-dates__change-note">First published.</p>
+              </li>
+          </ol>
+        </div>
+</div>
+
+<div class="published-dates-button-group">
+  <h2 class="govuk-visually-hidden">
+      Sign up for emails or print this page
+  </h2>
+
+  <div data-button-location="bottom" data-button-text-subscribe="Get emails about this page" data-button-text-unsubscribe="Stop getting emails about this page" data-module="ga4-link-tracker" class="gem-c-single-page-notification-button govuk-!-display-none-print govuk-!-margin-bottom-3">
+  <form action="/email/subscriptions/single-page/new" method="POST">
+    <input type="hidden" name="base_path" value="/guidance/submit-a-bulk-claim-sabc">
+    <button class="gem-c-single-page-notification-button__submit" type="submit" data-ga4-link='{"event_name":"navigation","type":"subscribe","index_link":2,"index_total":2,"section":"Footer","url":"/email/subscriptions/single-page/new"}'>  <svg class="gem-c-single-page-notification-button__icon" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" height="18" width="18" viewBox="0 0 459.334 459.334"><path fill="currentColor" d="M177.216 404.514c-.001.12-.009.239-.009.359 0 30.078 24.383 54.461 54.461 54.461s54.461-24.383 54.461-54.461c0-.12-.008-.239-.009-.359H175.216zM403.549 336.438l-49.015-72.002v-89.83c0-60.581-43.144-111.079-100.381-122.459V24.485C254.152 10.963 243.19 0 229.667 0s-24.485 10.963-24.485 24.485v27.663c-57.237 11.381-100.381 61.879-100.381 122.459v89.83l-49.015 72.002a24.76 24.76 0 0 0 20.468 38.693H383.08a24.761 24.761 0 0 0 20.469-38.694z" /></svg><span class="gem-c-single-page-notication-button__text">Get emails about this page</span>
+</button>
+</form></div>
+  <div class="gem-c-print-link govuk-!-display-none-print govuk-!-margin-bottom-8">
+    <button class="govuk-link gem-c-print-link__button" data-module="print-link">Print this page</button>
+</div>
+</div>
+
+
+      <div data-sticky-element class="gem-c-contents-list-with-body__link-wrapper">
+        <div class="gem-c-contents-list-with-body__link-container">
+          
+<a class="govuk-link gem-c-back-to-top-link govuk-!-display-none-print" href="#contents">
+    <svg class="gem-c-back-to-top-link__icon" xmlns="http://www.w3.org/2000/svg" width="13" height="17" viewBox="0 0 13 17" aria-hidden="true" focusable="false">
+      <path fill="currentColor" d="M6.5 0L0 6.5 1.4 8l4-4v12.7h2V4l4.3 4L13 6.4z" />
+    </svg>
+    Contents
+</a>
+        </div>
+      </div>
+</div>  </div>
+  
+<div class="govuk-grid-column-one-third sidebar-navigation">
+  
+<div class="gem-c-contextual-sidebar govuk-!-display-none-print"></div>
+</div>
+
+</div>
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+        
+  <div class="gem-c-contextual-footer govuk-!-display-none-print" dir="ltr">
+      <div data-module="ga4-link-tracker" class="gem-c-related-navigation govuk-!-display-none-print">
+
+
+
+      <nav class="gem-c-related-navigation__nav-section"
+     aria-labelledby="related-nav-topics-67bdd9ff"
+     data-module="gem-toggle">
+
+    <h2 id="related-nav-topics-67bdd9ff" class="gem-c-related-navigation__sub-heading gem-c-related-navigation__sub-heading--footer" data-track-count="footerRelatedItemSection">Explore the topic</h2>
+
+  <ul class="gem-c-related-navigation__link-list">
+        <li class="gem-c-related-navigation__link"><a class="govuk-link govuk-link gem-c-related-navigation__section-link govuk-link gem-c-related-navigation__section-link--footer" data-ga4-link='{"event_name":"navigation","type":"contextual footer","index_section":"1","index_link":"1","index_section_count":"1","index_total":"3","section":"Explore the topic"}' href="/crime-justice-and-law/legal-aid-for-providers-crime">Crime</a></li>
+        <li class="gem-c-related-navigation__link"><a class="govuk-link govuk-link gem-c-related-navigation__section-link govuk-link gem-c-related-navigation__section-link--footer" data-ga4-link='{"event_name":"navigation","type":"contextual footer","index_section":"1","index_link":"2","index_section_count":"1","index_total":"3","section":"Explore the topic"}' href="/crime-justice-and-law/legal-aid-for-providers-electronic-working">Electronic working</a></li>
+        <li class="gem-c-related-navigation__link"><a class="govuk-link govuk-link gem-c-related-navigation__section-link govuk-link gem-c-related-navigation__section-link--footer" data-ga4-link='{"event_name":"navigation","type":"contextual footer","index_section":"1","index_link":"3","index_section_count":"1","index_total":"3","section":"Explore the topic"}' href="/crime-justice-and-law/legal-aid-for-providers-payments-processing">Payments and processing</a></li>
+
+  </ul>
+</nav>
+
+</div>
+</div>
+
+    </div>
+  </div>
+
+
+    </main>
+  </div>
+
+  
+
+
+      <div class="govuk-width-container">
+          
+<div data-module="feedback ga4-event-tracker" class="gem-c-feedback govuk-!-display-none-print">
+  
+<div class="gem-c-feedback__prompt gem-c-feedback__js-show js-prompt" tabindex="-1">
+  <div class="gem-c-feedback__prompt-content">
+    <div class="gem-c-feedback__prompt-questions js-prompt-questions" hidden>
+      <div class="gem-c-feedback__prompt-question-answer">
+        <h2 class="gem-c-feedback__prompt-question">Is this page useful?</h2>
+        <ul class="gem-c-feedback__option-list">
+          <li class="gem-c-feedback__option-list-item govuk-visually-hidden" hidden>
+            <a class="gem-c-feedback__prompt-link" role="button" hidden="hidden" aria-hidden="true" href="/contact/govuk">
+              Maybe
+</a>          </li>
+          <li class="gem-c-feedback__option-list-item">
+            <button class="govuk-button gem-c-feedback__prompt-link js-page-is-useful" data-ga4-event='{"event_name":"form_submit","type":"feedback","text":"Yes","section":"Is this page useful?","tool_name":"Is this page useful?"}'>
+              Yes <span class="govuk-visually-hidden">this page is useful</span>
+</button>          </li>
+          <li class="gem-c-feedback__option-list-item">
+
+            <button class="govuk-button gem-c-feedback__prompt-link js-toggle-form js-page-is-not-useful" aria-controls="page-is-not-useful" data-ga4-event='{"event_name":"form_submit","type":"feedback","text":"No","section":"Is this page useful?","tool_name":"Is this page useful?"}'>
+              No <span class="govuk-visually-hidden">this page is not useful</span>
+</button>          </li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="gem-c-feedback__prompt-questions gem-c-feedback__prompt-success js-prompt-success" role="alert" hidden>
+      Thank you for your feedback
+    </div>
+
+    <div class="gem-c-feedback__prompt-questions gem-c-feedback__prompt-questions--something-is-wrong js-prompt-questions" hidden>
+      <button class="govuk-button gem-c-feedback__prompt-link js-toggle-form js-something-is-wrong" aria-controls="something-is-wrong" data-ga4-event='{"event_name":"form_submit","type":"feedback","text":"Report a problem with this page","section":"Is this page useful?","tool_name":"Is this page useful?"}'>
+        Report a problem with this page
+</button>    </div>
+  </div>
+</div>
+
+  <form action="/contact/govuk/problem_reports"
+  id="something-is-wrong"
+  class="gem-c-feedback__form js-feedback-form"
+  method="post"
+  hidden>
+
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds">
+      <div class="gem-c-feedback__error-summary gem-c-feedback__js-show js-errors" tabindex="-1" hidden></div>
+
+      <input type="hidden" name="url" value="https://www.gov.uk/guidance/submit-a-bulk-claim-sabc">
+
+      <h2 class="gem-c-feedback__form-heading">Help us improve GOV.UK</h2>
+      <p id="feedback_explanation" class="gem-c-feedback__form-paragraph">Don’t include personal or financial information like your National Insurance number or credit card details.</p>
+
+      <div class="govuk-visually-hidden" aria-hidden="true">
+        <label for="giraffe">This field is for robots only. Please leave blank</label>
+        <input id="giraffe" name="giraffe" type="text" pattern=".{0}" tabindex="-1" autocomplete="off">
+      </div>
+
+      <div class="gem-c-textarea govuk-form-group govuk-!-margin-bottom-6">
+    
+  <label for="textarea-75f1a620" class="gem-c-label govuk-label">What were you doing?</label>
+
+
+
+
+
+  <textarea name="what_doing" class="govuk-textarea" id="textarea-75f1a620" rows="3" spellcheck="true" aria-describedby="feedback_explanation">
+</textarea>
+     
+</div>
+
+      <div class="gem-c-textarea govuk-form-group govuk-!-margin-bottom-6">
+    
+  <label for="textarea-2a7f909a" class="gem-c-label govuk-label">What went wrong?</label>
+
+
+
+
+
+  <textarea name="what_wrong" class="govuk-textarea" id="textarea-2a7f909a" rows="3" spellcheck="true">
+</textarea>
+     
+</div>
+
+
+      
+
+  <button class="gem-c-button govuk-button" type="submit" data-ga4-event='{"event_name":"form_submit","type":"feedback","text":"Send","section":"Help us improve GOV.UK","tool_name":"Help us improve GOV.UK"}'>Send</button>
+
+
+
+      <button
+        class="govuk-button govuk-button--secondary gem-c-feedback__close gem-c-feedback__js-show js-close-form"
+        aria-controls="something-is-wrong">
+        Cancel
+      </button>
+    </div>
+  </div>
+</form>
+
+
+ <script nonce="beiV4BDxDC099KdhhsLRhA==">
+//<![CDATA[
+  document.addEventListener("DOMContentLoaded", function () {
+    var input = document.querySelector("#giraffe"),
+      form = document.querySelector("#something-is-wrong")
+
+    form.addEventListener("submit", spamCapture);
+
+    function spamCapture(e) {
+      if (input.value.length !== 0) return;
+      e.preventDefault();
+    }
+  });
+
+//]]>
+</script>
+  <div id="page-is-not-useful" class="gem-c-feedback__form gem-c-feedback__form--email gem-c-feedback__js-show js-feedback-form">
+  <div class="govuk-grid-row">
+    <div class="govuk-grid-column-two-thirds" id="survey-wrapper">
+      <div class="gem-c-feedback__error-summary js-errors" tabindex="-1" hidden></div>
+
+      <h2 class="gem-c-feedback__form-heading">Help us improve GOV.UK</h2>
+      <p id="survey_explanation" class="gem-c-feedback__form-paragraph">
+        To help us improve GOV.UK, we’d like to know more about your visit today.
+        <a href="https://www.smartsurvey.co.uk/s/gov-uk-banner/?c=no-js" class="govuk-link" target="_blank" rel="noopener noreferrer external">Please fill in this survey (opens in a new tab<noscript> and requires JavaScript</noscript>)</a>.
+      </p>
+      <button
+        class="govuk-button govuk-button--secondary js-close-form"
+        aria-controls="page-is-not-useful"
+        hidden>
+        Cancel
+      </button>
+    </div>
+  </div>
+</div>
+
+</div>
+      </div>
+
+        <footer data-module="ga4-link-tracker" class="gem-c-layout-footer govuk-footer">
+  <div class="govuk-width-container">
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      focusable="false"
+      role="presentation"
+      viewBox="0 0 64 60"
+      height="30"
+      width="32"
+      fill="currentcolor"
+      class="govuk-footer__crown">
+      <g>
+        <circle cx="20" cy="17.6" r="3.7"></circle>
+        <circle cx="10.2" cy="23.5" r="3.7"></circle>
+        <circle cx="3.7" cy="33.2" r="3.7"></circle>
+        <circle cx="31.7" cy="30.6" r="3.7"></circle>
+        <circle cx="43.3" cy="17.6" r="3.7"></circle>
+        <circle cx="53.2" cy="23.5" r="3.7"></circle>
+        <circle cx="59.7" cy="33.2" r="3.7"></circle>
+        <circle cx="31.7" cy="30.6" r="3.7"></circle>
+        <path d="M33.1,9.8c.2-.1.3-.3.5-.5l4.6,2.4v-6.8l-4.6,1.5c-.1-.2-.3-.3-.5-.5l1.9-5.9h-6.7l1.9,5.9c-.2.1-.3.3-.5.5l-4.6-1.5v6.8l4.6-2.4c.1.2.3.3.5.5l-2.6,8c-.9,2.8,1.2,5.7,4.1,5.7h0c3,0,5.1-2.9,4.1-5.7l-2.6-8ZM37,37.9s-3.4,3.8-4.1,6.1c2.2,0,4.2-.5,6.4-2.8l-.7,8.5c-2-2.8-4.4-4.1-5.7-3.8.1,3.1.5,6.7,5.8,7.2,3.7.3,6.7-1.5,7-3.8.4-2.6-2-4.3-3.7-1.6-1.4-4.5,2.4-6.1,4.9-3.2-1.9-4.5-1.8-7.7,2.4-10.9,3,4,2.6,7.3-1.2,11.1,2.4-1.3,6.2,0,4,4.6-1.2-2.8-3.7-2.2-4.2.2-.3,1.7.7,3.7,3,4.2,1.9.3,4.7-.9,7-5.9-1.3,0-2.4.7-3.9,1.7l2.4-8c.6,2.3,1.4,3.7,2.2,4.5.6-1.6.5-2.8,0-5.3l5,1.8c-2.6,3.6-5.2,8.7-7.3,17.5-7.4-1.1-15.7-1.7-24.5-1.7h0c-8.8,0-17.1.6-24.5,1.7-2.1-8.9-4.7-13.9-7.3-17.5l5-1.8c-.5,2.5-.6,3.7,0,5.3.8-.8,1.6-2.3,2.2-4.5l2.4,8c-1.5-1-2.6-1.7-3.9-1.7,2.3,5,5.2,6.2,7,5.9,2.3-.4,3.3-2.4,3-4.2-.5-2.4-3-3.1-4.2-.2-2.2-4.6,1.6-6,4-4.6-3.7-3.7-4.2-7.1-1.2-11.1,4.2,3.2,4.3,6.4,2.4,10.9,2.5-2.8,6.3-1.3,4.9,3.2-1.8-2.7-4.1-1-3.7,1.6.3,2.3,3.3,4.1,7,3.8,5.4-.5,5.7-4.2,5.8-7.2-1.3-.2-3.7,1-5.7,3.8l-.7-8.5c2.2,2.3,4.2,2.7,6.4,2.8-.7-2.3-4.1-6.1-4.1-6.1h10.6,0Z"></path>
+      </g>
+    </svg>
+      <div class="govuk-footer__navigation">
+            <div class="govuk-grid-column-two-thirds govuk-!-display-none-print">
+              <h2 class="govuk-footer__heading govuk-heading-m">Services and information</h2>
+                <ul class="govuk-footer__list govuk-footer__list--columns-2">
+                      <li class="govuk-footer__list-item">
+                        <a class="govuk-footer__link" data-ga4-link='{"event_name":"navigation","type":"footer","index_link":"1","index_section":"1","index_section_count":"5","index_total":"16","section":"Services and information"}' href="/browse/benefits">Benefits</a>
+                      </li>
+                      <li class="govuk-footer__list-item">
+                        <a class="govuk-footer__link" data-ga4-link='{"event_name":"navigation","type":"footer","index_link":"2","index_section":"1","index_section_count":"5","index_total":"16","section":"Services and information"}' href="/browse/births-deaths-marriages">Births, death, marriages and care</a>
+                      </li>
+                      <li class="govuk-footer__list-item">
+                        <a class="govuk-footer__link" data-ga4-link='{"event_name":"navigation","type":"footer","index_link":"3","index_section":"1","index_section_count":"5","index_total":"16","section":"Services and information"}' href="/browse/business">Business and self-employed</a>
+                      </li>
+                      <li class="govuk-footer__list-item">
+                        <a class="govuk-footer__link" data-ga4-link='{"event_name":"navigation","type":"footer","index_link":"4","index_section":"1","index_section_count":"5","index_total":"16","section":"Services and information"}' href="/browse/childcare-parenting">Childcare and parenting</a>
+                      </li>
+                      <li class="govuk-footer__list-item">
+                        <a class="govuk-footer__link" data-ga4-link='{"event_name":"navigation","type":"footer","index_link":"5","index_section":"1","index_section_count":"5","index_total":"16","section":"Services and information"}' href="/browse/citizenship">Citizenship and living in the UK</a>
+                      </li>
+                      <li class="govuk-footer__list-item">
+                        <a class="govuk-footer__link" data-ga4-link='{"event_name":"navigation","type":"footer","index_link":"6","index_section":"1","index_section_count":"5","index_total":"16","section":"Services and information"}' href="/browse/justice">Crime, justice and the law</a>
+                      </li>
+                      <li class="govuk-footer__list-item">
+                        <a class="govuk-footer__link" data-ga4-link='{"event_name":"navigation","type":"footer","index_link":"7","index_section":"1","index_section_count":"5","index_total":"16","section":"Services and information"}' href="/browse/disabilities">Disabled people</a>
+                      </li>
+                      <li class="govuk-footer__list-item">
+                        <a class="govuk-footer__link" data-ga4-link='{"event_name":"navigation","type":"footer","index_link":"8","index_section":"1","index_section_count":"5","index_total":"16","section":"Services and information"}' href="/browse/driving">Driving and transport</a>
+                      </li>
+                      <li class="govuk-footer__list-item">
+                        <a class="govuk-footer__link" data-ga4-link='{"event_name":"navigation","type":"footer","index_link":"9","index_section":"1","index_section_count":"5","index_total":"16","section":"Services and information"}' href="/browse/education">Education and learning</a>
+                      </li>
+                      <li class="govuk-footer__list-item">
+                        <a class="govuk-footer__link" data-ga4-link='{"event_name":"navigation","type":"footer","index_link":"10","index_section":"1","index_section_count":"5","index_total":"16","section":"Services and information"}' href="/browse/employing-people">Employing people</a>
+                      </li>
+                      <li class="govuk-footer__list-item">
+                        <a class="govuk-footer__link" data-ga4-link='{"event_name":"navigation","type":"footer","index_link":"11","index_section":"1","index_section_count":"5","index_total":"16","section":"Services and information"}' href="/browse/environment-countryside">Environment and countryside</a>
+                      </li>
+                      <li class="govuk-footer__list-item">
+                        <a class="govuk-footer__link" data-ga4-link='{"event_name":"navigation","type":"footer","index_link":"12","index_section":"1","index_section_count":"5","index_total":"16","section":"Services and information"}' href="/browse/housing-local-services">Housing and local services</a>
+                      </li>
+                      <li class="govuk-footer__list-item">
+                        <a class="govuk-footer__link" data-ga4-link='{"event_name":"navigation","type":"footer","index_link":"13","index_section":"1","index_section_count":"5","index_total":"16","section":"Services and information"}' href="/browse/tax">Money and tax</a>
+                      </li>
+                      <li class="govuk-footer__list-item">
+                        <a class="govuk-footer__link" data-ga4-link='{"event_name":"navigation","type":"footer","index_link":"14","index_section":"1","index_section_count":"5","index_total":"16","section":"Services and information"}' href="/browse/abroad">Passports, travel and living abroad</a>
+                      </li>
+                      <li class="govuk-footer__list-item">
+                        <a class="govuk-footer__link" data-ga4-link='{"event_name":"navigation","type":"footer","index_link":"15","index_section":"1","index_section_count":"5","index_total":"16","section":"Services and information"}' href="/browse/visas-immigration">Visas and immigration</a>
+                      </li>
+                      <li class="govuk-footer__list-item">
+                        <a class="govuk-footer__link" data-ga4-link='{"event_name":"navigation","type":"footer","index_link":"16","index_section":"1","index_section_count":"5","index_total":"16","section":"Services and information"}' href="/browse/working">Working, jobs and pensions</a>
+                      </li>
+                </ul>
+            </div>
+            <div class="govuk-grid-column-one-third govuk-!-display-none-print">
+              <h2 class="govuk-footer__heading govuk-heading-m">Government activity</h2>
+                <ul class="govuk-footer__list govuk-footer__list--columns-1">
+                      <li class="govuk-footer__list-item">
+                        <a class="govuk-footer__link" data-ga4-link='{"event_name":"navigation","type":"footer","index_link":"1","index_section":"2","index_section_count":"5","index_total":"8","section":"Government activity"}' href="/government/organisations">Departments</a>
+                      </li>
+                      <li class="govuk-footer__list-item">
+                        <a class="govuk-footer__link" data-ga4-link='{"event_name":"navigation","type":"footer","index_link":"2","index_section":"2","index_section_count":"5","index_total":"8","section":"Government activity"}' href="/search/news-and-communications">News</a>
+                      </li>
+                      <li class="govuk-footer__list-item">
+                        <a class="govuk-footer__link" data-ga4-link='{"event_name":"navigation","type":"footer","index_link":"3","index_section":"2","index_section_count":"5","index_total":"8","section":"Government activity"}' href="/search/guidance-and-regulation">Guidance and regulation</a>
+                      </li>
+                      <li class="govuk-footer__list-item">
+                        <a class="govuk-footer__link" data-ga4-link='{"event_name":"navigation","type":"footer","index_link":"4","index_section":"2","index_section_count":"5","index_total":"8","section":"Government activity"}' href="/search/research-and-statistics">Research and statistics</a>
+                      </li>
+                      <li class="govuk-footer__list-item">
+                        <a class="govuk-footer__link" data-ga4-link='{"event_name":"navigation","type":"footer","index_link":"5","index_section":"2","index_section_count":"5","index_total":"8","section":"Government activity"}' href="/search/policy-papers-and-consultations">Policy papers and consultations</a>
+                      </li>
+                      <li class="govuk-footer__list-item">
+                        <a class="govuk-footer__link" data-ga4-link='{"event_name":"navigation","type":"footer","index_link":"6","index_section":"2","index_section_count":"5","index_total":"8","section":"Government activity"}' href="/search/transparency-and-freedom-of-information-releases">Transparency</a>
+                      </li>
+                      <li class="govuk-footer__list-item">
+                        <a class="govuk-footer__link" data-ga4-link='{"event_name":"navigation","type":"footer","index_link":"7","index_section":"2","index_section_count":"5","index_total":"8","section":"Government activity"}' href="/government/how-government-works">How government works</a>
+                      </li>
+                      <li class="govuk-footer__list-item">
+                        <a class="govuk-footer__link" data-ga4-link='{"event_name":"navigation","type":"footer","index_link":"8","index_section":"2","index_section_count":"5","index_total":"8","section":"Government activity"}' href="/government/get-involved">Get involved</a>
+                      </li>
+                </ul>
+            </div>
+      </div>
+
+      <hr class="govuk-footer__section-break govuk-!-display-none-print">
+    <div class="govuk-footer__meta">
+      <div class="govuk-footer__meta-item govuk-footer__meta-item--grow">
+          <h2 class="govuk-visually-hidden">Support links</h2>
+          <ul class="govuk-footer__inline-list govuk-!-display-none-print">
+              <li class="govuk-footer__inline-list-item">
+                <a class="govuk-footer__link" data-ga4-link='{"event_name":"navigation","type":"footer","index_link":"1","index_section":"3","index_section_count":"5","index_total":"8","section":"Support links"}' href="/help">Help</a>
+              </li>
+              <li class="govuk-footer__inline-list-item">
+                <a class="govuk-footer__link" data-ga4-link='{"event_name":"navigation","type":"footer","index_link":"2","index_section":"3","index_section_count":"5","index_total":"8","section":"Support links"}' href="/help/privacy-notice">Privacy</a>
+              </li>
+              <li class="govuk-footer__inline-list-item">
+                <a class="govuk-footer__link" data-ga4-link='{"event_name":"navigation","type":"footer","index_link":"3","index_section":"3","index_section_count":"5","index_total":"8","section":"Support links"}' href="/help/cookies">Cookies</a>
+              </li>
+              <li class="govuk-footer__inline-list-item">
+                <a class="govuk-footer__link" data-ga4-link='{"event_name":"navigation","type":"footer","index_link":"4","index_section":"3","index_section_count":"5","index_total":"8","section":"Support links"}' href="/help/accessibility-statement">Accessibility statement</a>
+              </li>
+              <li class="govuk-footer__inline-list-item">
+                <a class="govuk-footer__link" data-ga4-link='{"event_name":"navigation","type":"footer","index_link":"5","index_section":"3","index_section_count":"5","index_total":"8","section":"Support links"}' href="/contact">Contact</a>
+              </li>
+              <li class="govuk-footer__inline-list-item">
+                <a class="govuk-footer__link" data-ga4-link='{"event_name":"navigation","type":"footer","index_link":"6","index_section":"3","index_section_count":"5","index_total":"8","section":"Support links"}' href="/help/terms-conditions">Terms and conditions</a>
+              </li>
+              <li class="govuk-footer__inline-list-item">
+                <a class="govuk-footer__link" lang="cy" data-ga4-link='{"event_name":"navigation","type":"footer","index_link":"7","index_section":"3","index_section_count":"5","index_total":"8","section":"Support links"}' href="/cymraeg">Rhestr o Wasanaethau Cymraeg</a>
+              </li>
+              <li class="govuk-footer__inline-list-item">
+                <a class="govuk-footer__link" data-ga4-link='{"event_name":"navigation","type":"footer","index_link":"8","index_section":"3","index_section_count":"5","index_total":"8","section":"Support links"}' href="/government/organisations/government-digital-service">Government Digital Service</a>
+              </li>
+          </ul>
+          <svg aria-hidden="true" focusable="false" class="govuk-footer__licence-logo" xmlns="http://www.w3.org/2000/svg" viewbox="0 0 483.2 195.7" height="17" width="41">
+            <path
+              fill="currentColor"
+              d="M421.5 142.8V.1l-50.7 32.3v161.1h112.4v-50.7zm-122.3-9.6A47.12 47.12 0 0 1 221 97.8c0-26 21.1-47.1 47.1-47.1 16.7 0 31.4 8.7 39.7 21.8l42.7-27.2A97.63 97.63 0 0 0 268.1 0c-36.5 0-68.3 20.1-85.1 49.7A98 98 0 0 0 97.8 0C43.9 0 0 43.9 0 97.8s43.9 97.8 97.8 97.8c36.5 0 68.3-20.1 85.1-49.7a97.76 97.76 0 0 0 149.6 25.4l19.4 22.2h3v-87.8h-80l24.3 27.5zM97.8 145c-26 0-47.1-21.1-47.1-47.1s21.1-47.1 47.1-47.1 47.2 21 47.2 47S123.8 145 97.8 145" />
+          </svg>
+          <span
+            class="govuk-footer__licence-description"
+            data-ga4-track-links-only
+            data-ga4-link='{"event_name":"navigation","section":"Licence","index_section":"4","index_link":"1","index_section_count":"5","text":"Open Government Licence v3.0","index_total":"1","type":"footer"}'>
+            All content is available under the <a class="govuk-footer__link" href="https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/" rel="license">Open Government Licence v3.0</a>, except where otherwise stated
+          </span>
+      </div>
+      <div
+        class="govuk-footer__meta-item"
+        data-ga4-link='{"event_name":"navigation","section":"Copyright","index_section":"5","index_link":"1","index_section_count":"5","text":"© Crown copyright","index_total":"1","type":"footer"}'>
+        <a class="govuk-footer__link govuk-footer__copyright-logo" href="https://www.nationalarchives.gov.uk/information-management/re-using-public-sector-information/uk-government-licensing-framework/crown-copyright/">© Crown copyright</a>
+      </div>
+    </div>
+  </div>
+</footer>
+    <script src="/assets/frontend/application-8518274b935ad28b8381f941fc1487328eb5ffc2745832029066b418d459386d.js" type="module"></script>
+</body></html>

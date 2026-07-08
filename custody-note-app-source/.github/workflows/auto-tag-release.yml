@@ -1,0 +1,51 @@
+# When you push to main/master, create and push git tag v{package.json version} if it
+# does not exist on the remote yet. That triggers "Release and deploy" (tag push) which
+# builds the Windows installer and (optionally) syncs the marketing site.
+#
+# Flow: bump version + changelog on main → push → this workflow tags → release-publish runs.
+#
+# Manual: Actions → "Auto-tag release if needed" → Run workflow.
+
+name: Auto-tag release if needed
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - 'package.json'
+      - 'changelog.json'
+  workflow_dispatch:
+
+concurrency:
+  group: auto-tag-${{ github.repository }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create and push release tag when missing
+        run: |
+          set -e
+          VERSION=$(node -p "require('./package.json').version")
+          TAG="v${VERSION}"
+          git fetch --tags --quiet || true
+          if git ls-remote --tags origin "refs/tags/${TAG}" | grep -q .; then
+            echo "Tag ${TAG} already exists on origin — nothing to do."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "${TAG}" -m "Release ${TAG}"
+          git push origin "${TAG}"
+          echo "Pushed ${TAG} — Release and deploy workflow should start."

@@ -1,0 +1,46 @@
+---
+description: Build config and NSIS installer safety rules
+globs: "{package.json,build/**,scripts/**}"
+alwaysApply: false
+---
+
+# Build & NSIS Rules
+
+## electron-builder config (in package.json)
+
+Key settings that must not be changed without justification:
+
+```json
+{
+  "nsis": {
+    "oneClick": true,
+    "perMachine": false,
+    "allowElevation": true,
+    "include": "build/installer.nsh"
+  }
+}
+```
+
+- `perMachine: false` — installs to user AppData, avoids admin permission issues
+- `allowElevation: true` — lets NSIS elevate if needed to overwrite locked files
+- `include: build/installer.nsh` — custom script that kills running instances before install
+
+## build/installer.nsh
+
+This custom NSIS script runs `taskkill` to kill running Custody Note processes before the installer overwrites files. This prevents "Failed to uninstall old application files" errors.
+
+Do NOT remove or weaken this script without a tested replacement.
+
+## Publish config
+
+- Provider: github
+- Updates served from GitHub Releases
+- Changing publish config breaks auto-update for all existing users
+
+## Before changing build config
+
+1. Explain what the change does and why
+2. Check if it affects install path (user vs system)
+3. Check if it affects auto-update compatibility
+4. Check if it affects the NSIS custom script
+5. Test in packaged mode (npm run build → install → update cycle)

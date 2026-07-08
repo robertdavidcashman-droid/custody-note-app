@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2025-05-25",
+  "forms": {
+    "crm1": {
+      "filename": "crm1-v16-feb-2025.pdf",
+      "version": "v16",
+      "date": "2025-02",
+      "label": "CRM1 — Client Details",
+      "sha256": "81c2ef84ae318d033703c7edd6fbdb7c0c35cd29fc113ac780382c3d24a17868"
+    },
+    "crm2": {
+      "filename": "crm2-v15-oct-2025.pdf",
+      "version": "v15",
+      "date": "2025-10",
+      "label": "CRM2 — Advice & Assistance",
+      "sha256": "35383260b1153ca42495ea86f3192a0b93416eb676470e92c4108144c83062e5"
+    },
+    "crm3": {
+      "filename": "crm3-v17-feb-2025.pdf",
+      "version": "v17",
+      "date": "2025-02",
+      "label": "CRM3 — Advocacy Assistance",
+      "sha256": "c4c9d0944f393006d40e2d653d58d826e088769021d15533cd73c9d96d45b38a"
+    },
+    "declaration": {
+      "filename": "applicant-declaration-v7-feb-2025.pdf",
+      "version": "v7",
+      "date": "2025-02",
+      "label": "Applicant Declaration",
+      "sha256": "b775b4c6b3eba3ebc288df9787c71a9ff99de42a2e8ba39ec49ccc20b307d029"
+    }
+  }
+}

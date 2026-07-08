@@ -1,0 +1,34 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllowUploadToOwnPrefix",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject"
+      ],
+      "Resource": "arn:aws:s3:::custody-note-backups/backups/${SUBSCRIBER_HASH}/*"
+    },
+    {
+      "Sid": "AllowReadOwnPrefix",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject"
+      ],
+      "Resource": "arn:aws:s3:::custody-note-backups/backups/${SUBSCRIBER_HASH}/*"
+    },
+    {
+      "Sid": "AllowListOwnPrefix",
+      "Effect": "Allow",
+      "Action": [
+        "s3:ListBucket"
+      ],
+      "Resource": "arn:aws:s3:::custody-note-backups",
+      "Condition": {
+        "StringLike": {
+          "s3:prefix": "backups/${SUBSCRIBER_HASH}/*"
+        }
+      }
+    }
+  ]
+}

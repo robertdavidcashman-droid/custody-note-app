@@ -1,0 +1,87 @@
+# CustodyNote — Project Rules for Cursor
+
+## Project
+
+- CustodyNote is an Electron desktop app for legal custody work
+- Stack: Electron + vanilla JS + HTML/CSS + sql.js
+- Main process: `main.js` — app lifecycle, IPC handlers, file/OS operations, updater
+- Renderer: `app.js` + `renderer/views/*.js` — UI only, communicates via preload bridge
+- Preload: `preload.js` — minimal contextBridge API surface
+- Packaging: electron-builder, Windows NSIS installer, electron-updater via GitHub Releases
+- Do NOT introduce React, Vue, TypeScript, or UI frameworks unless explicitly requested
+- Preserve existing architecture unless there is a strong, stated reason to change it
+
+## Cross-platform parity (Mac + Windows)
+
+- One codebase, two builds — custody workflow behaviour must be the same on macOS and Windows
+- Do not add platform-specific custody/business logic; only OS integration may differ (see `.cursor/rules/custody-note-cross-platform-parity.mdc`)
+- When finishing work, state Mac and Windows impact explicitly
+
+## General coding
+
+- Prefer small, modular functions over large rewrites
+- Keep code understandable and maintainable
+- Reuse existing patterns where sensible
+- Avoid unnecessary dependencies
+- Do not invent abstractions unless they solve a real repeated problem
+- Match existing code style — look at surrounding code before writing
+
+## Debugging
+
+- Diagnose root cause BEFORE fixing
+- Inspect real code paths and trace execution flow — do not guess
+- List files inspected, relevant functions, and likely cause before making changes
+- Add diagnostic logging where needed before changing behaviour
+- For complex bugs: show the execution trace, explain the root cause, then propose the fix
+
+## Electron
+
+- Do not create duplicate app lifecycle handlers (app.whenReady, app.on('window-all-closed'), etc.)
+- Do not duplicate IPC listeners — register each ipcMain.handle/on exactly once
+- Keep main process and renderer responsibilities clearly separated
+- Do not trigger privileged main-process behaviour directly from renderer without IPC
+- Explain lifecycle changes clearly — relaunch, quit, restart flows are dangerous
+- Guard development-only code with app.isPackaged checks
+
+## Updater (critical — this area has caused production incidents)
+
+- Never initialise autoUpdater more than once
+- Never register updater event listeners more than once
+- Never call quitAndInstall more than once per update cycle
+- Always guard updater logic with app.isPackaged
+- Always log every updater event to persistent log (cn-auto-update.log)
+- Always persist update state to cn-auto-update-state.json
+- Always detect failed version transitions on startup (pending version != current version)
+- Always implement loop prevention — if install fails N times, stop retrying
+- Never add setInterval-based update checks without cooldown and circuit breaker
+- After quitAndInstall, always force app.exit(0) on a timeout to release file locks
+
+## Build / NSIS
+
+- Explain any electron-builder config changes before making them
+- Validate install path and permission implications
+- Avoid breaking updater compatibility (publish config, latest.yml)
+- Prefer safe per-user install (perMachine: false) unless justified
+- The custom NSIS script (build/installer.nsh) kills running instances before install — do not remove this
+- Test build changes in packaged mode, not just dev mode
+
+## Output
+
+- Before fixing: list files inspected and the root cause
+- Explain why the chosen fix is the smallest robust fix
+- Provide complete code changes — not vague advice or partial snippets
+- After changes: describe how to test and what could still fail
+
+## Deploy
+
+When the user says **deploy**, run `npm run deploy` (see `.cursor/rules/custody-note-deploy.mdc`). Do not push without syncing changelog and website.
+
+## Do not
+
+- Give generic advice without inspecting actual project code
+- Leave multiple competing implementations for the same feature
+- Guess root causes — trace first
+- Bypass Electron process boundaries
+- Create restart/retry loops without circuit breakers
+- Modify updater flow without reading the full existing updater code
+- Push build config changes without explaining permission and path implications

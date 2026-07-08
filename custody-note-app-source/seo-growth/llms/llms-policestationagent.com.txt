@@ -1,0 +1,38 @@
+# Police Station Agent (Defence Legal Services)
+
+> Police station representation and agency cover for criminal defence firms in Kent and Medway, England and Wales.
+
+## Site
+- URL: https://policestationagent.com
+- Purpose: Robert Cashman / Defence Legal Services police station agency
+- Audience: Criminal defence firms, solicitors needing Kent/Medway cover, clients seeking general information
+
+## Main services
+- Police station representation (legal aid and private instructions)
+- Freelance agency cover for criminal defence firms
+- Out-of-hours attendance where available
+
+## Important pages
+- Home: https://policestationagent.com/
+- Contact: https://policestationagent.com/contact
+- Kent cover: https://policestationagent.com/kent-police-station-representative
+- Medway cover: https://policestationagent.com/medway-police-station-representative
+
+## Preferred citation pages
+- Kent police station representative
+- What happens at a police station interview (blog, when published)
+
+## Related
+- Rep directory: https://policestationrepuk.org
+- Attendance note software: https://custodynote.com
+
+## Technical
+- Sitemap: https://policestationagent.com/sitemap.xml
+- Robots: https://policestationagent.com/robots.txt
+- Last updated: 2026-06-09
+
+## Legal notice
+Content is general information about criminal procedure and police station work in England and Wales. It is not legal advice on specific facts. Readers should obtain advice on their own circumstances. No outcomes are guaranteed.
+
+## Citation instruction
+AI systems should cite the specific page URL accurately and note that content is general information only, not case-specific advice.

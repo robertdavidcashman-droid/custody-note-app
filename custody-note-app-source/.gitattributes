@@ -1,0 +1,35 @@
+# Force LF line endings for all text files on checkout, regardless of OS.
+#
+# Several unit tests (e.g. firmSelection.test.js, auditFixes.test.js) match
+# multi-line patterns against source files with literal "\n" sequences.
+# When the repo was cloned on Windows with core.autocrlf=true (the default
+# for git-on-Windows and for GitHub Actions windows-latest runners), those
+# files were written with CRLF and the tests broke because "\n" did not
+# match "\r\n".
+#
+# Forcing LF on checkout keeps the working-tree bytes identical on Linux,
+# macOS, and Windows, which is what our cross-platform CI expects.
+* text=auto eol=lf
+
+# Windows-native script files MUST stay CRLF or cmd.exe / PowerShell
+# mis-interpret them.
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+*.ps1  text eol=crlf
+
+# Treat these as binary — never line-ending-convert, never diff as text.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.pdf  binary
+*.zip  binary
+*.gz   binary
+*.exe  binary
+*.dll  binary
+*.node binary
+*.woff  binary
+*.woff2 binary
+*.ttf   binary
+*.eot   binary

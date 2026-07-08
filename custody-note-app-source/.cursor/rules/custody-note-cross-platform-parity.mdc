@@ -1,0 +1,49 @@
+---
+description: Mac and Windows Custody Note must behave the same — functional parity, shared codebase
+alwaysApply: true
+---
+
+# Cross-Platform Parity (Mac + Windows)
+
+Custody Note is **one app with two builds** (macOS DMG/ZIP, Windows NSIS). User-visible custody workflow behaviour must be identical on both platforms.
+
+## Required parity
+
+These must match on macOS and Windows:
+
+- Renderer UI and business logic (`app.js`, `renderer/views/*.js`)
+- Preload and main IPC API — no new platform-gated methods for shared features
+- Database, backup, licence, attendance, exports, security lock
+- Outlook Web email — same compose URL and single execution path (Windows browser bypass in `lib/openExternalUrl.js` is OK; outcome must be the same)
+- Auto-update user experience (check, prompt, install) — install mechanics may differ
+
+## Mandatory workflow when changing code
+
+1. Grep for `process.platform`, `win32`, `darwin`, `platform !==`, `platform ===` in touched areas
+2. **Do not** add platform branches for custody or business logic — implement one shared path
+3. If a platform branch is unavoidable, it must be OS integration only, commented, and on the allowlist below
+4. In completion notes, explicitly state **Mac impact** and **Windows impact**
+
+## Allowed platform-specific code (allowlist)
+
+Do not expand this list without explicit user approval:
+
+- Path roots and `userData` resolution (`main.js` — `getFallbackAppDataRoot`)
+- macOS application menu (`main.js` — `buildMacAppMenu`)
+- Windows App User Model ID, desktop shortcut IPC, Outlook AppX bypass (`lib/openExternalUrl.js`)
+- Updater install teardown on Windows (`updater.js` — `app.exit(0)` after `quitAndInstall`)
+- electron-builder `win` / `mac` config, NSIS vs DMG, `latest.yml` vs `latest-mac.yml`
+- UI copy referencing OS credential store; hide Windows-only controls on Mac (`app.js` — shortcut button, PIN tip)
+
+## Forbidden
+
+- Mac-only or Windows-only custody features without explicit user request
+- Different business rules, form behaviour, or data paths per platform
+- Renderer platform checks for core custody workflows
+- Parallel implementations of the same feature per platform
+
+## Verification checklist (before finishing)
+
+- Change works on both platforms, or is on the allowlist above
+- No new IPC/preload surface gated to one platform for shared features
+- Tests updated if behaviour changes; follow parity-test pattern in `tests/preloadOutlookWebComposeParity.test.js`

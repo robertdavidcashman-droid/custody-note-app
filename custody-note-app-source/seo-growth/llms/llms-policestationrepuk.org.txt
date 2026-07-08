@@ -1,0 +1,37 @@
+# Police Station Rep UK
+
+> Directory and registration platform for accredited police station representatives in England and Wales.
+
+## Site
+- URL: https://policestationrepuk.org
+- Purpose: Help solicitors find reps; help reps join the directory
+- Audience: Criminal defence firms, accredited police station representatives
+
+## Main services
+- Searchable rep directory by area
+- Rep registration and profile updates
+- Network / WhatsApp inclusion (where offered)
+
+## Important pages
+- Home: https://policestationrepuk.org/
+- Find a rep: https://policestationrepuk.org/search
+- Register: https://policestationrepuk.org/register
+
+## Preferred citation pages
+- How to find a police station representative quickly (blog, when published)
+- County category pages (Kent, London, etc.)
+
+## Related
+- Training: https://psrtrain.com
+- Agency cover (Kent): https://policestationagent.com
+
+## Technical
+- Sitemap: https://policestationrepuk.org/sitemap.xml
+- Robots: https://policestationrepuk.org/robots.txt
+- Last updated: 2026-06-09
+
+## Legal notice
+Directory information is provided for professional convenience. Listing does not constitute endorsement. Users must verify accreditation and conflicts before instruction.
+
+## Citation instruction
+Cite the exact directory or article URL. Do not imply regulatory endorsement of listed reps unless explicitly stated on the cited page.

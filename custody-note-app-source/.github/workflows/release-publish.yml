@@ -1,0 +1,271 @@
+# On push of a version tag (e.g. v1.4.24), build the Windows installer AND the
+# signed/notarised macOS .dmg/.zip, publish both to GitHub Releases, then sync
+# the marketing website to Vercel.
+#
+# Prerequisites (Settings > Secrets and variables > Actions):
+# Required for Windows build (provided automatically):
+# - GITHUB_TOKEN  — automatic, used to create the app release.
+#
+# Required for macOS signed + notarised build:
+# - APPLE_ID                       — Apple Developer Program email.
+# - APPLE_APP_SPECIFIC_PASSWORD    — App-specific password (xxxx-xxxx-xxxx-xxxx).
+# - APPLE_TEAM_ID                  — 10-character Apple Team ID.
+# - MAC_CERTIFICATE_P12_BASE64     — Base64-encoded Developer ID Application .p12 bundle.
+# - MAC_CERTIFICATE_P12_PASSWORD   — Passphrase used when the .p12 was exported.
+# - MAC_KEYCHAIN_PASSWORD          — Random passphrase for the temporary CI keychain.
+#
+# Optional (website deploy):
+# - VERCEL_TOKEN  — Vercel dashboard > Settings > Tokens.
+# - GH_PAT        — GitHub PAT with repo scope to clone the website repo.
+#
+# To run:
+#   • Automatic: push version + changelog to main/master → "Auto-tag release if needed"
+#     creates v{x.y.z} if missing → this workflow runs on that tag.
+#   • Manual app build: Actions → this workflow → Run workflow (builds from selected branch).
+#   • Manual tag: git tag v1.4.24 && git push origin v1.4.24
+
+name: Release and deploy
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.repository }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # ─── Job 1a: Build the Windows installer and upload to GitHub Releases ──────
+  # electron-builder creates a DRAFT release (per package.json build.publish.releaseType).
+  # The publish-release job below flips it to non-draft once Mac + Windows are present.
+  release-windows:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout app
+        uses: actions/checkout@v4
+        with:
+          path: custody-note-app
+          ref: ${{ github.ref }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: custody-note-app/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: custody-note-app
+
+      - name: Build + upload Windows installer to GitHub
+        working-directory: custody-note-app
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder --win --publish always
+
+  # ─── Job 1b: Build the signed + notarised macOS .dmg/.zip and upload ────────
+  # Imports the Developer ID Application certificate into a temporary keychain,
+  # then runs the same scripts/build-mac-signed.mjs the developer uses locally.
+  # The same package.json build.publish config drops the assets onto the matching
+  # draft release that release-windows created (whichever job runs first creates it).
+  release-mac:
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout app
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Import Apple Developer ID certificate into a temporary keychain
+        env:
+          MAC_CERTIFICATE_P12_BASE64:   ${{ secrets.MAC_CERTIFICATE_P12_BASE64 }}
+          MAC_CERTIFICATE_P12_PASSWORD: ${{ secrets.MAC_CERTIFICATE_P12_PASSWORD }}
+          MAC_KEYCHAIN_PASSWORD:        ${{ secrets.MAC_KEYCHAIN_PASSWORD }}
+        run: |
+          set -euo pipefail
+          CERT_PATH="$RUNNER_TEMP/cn-cert.p12"
+          KEYCHAIN_PATH="$RUNNER_TEMP/cn-build.keychain-db"
+
+          printf '%s' "$MAC_CERTIFICATE_P12_BASE64" | base64 --decode > "$CERT_PATH"
+          test -s "$CERT_PATH"
+
+          security create-keychain -p "$MAC_KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain      -p "$MAC_KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERT_PATH" -P "$MAC_CERTIFICATE_P12_PASSWORD" \
+            -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security list-keychain -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | xargs)
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "$MAC_KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          security find-identity -v -p codesigning "$KEYCHAIN_PATH"
+
+          rm -f "$CERT_PATH"
+
+      - name: Preflight Apple notarization credentials
+        env:
+          APPLE_ID:                    ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID:               ${{ secrets.APPLE_TEAM_ID }}
+        run: node scripts/preflight-apple-notary.mjs
+
+      - name: Build, sign, notarise + upload macOS assets
+        env:
+          GH_TOKEN:                    ${{ secrets.GITHUB_TOKEN }}
+          APPLE_ID:                    ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID:               ${{ secrets.APPLE_TEAM_ID }}
+          CN_PUBLISH:                  always
+        run: npm run build:mac:signed
+
+      - name: Regenerate latest-mac.yml from uploaded Mac assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          node scripts/repair-github-mac-updater-feed.mjs --tag "v${VERSION}"
+
+  # ─── Job 2: Wait for all platform assets, then flip the release to live ─────
+  # Runs after both platform builds. Polls the draft release for the full asset
+  # set (Windows .exe + latest.yml, Mac .dmg/.zip for both arches + latest-mac.yml)
+  # before flipping draft → published, so end-user auto-updaters never see a
+  # half-finished release.
+  publish-release:
+    runs-on: ubuntu-latest
+    needs: [release-windows, release-mac]
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout app
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Wait for cross-platform updater assets, then publish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          set -e
+          VERSION=$(node -p "require('./package.json').version")
+          TAG="v${VERSION}"
+          REQUIRED=(
+            "Custody-Note-Setup-${VERSION}.exe"
+            "Custody-Note-Setup-${VERSION}.exe.blockmap"
+            "latest.yml"
+            "Custody-Note-${VERSION}-arm64.dmg"
+            "Custody-Note-${VERSION}-arm64.zip"
+            "Custody-Note-${VERSION}-x64.dmg"
+            "Custody-Note-${VERSION}-x64.zip"
+            "latest-mac.yml"
+          )
+          for attempt in $(seq 1 30); do
+            assets=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets,isDraft \
+                      --jq '.assets[].name' 2>/dev/null || echo "")
+            missing=""
+            for need in "${REQUIRED[@]}"; do
+              echo "$assets" | grep -qx "$need" || missing+="$need "
+            done
+            if [ -z "$missing" ]; then
+              echo "All asset names present — waiting 45s for GitHub uploads to settle…"
+              sleep 45
+              verify_ok=false
+              for vattempt in $(seq 1 5); do
+                echo "Verifying updater checksums (attempt $vattempt/5)…"
+                if node scripts/verify-github-updater-assets.mjs --tag "$TAG"; then
+                  verify_ok=true
+                  break
+                fi
+                sleep 15
+              done
+              if [ "$verify_ok" != "true" ]; then
+                echo "Checksum verification failed — attempting Mac updater feed repair…"
+                node scripts/repair-github-mac-updater-feed.mjs --tag "$TAG" || true
+                for vattempt in $(seq 1 12); do
+                  echo "Post-repair verify (attempt $vattempt/12)…"
+                  if node scripts/verify-github-updater-assets.mjs --tag "$TAG"; then
+                    verify_ok=true
+                    break
+                  fi
+                  sleep 15
+                done
+              fi
+              if [ "$verify_ok" != "true" ]; then
+                echo "Checksum verification still failed for $TAG — release stays draft."
+                exit 1
+              fi
+              is_draft=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq '.isDraft')
+              if [ "$is_draft" = "true" ]; then
+                gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest
+                echo "Published $TAG after all cross-platform updater assets were uploaded."
+              else
+                echo "$TAG is already live."
+                gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --latest || true
+              fi
+              exit 0
+            fi
+            echo "Waiting on $TAG (attempt $attempt): $missing"
+            sleep 10
+          done
+          echo "Timed out waiting for updater assets on $TAG. Still missing: $missing"
+          exit 1
+
+  # ─── Job 3: Sync website changelog and deploy to Vercel ─────────────────────
+  # Optional — continue-on-error means a missing GH_PAT/VERCEL_TOKEN won't fail
+  # the overall workflow.
+  deploy-website:
+    runs-on: ubuntu-latest
+    needs: publish-release
+    continue-on-error: true
+    steps:
+      - name: Checkout app
+        uses: actions/checkout@v4
+        with:
+          path: custody-note-app
+          ref: ${{ github.ref }}
+
+      - name: Checkout website
+        uses: actions/checkout@v4
+        with:
+          repository: robertcashman-bit/custody-note-website
+          path: custody-note-website
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: custody-note-app/package-lock.json
+
+      - name: Install app dependencies
+        run: npm ci
+        working-directory: custody-note-app
+
+      - name: Configure git for website commit
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Sync website releases.json and push
+        working-directory: custody-note-app
+        env:
+          WEBSITE_ROOT: ${{ github.workspace }}/custody-note-website
+        run: node scripts/sync-website.mjs
