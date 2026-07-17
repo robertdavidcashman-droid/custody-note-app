@@ -39,12 +39,16 @@ jobs:
         run: |
           set -euo pipefail
           git clone "https://x-access-token:${GH_TOKEN}@github.com/robertdavidcashman-droid/custody-note-website.git" website
+          git -C website config user.name "github-actions[bot]"
+          git -C website config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           cd custody-note-app-source
           npm ci
           WEBSITE_ROOT="$GITHUB_WORKSPACE/website" node scripts/sync-website.mjs
           cd "$GITHUB_WORKSPACE/website"
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [ -n "$(git status --porcelain)" ]; then
+            git add -A
+            git commit -m "chore: sync website changelog"
+          fi
           git push origin HEAD:master || true
 
       - name: Placeholder on empty psrtrain
