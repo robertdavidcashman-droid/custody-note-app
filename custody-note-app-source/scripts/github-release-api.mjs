@@ -1,8 +1,25 @@
 /**
  * GitHub release helpers — draft releases are invisible to /releases/tags/{tag}.
+ * Prefer GITHUB_REPOSITORY (owner/repo) so CI always matches the running repo.
  */
-export const RELEASE_OWNER = 'robertcashman-bit';
-export const RELEASE_REPO = 'custody-note-app';
+function resolveReleaseRepo() {
+  const fromEnv = String(process.env.GITHUB_REPOSITORY || '').trim();
+  if (fromEnv.includes('/')) {
+    const [owner, repo] = fromEnv.split('/');
+    if (owner && repo) return { owner, repo };
+  }
+  if (process.env.RELEASE_OWNER && process.env.RELEASE_REPO) {
+    return {
+      owner: String(process.env.RELEASE_OWNER).trim(),
+      repo: String(process.env.RELEASE_REPO).trim(),
+    };
+  }
+  return { owner: 'robertdavidcashman-droid', repo: 'custody-note-app' };
+}
+
+const _resolved = resolveReleaseRepo();
+export const RELEASE_OWNER = _resolved.owner;
+export const RELEASE_REPO = _resolved.repo;
 
 export function normaliseReleaseTag(tag) {
   const t = String(tag || '').trim();

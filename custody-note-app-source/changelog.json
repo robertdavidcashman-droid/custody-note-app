@@ -8,7 +8,8 @@
         "QuickFile: if an invoice number is already used, automatically find the next free number and send the invoice (with attachments) instead of failing",
         "QuickFile: self-healing invoice numbering — syncs with the QuickFile ledger on startup, Test connection, before each send, and after conflicts or failed sends",
         "QuickFile: final fallback lets QuickFile auto-assign the next number if local retries are exhausted",
-        "Billing: clearer recovery message when invoice-number sync still cannot complete"
+        "Billing: clearer recovery message when invoice-number sync still cannot complete",
+        "Release: GitHub Releases / auto-update publish target is this repo (robertdavidcashman-droid/custody-note-app); Windows-only publish when Mac signing secrets are not configured"
       ]
     },
     {

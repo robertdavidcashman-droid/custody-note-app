@@ -8365,7 +8365,13 @@ ipcMain.handle('quickfile-create-invoice', async (_, params) => {
     if (!invoiceBody) throw lastCreateErr || new Error('QuickFile invoice/create failed');
 
     const invoiceId = invoiceBody.InvoiceID || invoiceBody.InvoiceId || invoiceBody.RecordID || '';
-    const invoiceNumber = invoiceBody.InvoiceNumber || lastAttemptedInvNum || '';
+    const invoiceNumber =
+      invoiceBody.InvoiceNumber
+      || invoiceBody.Invoice_No
+      || invoiceBody.InvoiceNo
+      || invoiceBody.InvoiceNum
+      || lastAttemptedInvNum
+      || '';
     bumpLocalNextAfterAssignedInvoiceNumber(invoiceNumber);
 
     const subtotal = (attendanceFee || 0) + mileageCost + (parkingAmount || 0);

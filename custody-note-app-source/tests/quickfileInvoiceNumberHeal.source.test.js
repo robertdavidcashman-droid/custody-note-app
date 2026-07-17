@@ -36,7 +36,9 @@ describe('QuickFile invoice number self-heal', () => {
     assert.ok(handler.includes("reason: 'create-duplicate-retry'"));
     assert.ok(handler.includes("reason: 'create-auto-assign-fallback'"));
     assert.ok(handler.includes('buildInvoiceCreatePayload({ IssueDate: invDate })'));
-    assert.ok(handler.includes('invoiceBody.InvoiceNumber || lastAttemptedInvNum'));
+    assert.ok(handler.includes('invoiceBody.InvoiceNumber'));
+    assert.ok(handler.includes('invoiceBody.Invoice_No') || handler.includes('InvoiceNo'));
+    assert.ok(handler.includes('lastAttemptedInvNum'));
     assert.ok(handler.includes('bumpLocalNextAfterAssignedInvoiceNumber(invoiceNumber)'));
     assert.ok(handler.includes("reason: 'create-failed'"));
   });

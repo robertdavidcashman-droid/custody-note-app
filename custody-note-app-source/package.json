@@ -170,7 +170,7 @@
     ],
     "publish": {
       "provider": "github",
-      "owner": "robertcashman-bit",
+      "owner": "robertdavidcashman-droid",
       "repo": "custody-note-app",
       "releaseType": "draft"
     }
