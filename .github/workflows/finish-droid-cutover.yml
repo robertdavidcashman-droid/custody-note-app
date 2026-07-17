@@ -1,0 +1,87 @@
+# One-shot cutover helper. Uses secrets.GH_PAT (classic PAT on robertdavidcashman-droid with repo scope).
+name: Finish droid cutover
+
+on:
+  workflow_dispatch:
+
+jobs:
+  finish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require GH_PAT
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          if [ -z "${GH_PAT}" ]; then
+            echo "::error::Add Actions secret GH_PAT (classic PAT from robertdavidcashman-droid, scope repo). Then re-run this workflow."
+            exit 1
+          fi
+
+      - name: Checkout app shell
+        uses: actions/checkout@v4
+
+      - name: Seed policestationrepuk on droid
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          set -euo pipefail
+          DST=robertdavidcashman-droid/policestationrepuk
+          SRC=robertcashman-bit/Policestationrepuk
+          if ! gh repo view "$DST" >/dev/null 2>&1; then
+            gh repo create "$DST" --public --description "PoliceStationRepUK.com — sole home on droid"
+          fi
+          tmp=$(mktemp -d)
+          git clone --depth 1 "https://x-access-token:${GH_TOKEN}@github.com/${SRC}.git" "$tmp/src" || \
+            git clone --depth 1 "https://github.com/${SRC}.git" "$tmp/src"
+          cd "$tmp/src"
+          git remote remove dest 2>/dev/null || true
+          git remote add dest "https://x-access-token:${GH_TOKEN}@github.com/${DST}.git"
+          branch=$(git rev-parse --abbrev-ref HEAD)
+          git push dest "${branch}:refs/heads/master" --force
+          echo "Seeded $DST"
+
+      - name: Push website v1.9.52 changelog from app source
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          set -euo pipefail
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/robertdavidcashman-droid/custody-note-website.git" website
+          cd custody-note-app-source
+          npm ci
+          WEBSITE_ROOT="$GITHUB_WORKSPACE/website" node scripts/sync-website.mjs
+          cd "$GITHUB_WORKSPACE/website"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet && git diff --cached --quiet; then
+            # sync-website may have already committed+pushed; ensure remote is current
+            git push origin HEAD:master || true
+            echo "Website already up to date or sync pushed"
+          else
+            git add -A
+            git commit -m "Changelog: sync releases.json to app version" || true
+            git push origin HEAD:master
+          fi
+
+      - name: Placeholder on empty psrtrain
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          set -euo pipefail
+          REPO=robertdavidcashman-droid/psrtrain
+          tmp=$(mktemp -d)
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" "$tmp/psr"
+          cd "$tmp/psr"
+          if git rev-parse HEAD >/dev/null 2>&1; then
+            echo "psrtrain already has commits — leave alone"
+            exit 0
+          fi
+          git checkout -b main 2>/dev/null || true
+          printf '%s\n' '# psrtrain' '' 'Placeholder until the live psrtrain.com source is recovered.' 'Sole GitHub home: robertdavidcashman-droid.' > README.md
+          git add README.md
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com'             commit -m "docs: placeholder until PSRTrain source recovered"
+          git push -u origin main
+
+      - name: Note about bit archive and Vercel
+        run: |
+          echo "Bit archive and Vercel Git reconnect still need a human (or Vercel MCP auth in Cursor Desktop)."
+          echo "Desktop install of 1.9.52 also needs a human on each PC."
