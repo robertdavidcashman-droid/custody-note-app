@@ -253,6 +253,15 @@ jobs:
     needs: publish-release
     continue-on-error: true
     steps:
+      - name: Require GH_PAT for website push
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          if [ -z "${GH_PAT}" ]; then
+            echo "::warning::GH_PAT missing — cannot push custody-note-website. See DEPLOY_ONCE.md"
+            exit 1
+          fi
+
       - name: Checkout app
         uses: actions/checkout@v4
         with:
@@ -285,4 +294,10 @@ jobs:
         working-directory: custody-note-app-source
         env:
           WEBSITE_ROOT: ${{ github.workspace }}/custody-note-website
-        run: node scripts/sync-website.mjs
+          # sync-website.mjs pushes with local git credentials from checkout token
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          cd "${{ github.workspace }}/custody-note-website"
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/robertdavidcashman-droid/custody-note-website.git"
+          cd "${{ github.workspace }}/custody-note-app-source"
+          node scripts/sync-website.mjs

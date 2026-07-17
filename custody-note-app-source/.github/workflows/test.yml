@@ -1,54 +1,10 @@
-name: Test
-
+# STUB — nested path is not used by GitHub Actions for this monorepo layout.
+# Prefer running tests locally: cd custody-note-app-source && npm run test:unit
+name: "STUB do-not-use Test (nested)"
 on:
-  push:
-    branches: [main, master]
-  pull_request:
-    branches: [main, master]
-
+  workflow_dispatch:
 jobs:
-  test:
-    runs-on: windows-latest
-    timeout-minutes: 45
+  stub:
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Install Playwright browsers
-        run: npx playwright install
-
-      - name: Unit tests
-        run: npm run test:unit
-
-      - name: Playwright e2e
-        run: npm run test:e2e
-
-      # The legacy in-app smoke test (`npm test`) launches Electron with
-      # ELECTRON_RUN_AS_TEST=1 and runs a scripted renderer-side journey.
-      # It is flaky on the GitHub Actions windows-latest runner because
-      # the VM is GPU-less and the renderer needs multiple seconds to
-      # transition past the splash before assertions fire. The Playwright
-      # e2e suite above (tests/e2e/stress-journey.spec.ts) already launches
-      # Electron and exercises the same end-to-end flows (29+ steps) with
-      # deterministic waits, so we rely on it as the CI gate. The smoke
-      # test is still run locally as part of `npm run test:all` before
-      # every release.
-
-  unit-tests-macos:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-      - run: npm ci
-      - run: npm run test:unit
-
+      - run: echo "Nested test workflow is a stub. Run npm run test:unit in custody-note-app-source."
