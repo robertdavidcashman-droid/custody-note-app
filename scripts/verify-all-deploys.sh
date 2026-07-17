@@ -32,8 +32,15 @@ while IFS=$'\t' read -r name dir slug branch; do
       case "$remote" in
         *robertcashman-bit*)
           # Transition: local may still fetch bit until droid repo is created (DEPLOY_ONCE §6).
-          # Use HTTP status (not curl exit alone) so network/rate-limit errors are not treated as "missing".
-          http_code=$(curl -o /dev/null -sS -w '%{http_code}' -I --max-time 15 "https://github.com/${slug}" 2>/dev/null || echo "000")
+          # Probe GitHub API by HTTP status so network/rate-limit errors are not treated as "missing".
+          api_headers=(-H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28")
+          token="${GH_PAT:-${GITHUB_PAT:-${GITHUB_TOKEN:-}}}"
+          if [[ -n "$token" ]]; then
+            api_headers+=(-H "Authorization: Bearer ${token}")
+          fi
+          http_code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 15 \
+            "${api_headers[@]}" "https://api.github.com/repos/${slug}" 2>/dev/null) || true
+          [[ -z "$http_code" ]] && http_code="000"
           case "$http_code" in
             200)
               bad "$name: origin still points at archived bit — retarget to $slug"
@@ -42,7 +49,7 @@ while IFS=$'\t' read -r name dir slug branch; do
               warn "$name: origin still on bit; droid repo $slug not created yet — see DEPLOY_ONCE.md §6"
               ;;
             *)
-              warn "$name: origin still on bit; could not confirm droid repo $slug (HTTP ${http_code}) — see DEPLOY_ONCE.md §6"
+              bad "$name: origin still on bit; could not verify droid repo $slug (HTTP ${http_code}) — retarget once reachable (see DEPLOY_ONCE.md §6)"
               ;;
           esac
           ;;
