@@ -1,9 +1,10 @@
 # On push of a version tag (e.g. v1.9.52), build Windows + signed macOS installers,
-# publish to GitHub Releases, then sync the marketing website.
+# publish to the production updater repo (robertcashman-bit/custody-note-app),
+# then sync the marketing website.
 #
 # App source lives in custody-note-app-source/ (five-workspace layout).
-# electron-builder publish owner must match this repository
-# (robertdavidcashman-droid/custody-note-app).
+# Requires secret GH_PAT with write access to robertcashman-bit/custody-note-app
+# (installed apps check that feed — GITHUB_TOKEN from this repo cannot publish there).
 
 name: Release and deploy
 
@@ -19,6 +20,7 @@ concurrency:
 
 env:
   APP_DIR: custody-note-app-source
+  PUBLISH_GITHUB_REPOSITORY: robertcashman-bit/custody-note-app
 
 jobs:
   release-windows:
@@ -30,6 +32,16 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ github.ref }}
+
+      - name: Require GH_PAT for production publish
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          if [ -z "${GH_PAT}" ]; then
+            echo "::error::Secret GH_PAT is not set. Installed apps update from robertcashman-bit/custody-note-app; add a PAT with repo write on that account as Actions secret GH_PAT."
+            exit 1
+          fi
+        shell: bash
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -45,8 +57,8 @@ jobs:
       - name: Build + upload Windows installer to GitHub
         working-directory: custody-note-app-source
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+          PUBLISH_GITHUB_REPOSITORY: robertcashman-bit/custody-note-app
         run: npx electron-builder --win --publish always
 
   release-mac:
@@ -124,20 +136,20 @@ jobs:
         if: steps.mac_secrets.outputs.configured == 'true'
         working-directory: custody-note-app-source
         env:
-          GH_TOKEN:                    ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN:                    ${{ secrets.GH_PAT }}
           APPLE_ID:                    ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID:               ${{ secrets.APPLE_TEAM_ID }}
           CN_PUBLISH:                  always
-          GITHUB_REPOSITORY:           ${{ github.repository }}
+          PUBLISH_GITHUB_REPOSITORY:   robertcashman-bit/custody-note-app
         run: npm run build:mac:signed
 
       - name: Regenerate latest-mac.yml from uploaded Mac assets
         if: steps.mac_secrets.outputs.configured == 'true'
         working-directory: custody-note-app-source
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+          PUBLISH_GITHUB_REPOSITORY: robertcashman-bit/custody-note-app
         run: |
           VERSION=$(node -p "require('./package.json').version")
           node scripts/repair-github-mac-updater-feed.mjs --tag "v${VERSION}"
@@ -157,13 +169,14 @@ jobs:
       - name: Wait for updater assets, then publish
         working-directory: custody-note-app-source
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+          PUBLISH_GITHUB_REPOSITORY: robertcashman-bit/custody-note-app
           MAC_CERTIFICATE_P12_BASE64: ${{ secrets.MAC_CERTIFICATE_P12_BASE64 }}
         run: |
           set -e
           VERSION=$(node -p "require('./package.json').version")
           TAG="v${VERSION}"
+          RELEASE_REPO="${PUBLISH_GITHUB_REPOSITORY}"
           REQUIRED=(
             "Custody-Note-Setup-${VERSION}.exe"
             "Custody-Note-Setup-${VERSION}.exe.blockmap"
@@ -178,10 +191,10 @@ jobs:
               "latest-mac.yml"
             )
           else
-            echo "Mac secrets absent — publishing Windows-only release for $TAG"
+            echo "Mac secrets absent — publishing Windows-only release for $TAG on $RELEASE_REPO"
           fi
           for attempt in $(seq 1 30); do
-            assets=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets,isDraft \
+            assets=$(gh release view "$TAG" --repo "$RELEASE_REPO" --json assets,isDraft \
                       --jq '.assets[].name' 2>/dev/null || echo "")
             missing=""
             for need in "${REQUIRED[@]}"; do
@@ -219,17 +232,17 @@ jobs:
                 echo "Checksum verification still failed for $TAG — release stays draft."
                 exit 1
               fi
-              is_draft=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq '.isDraft')
+              is_draft=$(gh release view "$TAG" --repo "$RELEASE_REPO" --json isDraft --jq '.isDraft')
               if [ "$is_draft" = "true" ]; then
-                gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest
-                echo "Published $TAG."
+                gh release edit "$TAG" --repo "$RELEASE_REPO" --draft=false --latest
+                echo "Published $TAG on $RELEASE_REPO."
               else
-                echo "$TAG is already live."
-                gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --latest || true
+                echo "$TAG is already live on $RELEASE_REPO."
+                gh release edit "$TAG" --repo "$RELEASE_REPO" --latest || true
               fi
               exit 0
             fi
-            echo "Waiting on $TAG (attempt $attempt): $missing"
+            echo "Waiting on $TAG@$RELEASE_REPO (attempt $attempt): $missing"
             sleep 10
           done
           echo "Timed out waiting for updater assets on $TAG. Still missing: $missing"

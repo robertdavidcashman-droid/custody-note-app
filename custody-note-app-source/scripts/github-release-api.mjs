@@ -1,11 +1,14 @@
 /**
  * GitHub release helpers — draft releases are invisible to /releases/tags/{tag}.
- * Prefer GITHUB_REPOSITORY (owner/repo) so CI always matches the running repo.
+ *
+ * Production auto-update feed is robertcashman-bit/custody-note-app (installed
+ * apps check that owner). Override with RELEASE_OWNER / RELEASE_REPO or
+ * PUBLISH_GITHUB_REPOSITORY when needed.
  */
 function resolveReleaseRepo() {
-  const fromEnv = String(process.env.GITHUB_REPOSITORY || '').trim();
-  if (fromEnv.includes('/')) {
-    const [owner, repo] = fromEnv.split('/');
+  const publishEnv = String(process.env.PUBLISH_GITHUB_REPOSITORY || process.env.RELEASE_GITHUB_REPOSITORY || '').trim();
+  if (publishEnv.includes('/')) {
+    const [owner, repo] = publishEnv.split('/');
     if (owner && repo) return { owner, repo };
   }
   if (process.env.RELEASE_OWNER && process.env.RELEASE_REPO) {
@@ -14,7 +17,8 @@ function resolveReleaseRepo() {
       repo: String(process.env.RELEASE_REPO).trim(),
     };
   }
-  return { owner: 'robertdavidcashman-droid', repo: 'custody-note-app' };
+  /* Default: production updater feed (not the five-workspace shell repo). */
+  return { owner: 'robertcashman-bit', repo: 'custody-note-app' };
 }
 
 const _resolved = resolveReleaseRepo();
