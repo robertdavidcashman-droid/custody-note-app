@@ -46,8 +46,27 @@ Vercel → Project → **Settings → Git → Connect Repository**
 | `custody-note-website` | `robertdavidcashman-droid/custody-note-website` |
 | Project serving **psrtrain.com** | `robertdavidcashman-droid/psrtrain` *(after source is seeded)* |
 
-### 5. Optional — Mac signed app builds
-Same Actions secrets page, paste Apple cert secrets. Without them, **Windows-only** releases still publish.
+### 5. Mac signed app builds
+
+**Option A — GitHub Actions (recommended once secrets are uploaded)**  
+Add these Actions secrets on `custody-note-app`, then run  
+**Actions → Release macOS only → Run workflow** (tag `v1.9.52`):
+
+| Secret | What |
+|--------|------|
+| `MAC_CERTIFICATE_P12_BASE64` | Base64 of your Developer ID `.p12` |
+| `MAC_CERTIFICATE_P12_PASSWORD` | Password for that `.p12` |
+| `MAC_KEYCHAIN_PASSWORD` | Any random password for the CI keychain |
+| `APPLE_ID` | Apple ID email |
+| `APPLE_APP_SPECIFIC_PASSWORD` | App-specific password (`xxxx-xxxx-xxxx-xxxx`) |
+| `APPLE_TEAM_ID` | 10-character Team ID |
+
+**Option B — on your Mac (certs already in Keychain)**  
+```bash
+cd custody-note-app-source
+bash scripts/publish-mac-1.9.52-on-this-mac.sh
+```
+That uses `.env.local` (created via `node scripts/setup-apple-env.mjs` if missing) and uploads to the GitHub release.
 
 ### 6. Finish remaining Git pushes (one PAT + one button)
 
