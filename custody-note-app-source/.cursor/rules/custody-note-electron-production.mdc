@@ -1,0 +1,228 @@
+---
+description: Custody Note Electron app — architecture, security, single-path execution, Outlook Web email only, IPC, and output format
+alwaysApply: true
+---
+
+# Cursor Rules — Custody Note Electron App
+
+Desktop Electron app for custody note and legal workflow use. This app supports legal work: correctness over cleverness, predictability over flexibility, explicit behaviour over implicit behaviour. Avoid hidden automation, ambiguous flows, and silent behaviour changes. Prefer deterministic outcomes and clear user-triggered actions.
+
+## Stack
+
+- Electron (~28.x)
+- Main process entry: `main.js`
+- Renderer: plain HTML / CSS / JavaScript
+- Preload bridge: `preload.js`
+- Data: SQLite via `sql.js`
+- Packaging: `electron-builder` with Windows NSIS installer
+- Updates: `electron-updater` via GitHub Releases
+- Mac and Windows: functional parity required — see `custody-note-cross-platform-parity.mdc`
+
+---
+
+## 1. Respect Electron architecture
+
+Preserve strict separation between main process, preload bridge, and renderer. Never blur responsibilities.
+
+### Main process
+
+- `BrowserWindow`, `ipcMain`, filesystem access, shell integration, OS integration, external URL opening, app lifecycle, updater logic
+
+### Preload
+
+- Expose a minimal safe API via `contextBridge`
+- Bridge renderer requests to main using `ipcRenderer`
+- Never contain business logic unless absolutely necessary
+
+### Renderer
+
+- UI only: DOM updates, form handling, calling preload APIs
+- Never direct privileged Electron or Node access
+
+---
+
+## 2. Security
+
+- Do not enable unnecessary Node integration in renderer
+- Prefer `contextIsolation: true`
+- Do not expose raw Electron APIs to `window`
+- Expose only explicit, narrow methods through preload
+- Validate all IPC payloads before use
+- Never trust renderer input without checks
+
+---
+
+## 3. Refactor
+
+When changing existing functionality:
+
+- Find all related code paths first; identify duplicate handlers; remove obsolete code
+- Do not leave legacy fallback paths in place
+- Do not comment out dead code; delete it unless asked otherwise
+- Centralise repeated logic into one authoritative function
+
+---
+
+## 4. Debugging
+
+For bugs, do not guess. Always: (1) trace the full execution path, (2) identify the exact triggering element or function, (3) add temporary logs, (4) prove root cause, (5) patch the real cause, (6) remove temporary logs if no longer needed.
+
+When debugging Electron issues, inspect: renderer click handlers, form submit handlers, preload bridge calls, `ipcRenderer` and `ipcMain`, `shell.openExternal`, `BrowserWindow` navigation handlers, duplicate event listeners, race conditions between renderer and main.
+
+---
+
+## 5. Event handlers
+
+- Avoid duplicate listeners
+- Avoid both `click` and `submit` triggering the same action unless intentional
+- If a button should not submit a form, use `type="button"`
+- Use `preventDefault()` where appropriate
+- Guard against double-trigger bugs with a lock or debounce when actions launch files, windows, external URLs, or destructive operations
+
+---
+
+## 6. IPC
+
+- Renderer must not directly perform privileged actions; call preload API only
+- Preload should forward to main; main owns the privileged implementation
+- Prefer one clear IPC channel per feature where possible
+- Prefer `ipcMain.handle` / `ipcRenderer.invoke` for request-response flows
+- Validate payloads
+
+---
+
+## 7. External URLs
+
+All external URLs must open from the main process only.
+
+- Do not use renderer `window.open` for privileged external actions
+- Do not use `location.href` for launching external system actions
+- Use a single main-process function for each external integration
+- Log the final URL during debugging
+
+---
+
+## Critical execution (mandatory)
+
+### Single-path rule
+
+For any feature that triggers a side effect (email, file open/save, printing, exports, external links): ONE function, ONE execution path, ONE IPC channel, ONE side-effect call. If multiple paths exist, refactor immediately and delete duplicates.
+
+### No silent fallback
+
+The app must never silently switch behaviour. No “try A then B” or automatic switching. If fallback is required, it must be explicit and logged.
+
+### Duplicate execution guard
+
+Actions that open external apps, trigger OS behaviour, or write files must use a lock (`isRunning` / `isSending`) or debounce to prevent click+submit double firing, duplicate listeners, and repeated IPC calls.
+
+### Trace-before-fix
+
+For any bug: do not fix immediately. First trace the full path, identify triggers, confirm root cause; then implement the fix.
+
+---
+
+## Email — non-negotiable (Outlook Web only)
+
+This app must use **Outlook Web only** for email composition.
+
+### Required behaviour
+
+- All app-generated emails must open in Outlook Web compose
+- Never use `mailto:`
+- Never fall back to the Windows default mail client
+- Never preserve parallel email-launch paths
+- Never open more than one email target for a single user action
+
+### Required implementation pattern
+
+- Renderer gathers email fields only → preload API only → main-process IPC handler only
+- Main process builds the Outlook Web compose URL only and calls `shell.openExternal()` exactly once
+
+### Standard function
+
+Create or maintain a single authoritative function such as `openOutlookWebEmail({ to, cc, bcc, subject, body })`. It must: validate fields; safely encode parameters; build only an Outlook Web compose URL; call `shell.openExternal(url)` once only; return success/failure cleanly; include no fallback logic.
+
+### When modifying email features — remove
+
+- `mailto:`, direct renderer `shell` usage, renderer `window.open` / `location.href` for email, duplicate click/submit handlers, hidden fallback logic, second launch paths
+
+---
+
+## HTML / renderer
+
+- Keep HTML semantic and simple; stable IDs or data attributes for key controls
+- Bind events once; if UI can re-render, avoid listener duplication; extract handler setup into a named initializer where useful
+
+---
+
+## Code style
+
+- Small, explicit functions; readable over clever; clear names; obvious side effects
+- Match existing style where sensible; improve poor structure when touching it
+- Do not introduce frameworks unless asked; do not add TypeScript, React, or Vue unless explicitly requested
+
+---
+
+## Data and persistence
+
+- Be cautious with database writes; preserve existing schema unless explicitly migrating
+- If changing write flows, inspect related read/update/delete behaviour; do not invent migrations unless necessary
+
+---
+
+## Packaging and release
+
+When touching build or release logic: preserve `electron-builder` and Windows NSIS; preserve `electron-updater` unless change is intentional; do not break portable or installed app assumptions.
+
+---
+
+## Change discipline and preferred workflow
+
+When making changes, provide: (1) root cause, (2) files changed, (3) exact code changes, (4) why the fix works, (5) any follow-on risks, only if real.
+
+For any bugfix or feature: inspect all related files → trace current flow → identify duplication or bad boundaries → refactor to one clean path → remove redundant code → verify final behaviour against requirements.
+
+---
+
+## Verification after fixes
+
+Confirm: action fires once only; correct target is used; no secondary behaviour; no console errors. For external actions, confirm only one system call.
+
+---
+
+## Logging (complex features)
+
+Log entry point, IPC call, and final action using `[FEATURE] description + key data`. Remove excessive logs after fix.
+
+---
+
+## Output format for Cursor
+
+When completing a task, respond with: root cause; files changed; final implementation summary; why the fix works; manual verification steps when relevant; any real risks only.
+
+---
+
+## AI / model choice (advisory)
+
+Cursor does **not** read this file to switch models — you pick the model in **Cursor Settings**.
+
+Guidance: straightforward edits often suit a faster model; debugging, architecture, and validation benefit from a more capable model; non-trivial bugs should be reviewed before shipping.
+
+---
+
+## Do not
+
+- Give generic advice without inspecting the code
+- Leave multiple competing implementations for the same feature
+- Preserve legacy email fallbacks
+- Move privileged logic into renderer
+- Use `mailto:` anywhere for app-generated emails
+- Assume a bug is fixed without tracing the full path
+- Guess root causes; leave duplicate logic; bypass Electron boundaries; fix without tracing
+
+---
+
+## Final principle
+
+The app must behave in a deterministic, single-path, fully controlled way: no ambiguity, no hidden behaviour, no duplicate execution.

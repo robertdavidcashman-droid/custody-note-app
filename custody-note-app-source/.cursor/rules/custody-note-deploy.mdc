@@ -1,0 +1,41 @@
+---
+description: When the user says "deploy", run the full release pipeline (git, changelog, website, Vercel, GitHub Release CI)
+alwaysApply: true
+---
+
+# Deploy command
+
+When the user says **deploy** (or "ship it", "release now", "push to production"), run the full pipeline — do not only commit or only push.
+
+## Before deploy
+
+1. Ensure `package.json` version matches `changelog.json` latest entry (run `npm run check:version`).
+2. If version/changelog are out of sync, bump patch in `package.json`, add a new first entry in `changelog.json` with user-facing changes, then deploy.
+3. Run unit tests if code changed since last test: `npm run test:unit`.
+
+## Deploy (single command)
+
+```bash
+npm run deploy
+```
+
+This runs [`scripts/deploy.mjs`](scripts/deploy.mjs) which:
+
+1. Verifies release consistency
+2. Commits `package.json` + `changelog.json` if needed (`chore(release): vX.Y.Z`)
+3. Pushes the app repo to `origin`
+4. Runs `sync-website.mjs` — updates `custody-note-website/data/releases.json`, commits, pushes → **Vercel auto-deploys custodynote.com**
+5. Re-pushes the release tag to trigger **Release and deploy** (Windows + Mac installers on GitHub)
+
+If Mac CI fails or stalls, run `npm run complete-mac-release` on a Mac with Apple signing credentials in `.env.local`.
+
+## Do not
+
+- Use `mailto:` or ad-hoc git pushes without changelog sync
+- Skip website sync unless user explicitly says `--skip-website-sync`
+- Run `electron-builder` locally for deploy — CI builds installers on tag push
+- Edit the plan file when executing deploy
+
+## After deploy
+
+Report: version shipped, app push status, website sync status, link to GitHub Actions "Release and deploy" workflow.

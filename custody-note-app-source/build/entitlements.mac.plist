@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Hardened-runtime entitlements for the signed + notarised macOS build.
+  These are ignored by the explicit unsigned dev build
+  (npm run build:mac:dev) and only take effect when electron-builder signs
+  the .app. Signing is now the default for npm run build:mac / build whenever
+  a Developer ID Application certificate is available; the full signed +
+  notarised distribution build runs via npm run build:mac:signed once
+  APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD / APPLE_TEAM_ID env vars are set and
+  a Developer ID Application certificate is installed in the Keychain.
+
+  This is the canonical set of entitlements for an Electron app under
+  Apple's hardened runtime. Removing any of them will cause the app to
+  fail to launch on macOS after notarisation.
+-->
+<plist version="1.0">
+<dict>
+    <!-- V8's JavaScript engine compiles JS to native code at runtime.
+         Under hardened runtime this is otherwise blocked. -->
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+
+    <!-- V8 also writes JIT-compiled code into pages that are mapped
+         executable without a code signature. Required by all modern
+         Electron apps. -->
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+
+    <!-- Electron's main process inspects DYLD_* environment variables
+         during initialisation. Hardened runtime strips these by default
+         unless this entitlement is granted. -->
+    <key>com.apple.security.cs.allow-dyld-environment-variables</key>
+    <true/>
+
+    <!-- Permits loading of third-party dylibs that are not signed with
+         the same Team ID. Required for Electron's bundled Chromium
+         frameworks and any transitive native dependencies. -->
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+</dict>
+</plist>

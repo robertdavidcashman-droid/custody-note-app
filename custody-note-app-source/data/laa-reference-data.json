@@ -1,0 +1,419 @@
+{
+  "matterTypeCodes": [
+    {
+      "code": "1",
+      "description": "Violence against the person"
+    },
+    {
+      "code": "2",
+      "description": "Sexual offences"
+    },
+    {
+      "code": "3",
+      "description": "Robbery"
+    },
+    {
+      "code": "4",
+      "description": "Burglary"
+    },
+    {
+      "code": "5",
+      "description": "Criminal damage"
+    },
+    {
+      "code": "6",
+      "description": "Theft and handling"
+    },
+    {
+      "code": "7",
+      "description": "Fraud and forgery"
+    },
+    {
+      "code": "8",
+      "description": "Public order offences"
+    },
+    {
+      "code": "9",
+      "description": "Drug offences"
+    },
+    {
+      "code": "10",
+      "description": "Driving and motor vehicle offences"
+    },
+    {
+      "code": "11",
+      "description": "Other offences"
+    },
+    {
+      "code": "12",
+      "description": "Terrorism"
+    },
+    {
+      "code": "13",
+      "description": "Offences against the administration of justice"
+    },
+    {
+      "code": "14",
+      "description": "Firearms offences"
+    },
+    {
+      "code": "15",
+      "description": "Arson"
+    },
+    {
+      "code": "16",
+      "description": "Possession of offensive weapon"
+    },
+    {
+      "code": "17",
+      "description": "Breach of order"
+    },
+    {
+      "code": "18",
+      "description": "Dishonesty (other)"
+    },
+    {
+      "code": "19",
+      "description": "Domestic violence"
+    },
+    {
+      "code": "20",
+      "description": "Immigration"
+    },
+    {
+      "code": "21",
+      "description": "Money laundering"
+    }
+  ],
+  "outcomeCodes": [
+    {
+      "code": "CN01",
+      "description": "No further instructions"
+    },
+    {
+      "code": "CN02",
+      "description": "Change of solicitor"
+    },
+    {
+      "code": "CN03",
+      "description": "Client not a suspect"
+    },
+    {
+      "code": "CN04",
+      "description": "No further action"
+    },
+    {
+      "code": "CN05",
+      "description": "Simple caution, reprimand, warning"
+    },
+    {
+      "code": "CN06",
+      "description": "Charge, summons or reported for summons"
+    },
+    {
+      "code": "CN07",
+      "description": "Conditional caution"
+    },
+    {
+      "code": "CN08",
+      "description": "Fixed penalty notice"
+    },
+    {
+      "code": "CN09",
+      "description": "Released – No Bail"
+    },
+    {
+      "code": "CN10",
+      "description": "Bail Varied/Extended"
+    },
+    {
+      "code": "CN11",
+      "description": "Bail Not Varied/Extended"
+    },
+    {
+      "code": "CN12",
+      "description": "Pre-charge engagement agreed and concludes before investigation ends"
+    },
+    {
+      "code": "CN13",
+      "description": "Pre-charge engagement not agreed"
+    }
+  ],
+  "stageReachedCodes": [
+    {
+      "code": "INVA",
+      "description": "Advice and Assistance (not at police station)"
+    },
+    {
+      "code": "INVB",
+      "description": "Police station: telephone advice only"
+    },
+    {
+      "code": "INVC",
+      "description": "Police station: attendance"
+    },
+    {
+      "code": "INVE",
+      "description": "Warrant of further detention (incl. armed forces)"
+    },
+    {
+      "code": "INVH",
+      "description": "Police station: post-charge attendance"
+    },
+    {
+      "code": "INVK",
+      "description": "Advocacy Assistance – extend Pre-Charge Bail"
+    },
+    {
+      "code": "INVL",
+      "description": "Advocacy Assistance – vary Pre-Charge Bail conditions"
+    },
+    {
+      "code": "INVM",
+      "description": "Pre-Charge Engagement Advice and Assistance"
+    }
+  ],
+  "feeCodes": [
+    {
+      "code": "INVC",
+      "description": "Police station attendance (fixed fee per scheme)"
+    },
+    {
+      "code": "INVB1",
+      "description": "Telephone advice only – London"
+    },
+    {
+      "code": "INVB2",
+      "description": "Telephone advice only – Outside London"
+    },
+    {
+      "code": "INVA",
+      "description": "Advice and Assistance (not at police station)"
+    },
+    {
+      "code": "INVE",
+      "description": "Warrant of further detention (incl. armed forces custody)"
+    },
+    {
+      "code": "INVH",
+      "description": "Post-charge attendance"
+    },
+    {
+      "code": "INVK",
+      "description": "Advocacy Assistance – extend Pre-Charge Bail"
+    },
+    {
+      "code": "INVL",
+      "description": "Advocacy Assistance – vary Pre-Charge Bail conditions"
+    },
+    {
+      "code": "INVM",
+      "description": "Pre-Charge Engagement Advice and Assistance"
+    }
+  ],
+  "modeOfTrial": [
+    {
+      "code": "SO",
+      "description": "Summary Only"
+    },
+    {
+      "code": "EW",
+      "description": "Either Way"
+    },
+    {
+      "code": "IO",
+      "description": "Indictable Only"
+    }
+  ],
+  "ethnicCodes": [
+    {
+      "code": "01",
+      "description": "White British"
+    },
+    {
+      "code": "02",
+      "description": "White Irish"
+    },
+    {
+      "code": "14",
+      "description": "White Other"
+    },
+    {
+      "code": "16",
+      "description": "Gypsy/Traveller"
+    },
+    {
+      "code": "10",
+      "description": "Mixed White & Black Caribbean"
+    },
+    {
+      "code": "11",
+      "description": "Mixed White & Black African"
+    },
+    {
+      "code": "12",
+      "description": "Mixed White & Asian"
+    },
+    {
+      "code": "13",
+      "description": "Mixed Other"
+    },
+    {
+      "code": "06",
+      "description": "Asian or Asian British Indian"
+    },
+    {
+      "code": "07",
+      "description": "Asian or Asian British Pakistani"
+    },
+    {
+      "code": "08",
+      "description": "Asian or Asian British Bangladeshi"
+    },
+    {
+      "code": "09",
+      "description": "Chinese"
+    },
+    {
+      "code": "15",
+      "description": "Asian or Asian British Other"
+    },
+    {
+      "code": "04",
+      "description": "Black or Black British Caribbean"
+    },
+    {
+      "code": "03",
+      "description": "Black or Black British African"
+    },
+    {
+      "code": "05",
+      "description": "Black or Black British Other"
+    },
+    {
+      "code": "00",
+      "description": "Other"
+    },
+    {
+      "code": "99",
+      "description": "Unknown"
+    }
+  ],
+  "disabilityCodes": [
+    {
+      "code": "NCD",
+      "description": "Not considered disabled"
+    },
+    {
+      "code": "MOB",
+      "description": "Mobility impairment"
+    },
+    {
+      "code": "HEA",
+      "description": "Hearing impaired"
+    },
+    {
+      "code": "DEA",
+      "description": "Deaf"
+    },
+    {
+      "code": "VIS",
+      "description": "Visually impaired"
+    },
+    {
+      "code": "BLI",
+      "description": "Blind"
+    },
+    {
+      "code": "MHC",
+      "description": "Mental health condition"
+    },
+    {
+      "code": "LDD",
+      "description": "Learning disability/difficulty"
+    },
+    {
+      "code": "ILL",
+      "description": "Long-standing illness or health condition"
+    },
+    {
+      "code": "OTH",
+      "description": "Other"
+    },
+    {
+      "code": "UKN",
+      "description": "Unknown"
+    }
+  ],
+  "hourlyRates": {
+    "postDec2025": {
+      "effectiveDate": "2025-12-22",
+      "fixedFee": 320,
+      "escapeThreshold": 650,
+      "telephoneAdviceOnly": {
+        "london": 28.7,
+        "national": 27.6
+      },
+      "ownSolicitor": {
+        "attendance": {
+          "social": 54.57,
+          "unsocial": 72.46
+        },
+        "travel": {
+          "social": 27.29,
+          "unsocial": 27.29
+        },
+        "waiting": {
+          "social": 27.29,
+          "unsocial": 27.29
+        }
+      },
+      "dutySolicitor": {
+        "attendance": {
+          "social": 54.57,
+          "unsocial": 72.46
+        },
+        "travel": {
+          "social": 27.29,
+          "unsocial": 27.29
+        },
+        "waiting": {
+          "social": 27.29,
+          "unsocial": 27.29
+        }
+      },
+      "londonOwnSolicitor": {
+        "attendance": {
+          "social": 58.97,
+          "unsocial": 72.46
+        },
+        "travel": {
+          "social": 29.49,
+          "unsocial": 29.49
+        },
+        "waiting": {
+          "social": 29.49,
+          "unsocial": 29.49
+        }
+      },
+      "londonDutySolicitor": {
+        "attendance": {
+          "social": 58.97,
+          "unsocial": 72.46
+        },
+        "travel": {
+          "social": 29.49,
+          "unsocial": 29.49
+        },
+        "waiting": {
+          "social": 29.49,
+          "unsocial": 29.49
+        }
+      },
+      "mileageRate": 0.45,
+      "vatRate": 0.2
+    }
+  },
+  "laaDeclarationText": "As far as I know all the information I have given is true and I have not withheld any relevant information. I understand that if I give false information the services provided to me may be cancelled and I may be prosecuted.",
+  "privacyNoticeText": "Purpose\n\nThis privacy notice sets out the standards that you can expect from the Legal Aid Agency (LAA) when we request or hold personal information (‘personal data’) about you; how you can get access to a copy of your personal data; and what you can do if you think the standards are not being met.\n\nThe LAA is an Executive Agency of the Ministry of Justice (MoJ). The MoJ is the data controller for the personal information we hold. The LAA collects and processes personal data for the exercise of its own and associated public functions. Our public function is to provide legal aid.\n\nAbout personal information\n\nPersonal data is information about you as an individual. It can be your name, address or telephone number. It can also include the information that you have provided in a legal aid application such as your financial circumstances and information relating to any current or previous legal proceedings concerning you.\n\nWe know how important it is to protect customers’ privacy and to comply with data protection laws. We will safeguard your personal data and will only disclose it where it is lawful to do so, or with your consent.\n\nTypes of personal data we process\n\nWe only process personal data that is relevant for the services we are providing to you. The personal data which you have provided in your legal aid application will only be used for the purposes set out below.\n\nPurpose of processing and the lawful basis for the process\n\nThe purpose of the LAA collecting and processing the personal data which you have provided in a legal aid application is for the purposes of providing legal aid. Our lawful basis is ‘the performance of a task carried out in the public interest or in the exercise of official authority’ as set out in Article 6(1)(e) of UK GDPR. The tasks are those set out in the Legal Aid, Sentencing and Punishment of Offenders Act 2012. Specifically, we will use this personal data in the following ways:\n\n• In deciding whether you are eligible for legal aid, whether you are required to make a contribution towards the costs of this legal aid and to assist the Legal Aid Agency in collecting those contributions, if appropriate.\n\n• In assessing claims from your legal aid Provider(s) for payment from the legal aid fund for the work that they have conducted on your behalf.\n\n• In conducting periodic assurance audits on legal aid files to ensure that decisions have been made correctly and accurately.\n\n• In producing statistics and information on our processes to enable us to improve our processes and to assist us in carrying out our functions.\n\nWere the LAA unable to collect this personal information, we would not be able to conduct the activities above, which would prevent us from providing legal aid.\n\nWe collect ‘special categories of personal data’. This data is collected where necessary for the purposes set out above. The condition under which we process this data is Article 9(g) of UK GDPR – Reasons of substantial public interest. Our associated Schedule 1 condition is Statutory and Government purposes. We also collect this data for the purposes of monitoring equality, this is a legal requirement for public authorities under the Equality Act 2010. Special categories of personal data will be treated with the strictest confidence and any information published under the Equality Act will not identify you or anyone else associated with your legal aid application.\n\nWe collect ‘personal data relating to criminal convictions and offences or related security measures’. This data is collected where relevant for the purposes set out above. The LAA is an Executive Agency of the MoJ, an Official Authority for the purposes of Article 10 of UK GDPR.\n\nWho the information may be shared with\n\nWe sometimes need to share the personal information we process with other organisations. When this is necessary, we will comply with all aspects of the relevant data protection laws. The organisations we may share your personal information include:\n\n• Your instructed legal aid Provider(s), including any advocate instructed by a legal aid solicitor;\n\n• Public authorities such as: HM Courts and Tribunals Service (HMCTS), HM Revenue and Customs (HMRC), Department for Work and Pensions (DWP), Home Office and HM Land Registry;\n\n• Non-public organisations such as: Credit reference agencies Equifax and TransUnion and our debt collection partners Advantis Credit Ltd;\n\n• If false or inaccurate information is provided or fraud identified, the Legal Aid Agency can lawfully share your personal information with fraud prevention agencies to detect and to prevent fraud and money laundering. We may specifically share data with HMRC and DWP for fraud prevention, investigation and prosecution purposes; and\n\n• Where a debt is owed to the Legal Aid Agency, we may share your data with public authorities such as HMRC and DWP and with debt collection partners such as Advantis Credit Ltd for the purposes of tracing, debt collection and enforcement.\n\nYou can contact our Data Protection Officer for further information on the organisations we may share your personal information with.\n\nData Processors\n\nWe may contract with third party data processors to provide email, system administration, document management and IT storage services. Any personal data shared with a data processor for this purpose will be governed by model contract clauses under data protection law.\n\nWe contract with Advantis Credit Ltd as a data processor for the collection and enforcement of criminal legal aid contributions. Any personal data shared with the data processor for this purpose is governed by model contract clauses under data protection law.\n\nAutomated decision making\n\nWe do not use solely automated decision making within the definition of Article 22(1) of UK GDPR. The overall decision on an application for legal aid or a claim for costs in a legal aid case will always be made by a human decision maker. This could be a member of our staff, or a staff member of a legal aid Provider acting under delegated authority from the LAA.\n\nDetails of transfers to third country and safeguards\n\nPersonal data may be transferred to locations in the European Economic Area (EEA) where required by our data processors for hosting, storage and secure backup of our IT services. Such transfers are made on the basis of Adequacy decisions between the UK and EEA in accordance with Article 45 of UK GDPR.\n\nRetention period for information collected\n\nYour personal information will not be retained for any longer than is necessary for the lawful purposes for which it has been collected and processed. This is to ensure that your personal information does not become inaccurate, out of date or irrelevant. The Legal Aid Agency have set retention periods for the personal information that we collect, this can be accessed via our website: https://www.gov.uk/government/publications/record-retention-and-disposition-schedules\n\nYou can also contact our Data Protection Officer for a copy of our retention policies.\n\nWhile we retain your personal data, we will ensure that it is kept securely and protected from loss, misuse or unauthorised access and disclosure. Once the retention period has been reached, your personal data will be permanently and securely deleted and destroyed.\n\nAccess to personal information\n\nYou can find out if we hold any personal data about you by making a ‘subject access request’. If you wish to make a subject access request please contact: Disclosure Team - Post point 10.25, Ministry of Justice, 102 Petty France, London SW1H 9AJ, Data.access@justice.gov.uk\n\nWhen we ask you for personal data\n\nWe promise to inform you why we need your personal data and ask only for the personal data we need and not collect information that is irrelevant or excessive.\n\nWhen we collect your personal data, we have responsibilities, and you have rights, these include:\n\n• That you can withdraw consent at any time, where relevant;\n\n• That you can lodge a complaint with the supervisory authority;\n\n• That we will protect and ensure that no unauthorised person has access to it;\n\n• That your personal data is shared with other organisations only for legitimate purposes;\n\n• That we don’t keep it longer than is necessary;\n\n• That we will not make your personal data available for commercial use without your consent; and\n\n• That we will consider your request to correct, stop processing or erase your personal data.\n\nYou can get more details on:\n\n• Agreements we have with other organisations for sharing information;\n\n• Circumstances where we can pass on personal information without telling you, for example, to help with the prevention or detection of crime or to produce anonymised statistics;\n\n• Our instructions to staff on how to collect, use or delete your personal information;\n\n• How we check that the information we hold is accurate and up-to-date; and\n\n• How to make a complaint.\n\nFor more information about the above issues, please contact the Data Protection Officer, Ministry of Justice, 102 Petty France, London SW1H 9AJ, dataprotection@justice.gov.uk\n\nComplaints\n\nWhen we ask you for information, we will comply with the law. If you consider that your information has been handled incorrectly, you can contact the Information Commissioner for independent advice about data protection. You can contact the Information Commissioner at: Information Commissioner’s Office, Wycliffe House, Water Lane, Wilmslow, Cheshire SK9 5AF, Tel: 0303 123 1113, www.ico.org.uk"
+}

@@ -1,0 +1,178 @@
+{
+  "name": "custody-note",
+  "version": "1.9.52",
+  "lastUpdated": "2026-07-17",
+  "buildTime": "2026-07-17T15:00:00.000Z",
+  "description": "Custody Note – LAA-compliant custody note app",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "verify:release": "node scripts/verify-release-consistency.mjs",
+    "check:version": "node scripts/verify-release-consistency.mjs",
+    "check:deploy": "node scripts/check-deploy-prerequisites.mjs",
+    "auth:github-workflow": "node scripts/github-auth-with-workflow.mjs --login",
+    "push:workflow": "node scripts/github-auth-with-workflow.mjs --push",
+    "install:deploy-tools": "bash scripts/install-deploy-tools.sh",
+    "verify:built-asar": "node scripts/verify-built-asar.mjs",
+    "build": "npm run verify:release && electron-builder && npm run verify:built-asar",
+    "build:only": "npm run verify:release && electron-builder && npm run verify:built-asar",
+    "release": "node scripts/release.mjs",
+    "release:patch": "node scripts/release.mjs patch",
+    "release:minor": "node scripts/release.mjs minor",
+    "release:major": "node scripts/release.mjs major",
+    "release:current": "node scripts/release.mjs current",
+    "sync-website": "node scripts/sync-website.mjs",
+    "publish:blog": "node seo-growth/scripts/publish-blog-from-markdown.mjs --stagger-weeks",
+    "schedule:buffer": "node seo-growth/scripts/schedule-buffer.mjs",
+    "export:sister-sites": "node seo-growth/scripts/import-sister-site-content.mjs",
+    "deploy": "node scripts/deploy.mjs",
+    "complete-mac-release": "node scripts/complete-mac-release.mjs",
+    "ensure-mac-release": "node scripts/ensure-mac-release.mjs",
+    "build:icon": "node scripts/build-icon.mjs",
+    "test": "node scripts/smoke-test.js",
+    "smoke:licence-backup": "node ../custody-note-website/scripts/smoke-licence-backup.mjs",
+    "test:all": "node scripts/test-all.js",
+    "test:ci": "node scripts/test-all.js",
+    "test:e2e": "playwright test",
+    "test:laa": "node --test tests/laaFormsManifest.test.js tests/laaFormsSync.test.js tests/attendancePicker.source.test.js && playwright test tests/e2e/laa-home-forms.spec.ts",
+    "test:unit": "node scripts/run-unit-tests.js",
+    "test:deep": "node --test tests/deepAudit.test.js",
+    "audit:app": "node --test tests/deepAudit.test.js && node -c main.js && node -c preload.js",
+    "prepare-trial": "node scripts/prepare-trial.js",
+    "capture-screenshots": "node scripts/capture-screenshots.js",
+    "security:audit": "node scripts/security-audit.mjs",
+    "security:scan": "node scripts/security-audit.mjs",
+    "build:icns": "node scripts/build-icns.mjs",
+    "build:mac": "npm run verify:release && npm run build:icns && electron-builder --mac && npm run verify:built-asar",
+    "build:mac:dev": "npm run verify:release && npm run build:icns && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac -c.mac.identity=null -c.mac.hardenedRuntime=false && npm run verify:built-asar",
+    "build:mac:signed": "npm run verify:release && npm run build:icns && node scripts/build-mac-signed.mjs && npm run verify:built-asar",
+    "verify:mac:cert": "security find-identity -v -p codesigning",
+    "start:mac": "electron ."
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "electron": "^42.2.0",
+    "electron-builder": "^26.8.1",
+    "jsdom": "^29.0.0",
+    "nodemailer": "^8.0.7",
+    "pdf-parse": "^1.1.4",
+    "playwright": "^1.58.2",
+    "png-to-ico": "^3.0.1",
+    "sharp": "^0.34.5",
+    "ws": "^8.19.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.700.0",
+    "docx": "^9.6.1",
+    "electron-log": "^5.4.3",
+    "electron-updater": "^6.8.3",
+    "pdf-lib": "^1.17.1",
+    "pdf-parse": "^1.1.4",
+    "sql.js": "^1.10.0"
+  },
+  "build": {
+    "appId": "com.custodynote.app",
+    "productName": "Custody Note",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "icon": "custody-note.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "mac": {
+      "icon": "build/custody-note.icns",
+      "category": "public.app-category.business",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "artifactName": "Custody-Note-${version}-${arch}.${ext}"
+    },
+    "dmg": {
+      "title": "Custody Note ${version}",
+      "icon": "build/custody-note.icns",
+      "artifactName": "Custody-Note-${version}-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": false,
+      "runAfterFinish": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "menuCategory": "Custody Note",
+      "shortcutName": "Custody Note",
+      "deleteAppDataOnUninstall": false,
+      "include": "build/installer.nsh",
+      "artifactName": "Custody-Note-Setup-${version}.${ext}"
+    },
+    "files": [
+      "**/*",
+      "!dist",
+      "!.git",
+      "!.github",
+      "!.cursor",
+      "!.vscode",
+      "!.vercel",
+      "!docs",
+      "!playwright-report",
+      "!test-results",
+      "!tests",
+      "!playwright.config.*",
+      "!extracted-installed",
+      "!test-extract",
+      "!test-extract*",
+      "!vfy",
+      "!orig-extract",
+      "!verify-pj",
+      "!*.log",
+      "!*.bak",
+      "!*.tmp",
+      "!.env",
+      "!.env.example",
+      "!.cursorrules",
+      "!.gitignore",
+      "!.eslintrc*",
+      "!.prettierrc*",
+      "!**/*.md",
+      "!scripts/release.mjs",
+      "!scripts/sync-website.mjs",
+      "!scripts/capture-screenshots.js",
+      "!scripts/prepare-trial.js",
+      "!scripts/inspect-db-electron.cjs"
+    ],
+    "publish": {
+      "provider": "github",
+      "owner": "robertcashman-bit",
+      "repo": "custody-note-app",
+      "releaseType": "draft"
+    }
+  }
+}

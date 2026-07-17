@@ -1,0 +1,10 @@
+# STUB — nested path is not used by GitHub Actions for this monorepo layout.
+# Prefer running tests locally: cd custody-note-app-source && npm run test:unit
+name: "STUB do-not-use Test (nested)"
+on:
+  workflow_dispatch:
+jobs:
+  stub:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Nested test workflow is a stub. Run npm run test:unit in custody-note-app-source."

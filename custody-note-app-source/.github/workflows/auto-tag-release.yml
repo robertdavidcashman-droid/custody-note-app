@@ -1,0 +1,12 @@
+# STUB — not executed by GitHub Actions.
+# Live workflow: /.github/workflows/auto-tag-release.yml (repo root)
+name: "STUB do-not-use Auto-tag (nested)"
+on:
+  workflow_dispatch:
+jobs:
+  stub:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "This nested workflow is ignored. Use /.github/workflows/auto-tag-release.yml"
+          exit 1

@@ -24,17 +24,22 @@ create_if_missing() {
   fi
 }
 
+# Always ensure droid mirrors exist for seeding (even if manifest temporarily points at bit).
+create_if_missing "robertdavidcashman-droid/policestationrepuk" "PoliceStationRepUK website - policestationrepuk.org"
+create_if_missing "robertdavidcashman-droid/psrtrain" "PSRUKTrain website - psrtrain.com"
+
 python3 - "$MANIFEST" <<'PY' | while IFS=$'\t' read -r slug desc; do
 import json, sys
 manifest = json.load(open(sys.argv[1]))
 for repo in manifest["repos"]:
     slug = repo["github"]
-    if slug.endswith("/policestationrepuk"):
-        print(f"{slug}\tPoliceStationRepUK website - policestationrepuk.org")
-    elif slug.endswith("/psrtrain"):
-        print(f"{slug}\tPSRUKTrain website - psrtrain.com")
+    # Skip bit production sources — bootstrap only creates droid targets.
+    if slug.startswith("robertcashman-bit/"):
+        continue
+    if slug.endswith("/policestationrepuk") or slug.endswith("/psrtrain"):
+        print(f"{slug}\t{repo['name']}")
 PY
-  [[ -n "$slug" ]] && create_if_missing "$slug" "$desc"
+  [[ -n "${slug:-}" ]] && create_if_missing "$slug" "$desc"
 done
 
-echo "GitHub bootstrap complete."
+echo "GitHub bootstrap complete. To copy content into empty mirrors: bash scripts/seed-missing-workspaces.sh"

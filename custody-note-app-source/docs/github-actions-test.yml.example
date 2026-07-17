@@ -1,0 +1,28 @@
+# Copy this file to .github/workflows/test.yml (e.g. via GitHub web: Add file)
+# to enable CI. Pushes from environments without 'workflow' scope can then succeed;
+# add the workflow once via the GitHub website.
+name: Test
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Unit tests (licence store, admin auth, rate limit)
+        run: npm run test:unit

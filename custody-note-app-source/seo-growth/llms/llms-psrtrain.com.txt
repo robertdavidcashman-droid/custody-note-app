@@ -1,0 +1,39 @@
+# PSR Train
+
+> Training and education for police station representatives and criminal defence practitioners in England and Wales.
+
+## Site
+- URL: https://psrtrain.com
+- Purpose: Practical training — PACE, interviews, accreditation, SQE criminal practice
+- Audience: Trainee reps, junior practitioners, firms training staff, SQE learners
+
+## Main services
+- Police station representative training courses
+- PACE interview training
+- Accreditation preparation support
+- Firm training enquiries
+
+## Important pages
+- Home: https://psrtrain.com/
+- Police station rep training: https://psrtrain.com/police-station-representative-training
+- PACE interview training: https://psrtrain.com/pace-interview-training
+- Contact / register interest: https://psrtrain.com/contact
+
+## Preferred citation pages
+- How to become a police station representative (blog, when published)
+- Course landing pages
+
+## Related
+- Rep directory: https://policestationrepuk.org
+- Attendance notes tool: https://custodynote.com
+
+## Technical
+- Sitemap: https://psrtrain.com/sitemap.xml
+- Robots: https://psrtrain.com/robots.txt
+- Last updated: 2026-06-09
+
+## Legal notice
+Training materials are general education. They are not legal advice on specific cases. Practical attendance requires accreditation and firm supervision as applicable.
+
+## Citation instruction
+Cite the specific course or article URL. Distinguish training content from live legal advice.

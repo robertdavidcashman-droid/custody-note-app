@@ -1,0 +1,58 @@
+# When package.json / changelog.json under custody-note-app-source/ change on
+# main/master, create tag v{version} if missing → triggers Release and deploy.
+#
+# Prefer GH_PAT for the tag push so the tag event can trigger other workflows
+# (GITHUB_TOKEN tag pushes do not start further workflows).
+
+name: Auto-tag release if needed
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - 'custody-note-app-source/package.json'
+      - 'custody-note-app-source/changelog.json'
+  workflow_dispatch:
+
+concurrency:
+  group: auto-tag-${{ github.repository }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+
+      - name: Create and push release tag when missing
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          set -e
+          VERSION=$(node -p "require('./custody-note-app-source/package.json').version")
+          TAG="v${VERSION}"
+          git fetch --tags --quiet || true
+          if git ls-remote --tags origin "refs/tags/${TAG}" | grep -q .; then
+            echo "Tag ${TAG} already exists on origin — nothing to do."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "${TAG}" -m "Release ${TAG}"
+          if [ -n "${GH_PAT}" ]; then
+            git push "https://x-access-token:${GH_PAT}@github.com/${GITHUB_REPOSITORY}.git" "${TAG}"
+            echo "Pushed ${TAG} with GH_PAT — Release and deploy should start."
+          else
+            git push origin "${TAG}"
+            echo "Pushed ${TAG} with GITHUB_TOKEN — if Release and deploy does not start, run:"
+            echo "  node custody-note-app-source/scripts/trigger-release-deploy.mjs ${TAG}"
+          fi

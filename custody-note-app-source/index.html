@@ -1,0 +1,2276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!--
+    CSP. The Electron main process applies a HEADER-LEVEL CSP that overrides
+    this <meta> tag in the desktop build (windowHardening.js); this <meta>
+    is the local fallback when index.html is opened directly.
+  -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://custodynote.com https://www.custodynote.com; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none';">
+  <meta http-equiv="Referrer-Policy" content="no-referrer">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta name="theme-color" content="#0f172a">
+  <link rel="icon" href="icon-192.svg" type="image/svg+xml">
+  <title>Custody Note</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app">
+
+    <!-- Splash screen -->
+    <div id="splash" class="splash-overlay">
+      <div class="splash-header">
+        <svg class="splash-logo" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect class="splash-notepad" x="4" y="8" width="56" height="48" rx="6" stroke="#3b82f6" stroke-width="3" fill="none"/>
+          <line class="splash-line splash-line-1" x1="14" y1="22" x2="50" y2="22" stroke="#3b82f6" stroke-width="2" stroke-linecap="round"/>
+          <line class="splash-line splash-line-2" x1="14" y1="32" x2="42" y2="32" stroke="#60a5fa" stroke-width="2" stroke-linecap="round"/>
+          <line class="splash-line splash-line-3" x1="14" y1="42" x2="36" y2="42" stroke="#60a5fa" stroke-width="2" stroke-linecap="round"/>
+          <circle class="splash-tick-circle" cx="50" cy="46" r="10" fill="#2563eb"/>
+          <path class="splash-tick-check" d="M47 46l2.5 2.5L53 44" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        </svg>
+        <div class="splash-title">Custody Note</div>
+      </div>
+      <div class="splash-tagline">Fast, compliant police-station attendance notes</div>
+      <div class="splash-sub">Defence Legal Services Ltd t/a Police Station Agent</div>
+      <div class="splash-features">
+        <div class="splash-feature-card">
+          <span class="splash-feature-icon">&#9878;</span>
+          <strong>LAA-ready structure</strong>
+          <span>Guided sections, declarations and signatures</span>
+        </div>
+        <div class="splash-feature-card">
+          <span class="splash-feature-icon">&#9201;</span>
+          <strong>PACE clock &amp; time recording</strong>
+          <span>Automatic reviews, social/unsocial split</span>
+        </div>
+        <div class="splash-feature-card">
+          <span class="splash-feature-icon">&#128196;</span>
+          <strong>Professional PDFs</strong>
+          <span>Print, email, consistent formatting</span>
+        </div>
+        <div class="splash-feature-card">
+          <span class="splash-feature-icon">&#9889;</span>
+          <strong>Quick capture</strong>
+          <span>Start in seconds, fill details as you go</span>
+        </div>
+        <div class="splash-feature-card">
+          <span class="splash-feature-icon">&#128274;</span>
+          <strong>Encrypted backups</strong>
+          <span>Automatic AES-256 with recovery support</span>
+        </div>
+        <div class="splash-feature-card">
+          <span class="splash-feature-icon">&#128268;</span>
+          <strong>Offline-first</strong>
+          <span>Works without internet, syncs when available</span>
+        </div>
+      </div>
+      <div class="splash-loader"><span></span><span></span><span></span></div>
+      <div class="splash-advert">
+        <div style="display:flex;gap:0.75rem;justify-content:center;flex-wrap:wrap;">
+          <button type="button" id="splash-contact-outlook-btn" class="splash-advert-btn splash-advert-link">Contact Us</button>
+          <a href="https://www.custodynote.com" class="splash-advert-btn splash-advert-link" target="_blank" rel="noopener">www.custodynote.com</a>
+        </div>
+      </div>
+    </div>
+
+    <header class="app-header">
+      <div class="header-left">
+        <svg class="header-logo" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="4" y="8" width="56" height="48" rx="6" stroke="#3b82f6" stroke-width="3" fill="none"/>
+          <line x1="14" y1="22" x2="50" y2="22" stroke="#3b82f6" stroke-width="2" stroke-linecap="round"/>
+          <line x1="14" y1="32" x2="42" y2="32" stroke="#60a5fa" stroke-width="2" stroke-linecap="round"/>
+          <line x1="14" y1="42" x2="36" y2="42" stroke="#60a5fa" stroke-width="2" stroke-linecap="round"/>
+          <circle cx="50" cy="46" r="10" fill="#2563eb"/>
+          <path d="M47 46l2.5 2.5L53 44" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <h1 id="header-app-title">Custody Note</h1>
+        <span id="header-form-title" class="header-form-title"></span>
+      </div>
+      <div class="header-center">
+        <input type="search" id="global-search" class="global-search" placeholder="Search records..." autocomplete="off" aria-label="Search records">
+      </div>
+      <div class="header-right">
+        <span id="header-form-actions" class="header-form-actions">
+          <span id="header-autosave" class="autosave-indicator" title="Drafts save automatically to this computer while you edit. After finalise, autosave stops because the note is locked."></span>
+          <button type="button" id="billing-panel-btn" class="btn btn-small btn-accent btn-header-primary-action" title="Primary action for the current record (Finalise / Finish matter / Archive)" style="display:none;">Finalise</button>
+          <button type="button" class="btn btn-small btn-backup-now" id="header-backup-now-btn" title="Save &amp; backup now">&#128190; Backup</button>
+          <button type="button" class="btn-small" id="header-kb-help" title="Keyboard shortcuts">?</button>
+          <button type="button" class="btn btn-small" id="header-laa-forms" title="Generate LAA forms">LAA Forms</button>
+          <button type="button" class="btn btn-sections" id="header-sections-idx">Sections</button>
+        </span>
+        <div class="header-clock-group">
+          <div class="header-arrival" id="header-arrival-time" title="Time of arrival at station"></div>
+        </div>
+        <div class="gear-wrap">
+          <button type="button" id="gear-menu-btn" class="header-icon-btn" title="Menu">&#9776;</button>
+          <div id="gear-dropdown" class="gear-dropdown hidden">
+            <button type="button" class="gear-item gear-item-licence" data-action="enter-licence-key">Enter licence key</button>
+            <div class="gear-divider gear-divider-licence"></div>
+            <button type="button" class="gear-item" data-action="shortcut-backup-now">&#128190; Backup now</button>
+            <button type="button" class="gear-item" data-action="new-attendance">&#10133; New attendance</button>
+            <button type="button" class="gear-item" data-action="settings">&#9881; Settings</button>
+            <div class="gear-divider"></div>
+            <button type="button" class="gear-item gear-more-toggle" id="gear-more-toggle">&#8943; More&hellip;</button>
+            <div id="gear-more-section" class="gear-more-section" style="display:none;">
+              <p class="gear-nav-hint" style="margin:0.35rem 0.75rem 0.5rem;font-size:0.8rem;opacity:0.85;line-height:1.35;">Use the bottom bar for Home and Records.</p>
+              <div class="gear-section-label">Documents</div>
+              <button type="button" class="gear-item" data-action="laa-forms">&#128203; LAA Forms</button>
+              <button type="button" class="gear-item" data-action="authorities">&#128220; Authorities</button>
+              <button type="button" class="gear-item" data-action="templates">&#128196; Templates</button>
+              <div class="gear-section-label">Data</div>
+              <button type="button" class="gear-item" data-action="firms">&#127970; Firms</button>
+              <button type="button" class="gear-item" data-action="reports">&#128202; Reports</button>
+              <button type="button" class="gear-item" data-action="station-mileage">&#128663; Station Mileage</button>
+              <div class="gear-section-label">App</div>
+              <button type="button" class="gear-item" data-action="check-updates" id="gear-check-updates">&#8635; Check for updates</button>
+              <button type="button" class="gear-item" data-action="help">&#10067; Help</button>
+            </div>
+          </div>
+        </div>
+        <button type="button" id="dark-mode-toggle" class="header-icon-btn" title="Toggle dark mode">&#9790;</button>
+      </div>
+    </header>
+
+    <!-- App version + update status: shown on every screen, every page. Idle by default; switches to progress/warn/ready styling when the auto-updater reports activity. -->
+    <div id="global-app-update-banner" class="global-app-update-banner global-app-update-banner--idle" role="status" aria-live="polite" aria-atomic="true">
+      <div class="global-app-update-inner">
+        <span class="global-app-update-icon" id="global-app-update-icon" aria-hidden="true">&#9881;</span>
+        <p id="global-app-update-text" class="global-app-update-text">Custody Note &mdash; checking for updates&hellip;</p>
+        <div class="global-app-update-actions">
+          <button type="button" id="global-app-update-btn" class="btn btn-primary btn-small" style="display:none;">Restart &amp; update</button>
+        </div>
+      </div>
+    </div>
+
+    <main class="app-main">
+
+      <!-- HOME / COMMAND CENTER -->
+      <div id="view-home" class="view active">
+        <div class="home-container">
+          <!-- First thing users see when no licence - impossible to miss -->
+          <div id="home-enter-licence-card" class="home-enter-licence-card" style="display:none;">
+            <div style="display:flex;align-items:center;gap:1rem;padding:1.25rem 1.5rem;background:linear-gradient(135deg,#1e40af,#1e3a8a);border:2px solid #60a5fa;border-radius:12px;box-shadow:0 4px 12px rgba(30,64,175,0.4);">
+              <span style="font-size:2.5rem;line-height:1;">&#128274;</span>
+              <div style="flex:1;">
+                <p style="margin:0;font-weight:800;font-size:1.25rem;color:#fff;">Enter your licence key</p>
+                <p style="margin:0.35rem 0 0 0;font-size:0.95rem;color:#bfdbfe;">Paste the key from your email. Get a free trial or buy at <strong>custodynote.com</strong></p>
+              </div>
+              <button type="button" id="home-enter-licence-btn" class="btn btn-primary" style="background:#fff;color:#1e40af;font-weight:700;font-size:1rem;padding:0.6rem 1.2rem;">Enter key &rarr;</button>
+            </div>
+          </div>
+          <div class="home-top">
+            <div id="home-greeting" class="home-greeting">Good evening.</div>
+            <div class="home-greeting-accent"></div>
+            <div id="home-datetime" class="home-datetime"></div>
+          </div>
+          <div class="home-primary-actions">
+            <button type="button" id="home-card-attendance" class="home-primary-card home-primary-custody">
+              <span class="home-primary-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg></span>
+              <span class="home-primary-title">Custody Attendance</span>
+              <span class="home-primary-sub">Client is in custody at the police station</span>
+            </button>
+            <button type="button" id="home-card-voluntary" class="home-primary-card home-primary-voluntary">
+              <span class="home-primary-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/><path d="M9 11h6"/></svg></span>
+              <span class="home-primary-title">Voluntary Attendance</span>
+              <span class="home-primary-sub">Client attending voluntarily &mdash; not under arrest</span>
+            </button>
+          </div>
+          <div class="home-actions">
+            <button type="button" id="home-card-telephone" class="home-action-card home-card-teal">
+              <span class="home-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6A19.79 19.79 0 012.12 4.18 2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.362 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg></span>
+              <span class="home-card-title">New Tel Advice</span>
+              <span class="home-card-sub">Record a telephone advice session (INVB)</span>
+            </button>
+            <button type="button" id="home-card-quick" class="home-action-card home-card-amber">
+              <span class="home-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span>
+              <span class="home-card-title">Quick Capture</span>
+              <span class="home-card-sub">Quickly capture initial case details</span>
+            </button>
+            <button type="button" id="home-card-officer-emails" class="home-action-card home-card-green">
+              <span class="home-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/><path d="M7 19v-2a3 3 0 013-3h4a3 3 0 013 3v2"/></svg></span>
+              <span class="home-card-title">Officer Emails</span>
+              <span class="home-card-sub">Prepare one-off emails for officers</span>
+            </button>
+            <button type="button" id="home-card-video-capture" class="home-action-card home-card-blue">
+              <span class="home-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg></span>
+              <span class="home-card-title">Video Capture</span>
+              <span class="home-card-sub">Record Code E/F compliance, media refs and continuity</span>
+            </button>
+            <button type="button" id="home-card-video-id" class="home-action-card home-card-blue">
+              <span class="home-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg></span>
+              <span class="home-card-title">Video Identification Parade</span>
+              <span class="home-card-sub">Record VIPER / Code D details, objections and result</span>
+            </button>
+          </div>
+
+          <!-- Update Available Banner (shows when an update is downloading or ready) -->
+          <div id="home-update-banner" class="home-cloud-backup-banner" style="display:none;">
+            <div style="display:flex;align-items:flex-start;gap:0.75rem;background:linear-gradient(135deg,#d1fae5,#ecfdf5);border:1px solid #10b981;border-radius:10px;padding:0.85rem 1rem;">
+              <span style="font-size:1.3rem;line-height:1;">&#128260;</span>
+              <div style="flex:1;">
+                <p style="margin:0;font-weight:600;font-size:0.9rem;color:#065f46;">Update available</p>
+                <p id="home-update-banner-text" style="margin:0.25rem 0 0 0;font-size:0.8rem;color:#064e3b;"></p>
+                <button type="button" id="home-update-restart-btn" class="btn btn-primary" style="margin-top:0.5rem;display:none;">Restart to install</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Cloud Backup Status Banner (shows when cloud backup status couldn't be verified) -->
+          <div id="home-cloud-backup-warning" class="home-cloud-backup-banner" style="display:none;">
+            <div style="display:flex;align-items:flex-start;gap:0.75rem;background:linear-gradient(135deg,#fef3c7,#fffbeb);border:1px solid #f59e0b;border-radius:10px;padding:0.85rem 1rem;">
+              <span style="font-size:1.3rem;line-height:1;">&#9888;</span>
+              <div style="flex:1;">
+                <p style="margin:0;font-weight:600;font-size:0.9rem;color:#92400e;">Cloud backup not active</p>
+                <p id="home-cloud-backup-reason" style="margin:0.25rem 0 0 0;font-size:0.8rem;color:#78350f;">Cloud backup is included with paid subscriptions — your data is currently backed up locally only. <button type="button" id="home-cloud-backup-cta" style="background:none;border:none;padding:0;color:#1e40af;cursor:pointer;font-size:0.8rem;text-decoration:underline;font-weight:600;">Go to Settings &rarr;</button></p>
+              </div>
+              <button type="button" id="home-cloud-backup-dismiss" style="background:none;border:none;cursor:pointer;font-size:1.1rem;color:#92400e;padding:0;line-height:1;" title="Dismiss">&times;</button>
+            </div>
+          </div>
+
+          <div id="home-active-section" class="home-priority-lane">
+            <div class="home-card-widget home-card-widget-priority home-card-full home-card-widget-first">
+              <div class="home-widget-header">
+                <div>
+                  <h3 class="home-widget-title">Active Matters</h3>
+                  <span class="home-widget-note">Resume live work immediately</span>
+                </div>
+                <div class="home-widget-actions">
+                  <button type="button" id="home-check-update-btn" class="btn btn-secondary btn-small">Check updates</button>
+                </div>
+              </div>
+              <div id="home-active-matters" class="home-active-matters">
+                <div class="home-active-empty">Checking active drafts and recent matters…</div>
+              </div>
+            </div>
+          </div>
+
+          <div id="home-dashboard-grid" class="home-grid">
+            <div class="home-card-widget home-card-full home-card-widget-muted" id="home-focus-card">
+              <div class="home-widget-header">
+                <h3 class="home-widget-title">Continue Working</h3>
+                <span class="home-widget-note">Pick up where you left off fastest</span>
+              </div>
+              <div class="home-focus-panel">
+                <div class="home-focus-copy">
+                  <div id="home-focus-title" class="home-focus-title">Loading latest draft…</div>
+                  <div id="home-focus-meta" class="home-focus-meta">Checking your most recent record.</div>
+                  <div id="home-focus-badges" class="home-focus-badges"></div>
+                  <p id="home-focus-helper" class="home-focus-helper">We will highlight the most recent draft and any missing items here.</p>
+                </div>
+                <button type="button" id="home-focus-open" class="btn btn-primary home-focus-btn">Open draft</button>
+              </div>
+            </div>
+
+            <div class="home-card-widget home-card-widget-spotlight">
+              <div class="home-widget-header">
+                <h3 class="home-widget-title">Recent Cases</h3>
+                <button type="button" id="home-view-all" class="home-view-all">View all &rarr;</button>
+              </div>
+              <ul id="home-recent-list" class="home-recent-list">
+                <li class="home-recent-empty">No records yet. Create your first attendance above.</li>
+              </ul>
+              <div id="home-stats" class="home-stats"></div>
+            </div>
+
+            <div class="home-card-widget home-card-widget-metric">
+              <div class="home-widget-header">
+                <h3 class="home-widget-title">This Week</h3>
+                <span class="home-widget-note">Live totals</span>
+              </div>
+              <div class="home-summary-grid">
+                <div class="home-summary-tile">
+                  <span class="home-summary-label">Cases</span>
+                  <strong id="hw-cases" class="home-summary-value">0</strong>
+                </div>
+                <div class="home-summary-tile">
+                  <span class="home-summary-label">Hours</span>
+                  <strong id="hw-hours" class="home-summary-value">0</strong>
+                </div>
+                <div class="home-summary-tile">
+                  <span class="home-summary-label">Drafts</span>
+                  <strong id="hw-drafts" class="home-summary-value">0</strong>
+                </div>
+                <div class="home-summary-tile">
+                  <span class="home-summary-label">Finalised</span>
+                  <strong id="hw-finalised" class="home-summary-value">0</strong>
+                </div>
+              </div>
+            </div>
+
+            <div class="home-card-widget home-card-widget-attention">
+              <div class="home-widget-header">
+                <h3 class="home-widget-title">Needs Attention</h3>
+                <span class="home-widget-note">Actionable items only</span>
+              </div>
+              <ul id="home-needs-attention" class="home-attention-list">
+                <li class="home-attention-empty">Checking recent drafts…</li>
+              </ul>
+            </div>
+          </div>
+
+          <div id="home-shortcuts-section">
+            <!-- Shortcuts -->
+            <h2 class="home-section-title">Shortcuts</h2>
+            <div class="home-shortcuts">
+              <h3 class="home-shortcuts-subhead">Tools &amp; options</h3>
+              <div class="home-tools">
+                <button type="button" class="home-tool-btn" data-action="records" title="View and search all records">Records</button>
+                <button type="button" class="home-tool-btn" data-action="firms" title="Firms you work for">Firms</button>
+                <button type="button" class="home-tool-btn" data-action="reports" title="Attendance and fee reports">Reports</button>
+                <button type="button" class="home-tool-btn" data-action="authorities" title="Authority forms for criminal defence">Authorities</button>
+                <button type="button" class="home-tool-btn" data-action="station-mileage" title="Station mileage records">Station Mileage</button>
+                <button type="button" class="home-tool-btn" data-action="shortcut-backup-now" title="Create a backup now">Backup now</button>
+                <button type="button" class="home-tool-btn" data-action="settings" title="App settings and backup">Settings</button>
+                <button type="button" class="home-tool-btn" data-action="help" title="How to use Custody Note">Help</button>
+              </div>
+            </div>
+          </div>
+
+          <div id="home-laa-section">
+            <!-- LAA Forms -->
+            <h2 class="home-section-title">LAA Forms</h2>
+            <div class="home-standalone-options home-standalone-options-detailed" style="margin-bottom:1.5rem;">
+              <button type="button" class="home-standalone-card" data-laa-form="crm1" title="CRM1 &mdash; Client Details">
+                <span class="home-standalone-card-icon" aria-hidden="true">&#128203;</span>
+                <span class="home-standalone-card-text">
+                  <span class="home-standalone-card-label">CRM1 &mdash; Client Details</span>
+                  <span class="home-standalone-card-desc">Client&rsquo;s personal details, capital, income. Auto-filled from your record.</span>
+                </span>
+              </button>
+              <button type="button" class="home-standalone-card" data-laa-form="crm2" title="CRM2 &mdash; Advice &amp; Assistance">
+                <span class="home-standalone-card-icon" aria-hidden="true">&#128221;</span>
+                <span class="home-standalone-card-text">
+                  <span class="home-standalone-card-label">CRM2 &mdash; Advice &amp; Assistance</span>
+                  <span class="home-standalone-card-desc">Application for A&amp;A at the police station. Auto-filled from your record.</span>
+                </span>
+              </button>
+              <button type="button" class="home-standalone-card" data-laa-form="crm3" title="CRM3 &mdash; Advocacy Assistance">
+                <span class="home-standalone-card-icon" aria-hidden="true">&#9878;</span>
+                <span class="home-standalone-card-text">
+                  <span class="home-standalone-card-label">CRM3 &mdash; Advocacy Assistance</span>
+                  <span class="home-standalone-card-desc">Application for Advocacy Assistance (bail, WFD). Auto-filled from your record.</span>
+                </span>
+              </button>
+              <button type="button" class="home-standalone-card" data-laa-form="declaration" title="Applicant Declaration">
+                <span class="home-standalone-card-icon" aria-hidden="true">&#128196;</span>
+                <span class="home-standalone-card-text">
+                  <span class="home-standalone-card-label">Applicant Declaration</span>
+                  <span class="home-standalone-card-desc">Criminal legal aid applicant&rsquo;s declaration for online submissions. Auto-filled from your record.</span>
+                </span>
+              </button>
+            </div>
+          </div>
+
+          <div id="home-status-section" class="home-status-strip">
+            <span id="home-net-status" class="home-status-item">Checking connection&hellip;</span>
+            <span class="home-status-sep">&middot;</span>
+            <span id="home-backup-status" class="home-status-item">Auto backup: checking&hellip;</span>
+            <span id="home-sync-now-wrap" style="display:none;"><span class="home-status-sep">&middot;</span><button type="button" id="home-sync-now-btn" style="background:none;border:1px solid #2563eb;color:#2563eb;padding:0.15rem 0.6rem;border-radius:5px;font-size:0.78rem;cursor:pointer;font-weight:600;transition:background 0.15s,color 0.15s;" title="Sync records now">&#9729; Sync now</button></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- LIST VIEW -->
+      <div id="view-list" class="view">
+        <div class="list-top-bar">
+          <button type="button" id="list-back-home" class="btn btn-secondary">&larr; Home</button>
+          <span class="list-top-title">All Records</span>
+        </div>
+        <div class="list-toolbar">
+          <input type="search" id="list-search" placeholder="Search by name, UFN, station, custody number, date..." class="search-input" aria-label="Search attendance records">
+          <button type="button" id="backup-now-btn" class="btn btn-secondary btn-small" title="Create a backup now">Backup now</button>
+        </div>
+        <div class="list-filters">
+          <div class="filter-group">
+            <button type="button" class="filter-btn active" data-filter="all">All</button>
+            <button type="button" class="filter-btn" data-filter="draft">Drafts</button>
+            <button type="button" class="filter-btn" data-filter="finalised">Finalised</button>
+            <button type="button" class="filter-btn" data-filter="archived">Archived</button>
+            <button type="button" class="filter-btn" data-filter="deleted">Deleted</button>
+          </div>
+          <select id="list-mode-filter" class="list-sort-select" title="Filter by attendance type">
+            <option value="all">All types</option>
+            <option value="custody">Custody</option>
+            <option value="voluntary">Voluntary</option>
+            <option value="telephone">Telephone</option>
+          </select>
+          <select id="list-sort" class="list-sort-select">
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="name">Client name A-Z</option>
+            <option value="station">Station</option>
+            <option value="date">Date (newest)</option>
+            <option value="date-asc">Date (oldest)</option>
+          </select>
+          <button type="button" id="list-density-toggle" class="btn-small" title="Toggle compact view">Compact</button>
+        </div>
+        <ul id="attendance-list" class="attendance-list"></ul>
+        <div id="list-pagination" class="firms-pagination">
+          <button type="button" id="list-page-prev" class="btn btn-secondary btn-small">Back</button>
+          <span id="list-page-info" class="firms-page-info"></span>
+          <button type="button" id="list-page-next" class="btn btn-secondary btn-small">Forward</button>
+        </div>
+      </div>
+
+      <!-- QUICK CAPTURE VIEW -->
+      <div id="view-quickcapture" class="view">
+        <div class="form-page-header">
+          <span class="form-page-title">Quick Capture</span>
+          <button type="button" id="qc-cancel" class="btn btn-secondary">Cancel</button>
+        </div>
+        <div class="qc-form">
+          <div class="form-row-2col">
+            <div class="form-group" style="grid-column:1/-1;">
+              <label>Attendance Type</label>
+              <select id="qc-attendance-mode" title="Custody = client under arrest; Voluntary = client attending voluntarily">
+                <option value="custody">Custody</option>
+                <option value="voluntary">Voluntary</option>
+              </select>
+            </div>
+            <div class="form-group" style="grid-column:1/-1;">
+              <label>Client Name</label>
+              <div class="name-row">
+                <div class="name-row-field"><label class="name-row-sublabel">First name</label><input type="text" id="qc-forename" placeholder="First name"></div>
+                <div class="name-row-field"><label class="name-row-sublabel">Surname</label><input type="text" id="qc-surname" placeholder="Surname"></div>
+              </div>
+            </div>
+            <div class="form-group" style="grid-column:1/-1;" id="qc-station-wrap">
+              <label>Police Station</label>
+              <div class="station-search-wrap" id="qc-station-search-wrap"></div>
+            </div>
+            <div class="form-group" style="grid-column:1/-1;"><label>Offence (summary)</label><input type="text" id="qc-offence" placeholder="e.g. Theft, Assault occasioning ABH, Possession with intent to supply"></div>
+            <div class="form-group" id="qc-dscc-block" style="grid-column:1/-1;">
+              <label>DSCC Number</label>
+              <div class="form-dscc-input-row" id="qc-dscc-field-wrap">
+                <input type="text" id="qc-dscc" class="form-input" placeholder="e.g. 110154321A" autocomplete="off">
+                <label class="form-dscc-private-matter" for="qc-dscc-private"><input type="checkbox" id="qc-dscc-private"> Private (no DSCC)</label>
+              </div>
+            </div>
+            <div class="form-group"><label>Instruction received</label><input type="datetime-local" id="qc-instruction"></div>
+            <div class="form-group"><label>Time of first contact with client</label><div class="time-input-wrap"><input type="time" id="qc-first-contact" title="LAA 9.25 – when you first spoke to/saw client"><button type="button" class="btn-now" id="qc-first-contact-now">Now</button></div></div>
+            <div class="form-group" style="grid-column:1/-1;">
+              <label>Instructing Firm</label>
+              <div id="qc-firm-wrap" class="form-firm-wrap">
+                <input type="hidden" id="qc-firm" value="">
+                <div class="form-firm-choice-row" id="qc-firm-choice-row">
+                  <button type="button" class="btn btn-secondary btn-small form-firm-choice-btn" id="qc-firm-select-btn">Select instructing firm</button>
+                  <button type="button" class="btn btn-primary btn-small form-firm-choice-btn" id="qc-firm-add-btn">Add new firm</button>
+                </div>
+                <div class="form-firm-selected" id="qc-firm-selected" style="display:none;"></div>
+                <div class="add-firm-inline-wrap form-firm-add-section" id="qc-firm-add-section" style="display:none;">
+                  <div class="add-firm-inline">
+                    <input type="text" id="qc-new-firm-name" class="form-input" placeholder="Firm name *">
+                    <input type="text" id="qc-new-firm-contact" class="form-input" placeholder="Contact name">
+                    <input type="tel" id="qc-new-firm-phone" class="form-input" placeholder="Contact phone">
+                    <input type="email" id="qc-new-firm-email" class="form-input" placeholder="Contact email">
+                  </div>
+                  <div class="add-firm-inline">
+                    <button type="button" class="btn btn-primary" id="qc-add-firm-btn">Add Firm</button>
+                    <button type="button" class="btn btn-secondary btn-small" id="qc-add-firm-cancel">Cancel</button>
+                  </div>
+                </div>
+                <div class="form-firm-use-existing-section" id="qc-firm-use-section" style="display:none;">
+                  <input type="text" id="qc-firm-search" class="form-input search-input" placeholder="Search by firm name or contact..." autocomplete="off">
+                  <div id="qc-firm-results" class="form-firm-search-results" role="listbox"></div>
+                </div>
+              </div>
+            </div>
+            <div class="form-group" style="grid-column:1/-1;"><label>General Notes</label><textarea id="qc-notes" rows="3" placeholder="General notes about the case or attendance"></textarea></div>
+          </div>
+          <details class="qc-more-fields">
+            <summary>More fields (referral, OIC, times, custody #) &mdash; optional at this stage</summary>
+            <div class="form-row-2col" style="margin-top:0.75rem;">
+              <div class="form-group"><label>Name of person who instructed</label><input type="text" id="qc-referral-name" placeholder="e.g. Richard Chamberlain"></div>
+              <div class="form-group"><label>Contact number</label><input type="tel" id="qc-referral-phone" placeholder="e.g. 07700 900123"></div>
+              <div class="form-group"><label>Contact email</label><input type="email" id="qc-referral-email" placeholder="e.g. name@firm.co.uk"></div>
+              <div class="form-group"><label>Source of Referral</label>
+                <select id="qc-source"><option value="">--</option><option>Duty Rota</option><option>Duty panel</option><option>Own Legal Aid</option><option>Own private</option><option>Agency</option></select>
+              </div>
+              <div class="form-group"><label>Work Type</label>
+                <select id="qc-work-type"><option value="">--</option><option>First Police Station Attendance</option><option>Police Station Telephone Attendance</option><option>Further Police Station Attendance</option><option>Other</option></select>
+              </div>
+              <div class="form-group"><label>OIC Rank &amp; Name</label><input type="text" id="qc-oic-name" placeholder="e.g. DC Smith"></div>
+              <div class="form-group"><label>OIC Telephone</label><input type="tel" id="qc-oic-phone" placeholder="e.g. 07700 900123"></div>
+              <div class="form-group"><label>OIC Email address</label><input type="email" id="qc-oic-email" placeholder="e.g. officer@police.uk"></div>
+              <div class="form-group"><label>Custody Number</label><input type="text" id="qc-custody-number" placeholder="e.g. CU/12345"></div>
+              <div class="form-group"><label>Client Status</label>
+                <select id="qc-client-status"><option value="">--</option><option>Under Arrest</option><option>Voluntary Attendance</option><option>Other</option></select>
+              </div>
+              <div class="form-group"><label>Weekend / Bank Holiday?</label>
+                <select id="qc-weekend-bh"><option value="">--</option><option>Yes</option><option>No</option></select>
+              </div>
+              <div class="form-group"><label>Time set off</label><div class="time-input-wrap"><input type="time" id="qc-setoff"><button type="button" class="btn-now" id="qc-setoff-now">Now</button></div></div>
+              <div class="form-group"><label>Time arrived (you)</label><div class="time-input-wrap"><input type="time" id="qc-arrived" title="Time YOU arrived at the police station"><button type="button" class="btn-now" id="qc-arrived-now">Now</button></div></div>
+              <div class="form-group"><label>Client arrived at station</label><div class="time-input-wrap"><input type="time" id="qc-client-arrived" title="Time the client arrived / was brought to the station (from custody record)"><button type="button" class="btn-now" id="qc-client-arrived-now">Now</button></div></div>
+            </div>
+          </details>
+          <div style="display:flex;gap:0.75rem;margin-top:1.25rem;">
+            <button type="button" id="qc-save" class="btn btn-primary" style="flex:1;padding:0.85rem;">Save as Draft</button>
+            <button type="button" id="qc-expand" class="btn btn-accent" style="flex:1;padding:0.85rem;">Expand to Full Form</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- FIRMS VIEW -->
+      <div id="view-firms" class="view">
+        <div class="firms-page-header">
+          <button type="button" id="firms-back-btn" class="btn btn-secondary">&larr; Home</button>
+        </div>
+        <div class="settings-card">
+          <h2>Firms You Work For</h2>
+          <p class="settings-hint">Add firms that instruct you. Star one as default.</p>
+          <div class="firms-choice-row">
+            <button type="button" id="firms-action-add" class="btn btn-primary firms-choice-btn">Add a new firm</button>
+            <button type="button" id="firms-action-use-existing" class="btn btn-secondary firms-choice-btn">Use existing firm</button>
+          </div>
+          <div style="margin-top:0.9rem;padding:0.9rem 1rem;border:1px solid rgba(15,23,42,0.08);border-radius:14px;background:#f8fafc;" id="qf-firms-block">
+            <div id="qf-firms-locked" class="addon-locked-message" style="display:none;">
+              <p>QuickFile add-on requires a licence. Buy it on the website to import firms from QuickFile.</p>
+              <a href="https://custodynote.com" target="_blank" rel="noopener noreferrer" class="addon-buy-link">Buy QuickFile add-on</a>
+            </div>
+            <div id="qf-firms-content">
+              <div style="display:flex;flex-wrap:wrap;gap:0.6rem;align-items:center;">
+                <button type="button" id="btn-open-qf-settings" class="btn btn-secondary">Open QuickFile settings</button>
+                <button type="button" id="btn-test-qf-connection" class="btn btn-secondary">Test QuickFile connection</button>
+                <button type="button" id="btn-import-qf-clients" class="btn btn-secondary">Import firms from QuickFile</button>
+                <button type="button" id="btn-resync-qf-clients" class="btn btn-secondary">Re-sync existing firms</button>
+              </div>
+              <p class="settings-hint" style="margin-top:0.55rem;">QuickFile pulls in firm name, contact, phone and email. Imported details stay editable in the app. Set it up once in Settings, then import from here whenever needed.</p>
+              <p id="qf-import-status" class="settings-hint" style="margin-top:0.35rem;"></p>
+              <p id="qf-last-import" class="settings-hint" style="margin-top:0.35rem;">QuickFile has not been imported yet.</p>
+            </div>
+          </div>
+          <div id="firms-add-section" class="firms-section-hidden">
+            <h3 style="margin-top:1.25rem;margin-bottom:0.5rem;font-size:0.95rem;">Add a Firm</h3>
+            <div class="add-firm-row">
+              <input type="text" id="new-firm-name" placeholder="Firm name">
+              <input type="text" id="new-firm-contact" placeholder="Contact name">
+              <input type="tel" id="new-firm-phone" placeholder="Contact phone">
+              <input type="email" id="new-firm-email" placeholder="Contact email">
+              <button type="button" id="add-firm-btn" class="btn btn-primary">Add Firm</button>
+            </div>
+          </div>
+          <div id="firms-use-existing-section" class="firms-section-hidden">
+            <label for="firms-search-input" class="sr-only">Search firms</label>
+            <input type="text" id="firms-search-input" class="search-input firms-search-input" placeholder="Search by firm name or contact…" autocomplete="off" aria-label="Search firms">
+            <div id="firms-search-results" class="firms-search-results" role="listbox" aria-label="Matching firms"></div>
+          </div>
+          <div id="firms-table-wrap" class="firms-table-wrap">
+            <table class="firms-table" id="firms-table">
+              <thead>
+                <tr>
+                  <th>Firm name</th>
+                  <th>Contact name</th>
+                  <th>Email</th>
+                  <th>Tel no</th>
+                  <th class="firms-actions-col"></th>
+                </tr>
+              </thead>
+              <tbody id="firms-list-container"></tbody>
+            </table>
+          </div>
+          <div id="firms-pagination" class="firms-pagination">
+            <button type="button" id="firms-page-prev" class="btn btn-secondary btn-small">Back</button>
+            <span id="firms-page-info" class="firms-page-info"></span>
+            <button type="button" id="firms-page-next" class="btn btn-secondary btn-small">Forward</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- FORM VIEW -->
+      <div id="view-form" class="view">
+        <div class="form-page-header">
+          <span class="form-page-title" id="form-page-title">1. Case Reference & Arrival</span>
+          <div class="header-right-group">
+            <span id="autosave-indicator" class="autosave-indicator"></span>
+            <button type="button" id="form-duplicate-btn" class="btn btn-small" title="Duplicate for another client in the same session" style="display:none;">Duplicate</button>
+            <button type="button" id="form-header-history-btn" class="btn btn-small" title="View change history for this record">&#128203; History</button>
+            <button type="button" id="form-backup-now-btn" class="btn btn-small btn-backup-now" title="Save &amp; backup now">&#128190; Backup</button>
+            <button type="button" id="kb-help-btn" class="btn-small" title="Keyboard shortcuts">?</button>
+            <button type="button" id="laa-forms-btn" class="btn btn-small" title="Generate LAA forms from this record">LAA Forms</button>
+            <button type="button" id="form-context-panel-toggle" class="btn btn-small" title="Show or hide matter summary panel" aria-expanded="false" aria-controls="form-context-panel">Summary</button>
+            <button type="button" id="sections-index-btn" class="btn btn-sections">Sections</button>
+          </div>
+        </div>
+        <div id="standalone-back-bar" class="standalone-back-bar hidden">
+          <button type="button" id="standalone-back-btn" class="btn btn-secondary">&#8592; Back to form</button>
+        </div>
+        <div id="section-index-bar" class="section-index-bar" aria-label="Jump to section"></div>
+
+        <!-- Keyboard shortcuts modal -->
+        <div id="kb-help-modal" class="sections-index hidden">
+          <div class="sections-index-content" style="max-width:420px;">
+            <h3>Keyboard Shortcuts</h3>
+            <table class="kb-table">
+              <tr><td><kbd>Ctrl</kbd>+<kbd>N</kbd></td><td>New attendance (Quick Capture)</td></tr>
+              <tr><td><kbd>Ctrl</kbd>+<kbd>Enter</kbd></td><td>Finalise current record</td></tr>
+              <tr><td><kbd>Ctrl</kbd>+<kbd>F</kbd></td><td>Focus search (in list)</td></tr>
+              <tr><td><kbd>/</kbd></td><td>Quick search (in list)</td></tr>
+              <tr><td><kbd>↑</kbd> / <kbd>↓</kbd></td><td>Navigate list items</td></tr>
+              <tr><td><kbd>Enter</kbd></td><td>Open selected record (in list)</td></tr>
+              <tr><td><kbd>Ctrl</kbd>+<kbd>→</kbd></td><td>Next section</td></tr>
+              <tr><td><kbd>Ctrl</kbd>+<kbd>←</kbd></td><td>Previous section</td></tr>
+              <tr><td><kbd>Ctrl</kbd>+<kbd>S</kbd></td><td>Save &amp; exit</td></tr>
+              <tr><td><kbd>Esc</kbd></td><td>Clear search / close popup</td></tr>
+            </table>
+            <button type="button" id="kb-help-close" class="btn btn-secondary" style="margin-top:0.75rem;width:100%;">Close</button>
+          </div>
+        </div>
+
+        <!-- Context bar: always-visible case summary -->
+        <div id="form-context-bar" class="form-context-bar"></div>
+
+        <!-- Sections index popup -->
+        <div id="sections-index" class="sections-index hidden">
+          <div class="sections-index-content">
+            <h3>Sections</h3>
+            <ul id="sections-index-list"></ul>
+            <button type="button" id="sections-index-close" class="btn btn-secondary" style="margin-top:0.75rem;width:100%;">Close</button>
+          </div>
+        </div>
+
+        <!-- Validation modal -->
+        <div id="validation-modal" class="validation-modal hidden">
+          <div class="validation-modal-content">
+            <h3>Missing Fields</h3>
+            <p class="settings-hint">These fields should be completed before finalising:</p>
+            <ul id="validation-list"></ul>
+            <div style="display:flex;gap:0.5rem;margin-top:1rem;">
+              <button type="button" id="validation-finalise-anyway" class="btn btn-finalise">Finalise anyway</button>
+              <button type="button" id="validation-close" class="btn btn-secondary" style="flex:1;">Go back and fix</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="form-context-panel-backdrop" class="form-context-panel-backdrop" hidden></div>
+        <div class="form-layout-wrap">
+          <div id="form-section-sidebar" class="form-section-sidebar"></div>
+          <div class="panel-resizer" data-target="sidebar"></div>
+          <form id="attendance-form" class="attendance-form"></form>
+          <div class="panel-resizer" data-target="context-panel"></div>
+          <aside id="form-context-panel" class="form-context-panel">
+            <div class="form-panel-card">
+              <div class="form-panel-card-label">Matter Summary</div>
+              <div id="form-panel-matter" class="form-panel-stack">
+                <div class="form-panel-empty">Open a matter to see the key facts here.</div>
+              </div>
+            </div>
+            <div class="form-panel-card form-panel-card--section-status">
+              <div class="form-panel-card-label">Section Status</div>
+              <div id="form-panel-section-status" class="form-panel-stack">
+                <div class="form-panel-empty">Section progress will appear here.</div>
+              </div>
+            </div>
+            <div class="form-panel-card">
+              <div class="form-panel-card-label">Live Reference</div>
+              <div id="form-panel-reference" class="form-panel-reference">
+                <div class="form-panel-reference-item">
+                  <span class="form-panel-reference-label">Elapsed since arrival</span>
+                  <strong id="form-panel-elapsed">—</strong>
+                </div>
+                <div class="form-panel-reference-item">
+                  <span class="form-panel-reference-label">This matter</span>
+                  <div id="form-panel-billing" class="form-panel-billing-lines">Draft in progress</div>
+                </div>
+                <div class="form-panel-reference-item">
+                  <span class="form-panel-reference-label">Quick reminder</span>
+                  <span id="form-panel-reminder" class="form-panel-reminder">Complete the current section before moving on where possible.</span>
+                </div>
+                <div class="form-panel-reference-item">
+                  <span class="form-panel-reference-label">Save status</span>
+                  <strong id="form-last-saved" class="form-last-saved">Not yet saved</strong>
+                </div>
+              </div>
+            </div>
+            <div id="officer-emails-panel-host" class="form-panel-card officer-email-panel-host"></div>
+          </aside>
+        </div>
+
+        <div class="form-bottom-bar">
+          <button type="button" id="form-prev" class="bottom-btn prev-btn" title="Previous section (Ctrl+&#8592;)">&#9664; Prev</button>
+          <div id="section-progress-bar" class="section-progress-bar" style="display:none;"></div>
+          <button type="button" id="form-sections-btn" class="bottom-btn sections-btn" title="Jump to section"><span id="form-section-indicator">Section 1/9</span></button>
+          <button type="button" id="form-save-exit" class="bottom-btn save-btn" title="Save and exit (Ctrl+S)" style="display:none;">Save</button>
+          <button type="button" id="bottom-bar-finish-pill" class="bottom-btn finish-pill" style="display:none;" title="Finalise or finish this matter" aria-hidden="true"></button>
+          <button type="button" id="form-next" class="bottom-btn next-btn" title="Next section (Ctrl+&#8594;)">Next &#9654;</button>
+        </div>
+      </div>
+
+      <!-- REPORTS VIEW -->
+      <div id="view-reports" class="view">
+        <div class="firms-page-header">
+          <button type="button" id="reports-back-btn" class="btn btn-secondary">&larr; Home</button>
+          <h2 style="margin:0;color:var(--primary);">Reports</h2>
+        </div>
+        <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1rem;flex-wrap:wrap;">
+          <label style="font-size:0.9rem;font-weight:500;">Export range:</label>
+          <input type="date" id="report-export-from" class="settings-input settings-input--date">
+          <span style="font-size:0.9rem;">to</span>
+          <input type="date" id="report-export-to" class="settings-input settings-input--date">
+          <button type="button" id="btn-export-csv" class="btn btn-secondary">Export CSV</button>
+          <span id="report-export-status" style="font-size:0.85rem;color:#64748b;"></span>
+        </div>
+        <div class="reports-grid">
+          <div class="settings-card">
+            <h2>This Month</h2>
+            <div class="report-stat" id="report-month-total">0 attendances</div>
+          </div>
+          <div class="settings-card">
+            <h2>This Year</h2>
+            <div class="report-stat" id="report-year-total">0 attendances</div>
+          </div>
+          <div class="settings-card">
+            <h2>Escape Fee Cases</h2>
+            <div class="report-stat" id="report-escape-count">0</div>
+          </div>
+          <div class="settings-card" style="grid-column:1/-1;">
+            <h2>By Attendance Type</h2>
+            <div id="report-by-type" class="report-breakdown"></div>
+          </div>
+          <div class="settings-card" style="grid-column:1/-1;">
+            <h2>By Firm</h2>
+            <div id="report-by-firm" class="report-breakdown"></div>
+          </div>
+          <div class="settings-card" style="grid-column:1/-1;">
+            <h2>By Station</h2>
+            <div id="report-by-station" class="report-breakdown"></div>
+          </div>
+        </div>
+
+        <!--
+          Billable Attendances sub-report removed in v1.4.217. Its data and
+          filters fully duplicated the standalone "Open matters" view, which
+          itself was removed in v1.5.23 (per-matter billing now lives on the
+          Billing button → #view-matter-billing for the current record).
+          The billableAttendances IPC handler is retained as a fallback and is
+          covered by SQL contract tests.
+        -->
+      </div>
+
+      <!-- STATION MILEAGE ADMIN VIEW -->
+      <div id="view-station-mileage" class="view">
+        <div class="firms-page-header">
+          <button type="button" id="station-mileage-back-btn" class="btn btn-secondary">&larr; Home</button>
+          <h2 style="margin:0;color:var(--primary);">Station Mileage</h2>
+        </div>
+        <p class="settings-hint" style="margin-bottom:1rem;">Set the mileage from your base to each police station. This auto-fills billing mileage on custody records.</p>
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:1rem;">
+          <input type="text" id="mileage-search" class="form-input" placeholder="Search stations..." style="max-width:300px;">
+          <button type="button" id="mileage-save-all" class="btn btn-primary">Save All Changes</button>
+        </div>
+        <div id="station-mileage-table-wrap" style="overflow-x:auto;"></div>
+      </div>
+
+      <!-- MATTER BILLING VIEW (per-record finish-this-matter, full screen) -->
+      <div id="view-matter-billing" class="view">
+        <div class="firms-page-header">
+          <button type="button" id="matter-billing-back-btn" class="btn btn-secondary">&larr; Back</button>
+          <h2 style="margin:0;color:var(--primary);">Finish matter</h2>
+        </div>
+        <div class="matter-billing-header-card" id="matter-billing-header-card">
+          <div class="matter-billing-header-summary">
+            <h3 class="matter-billing-client" id="matter-billing-client">&mdash;</h3>
+            <div class="matter-billing-meta">
+              <span class="matter-billing-meta-item"><span class="matter-billing-meta-label">Firm</span><span id="matter-billing-firm">&mdash;</span></span>
+              <span class="matter-billing-meta-item"><span class="matter-billing-meta-label">Station</span><span id="matter-billing-station">&mdash;</span></span>
+              <span class="matter-billing-meta-item"><span class="matter-billing-meta-label">Date</span><span id="matter-billing-date">&mdash;</span></span>
+              <span class="matter-billing-meta-item"><span class="matter-billing-meta-label">Status</span><span id="matter-billing-status">&mdash;</span></span>
+            </div>
+            <p class="settings-hint" id="matter-billing-help" style="margin:0.5rem 0 0;">Once the attendance note is finalised, open this screen from <strong>Finish matter</strong> on the form — the 3-step workflow starts automatically at documents.</p>
+          </div>
+          <div class="matter-billing-header-actions">
+            <button type="button" id="matter-billing-start-btn" class="btn btn-primary matter-billing-start-btn" disabled title="Load the Finish matter screen to update this button">Start billing process</button>
+          </div>
+        </div>
+        <div id="matter-billing-stage" class="matter-billing-stage"></div>
+      </div>
+
+      <!-- AUTHORITIES VIEW -->
+      <div id="view-authorities" class="view">
+        <div class="firms-page-header">
+          <button type="button" id="authorities-back-btn" class="btn btn-secondary">&larr; Home</button>
+          <h2 style="margin:0;color:var(--primary);">Authorities</h2>
+        </div>
+        <p class="settings-hint" style="margin-bottom:1rem;">Standard authority forms for criminal defence work. Expand each to see proposed wording, or click <strong>Fill from record</strong> to auto-fill from an attendance and generate a print-ready PDF.</p>
+        <div id="authorities-dynamic-list" class="authorities-list"></div>
+      </div>
+
+      <!-- AUTHORITY RECORD PICKER MODAL -->
+      <div id="authority-record-picker" class="sections-index hidden">
+        <div class="sections-index-content" style="max-width:480px;width:94%;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;">
+            <h3 id="authority-record-picker-title" style="margin:0;font-size:1.05rem;">Select record</h3>
+            <button type="button" id="authority-record-picker-close" class="btn btn-secondary btn-small">&times; Close</button>
+          </div>
+          <ul id="authority-record-list" class="attendance-picker-list" style="max-height:55vh;overflow-y:auto;"></ul>
+        </div>
+      </div>
+
+      <!-- AUTHORITY FILL MISSING FIELDS MODAL -->
+      <div id="authority-fill-modal" class="sections-index hidden">
+        <div class="sections-index-content" style="max-width:460px;width:94%;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;">
+            <h3 id="authority-fill-title" style="margin:0;font-size:1.05rem;">Missing fields</h3>
+            <button type="button" id="authority-fill-modal-close" class="btn btn-secondary btn-small">&times; Close</button>
+          </div>
+          <p class="settings-hint" style="margin-bottom:0.75rem;">These fields were not found in the record. Please enter them below.</p>
+          <div id="authority-fill-form"></div>
+          <button type="button" id="authority-fill-generate" class="btn btn-primary" style="width:100%;margin-top:0.75rem;">Generate PDF</button>
+        </div>
+      </div>
+
+      <!-- OFFICER EMAILS VIEW -->
+      <div id="view-officer-emails" class="view">
+        <div class="firms-page-header">
+          <button type="button" id="officer-emails-back-btn" class="btn btn-secondary">&larr; Home</button>
+          <div>
+            <h2 style="margin:0;color:var(--primary);">Officer Emails</h2>
+            <p class="settings-hint" style="margin:0.25rem 0 0;">Prepare a one-off email, copy the details, or open it in Outlook Web. The app does not send emails automatically.</p>
+          </div>
+        </div>
+        <div id="officer-emails-standalone-host" class="officer-email-standalone"></div>
+      </div>
+
+      <!-- SETTINGS VIEW -->
+      <div id="view-settings" class="view">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;margin-bottom:1rem;">
+          <div style="display:flex;align-items:center;gap:1rem;">
+            <button type="button" id="settings-back-btn" class="btn btn-secondary">&larr; Home</button>
+            <span id="settings-saved-toast" class="settings-saved-toast">Settings saved</span>
+          </div>
+          <button type="button" id="settings-save-btn" class="btn btn-primary">Save settings</button>
+        </div>
+
+        <div class="settings-tab-bar" id="settings-tab-bar">
+          <button type="button" class="settings-tab active" data-stab="account">Account</button>
+          <button type="button" class="settings-tab" data-stab="backup">Backup</button>
+          <button type="button" class="settings-tab" data-stab="appearance" data-advanced-tab="true" style="display:none;">Appearance</button>
+          <button type="button" class="settings-tab" data-stab="integrations" data-advanced-tab="true" style="display:none;">Integrations</button>
+          <button type="button" class="settings-tab" data-stab="advanced" data-advanced-tab="true" style="display:none;">Advanced</button>
+          <button type="button" class="settings-tab" data-stab="support">Support</button>
+        </div>
+        <div style="text-align:right;margin:-0.25rem 0 0.5rem;">
+          <button type="button" id="settings-advanced-toggle" class="btn btn-small" style="font-size:0.78rem;padding:0.25rem 0.6rem;opacity:0.7;">Show advanced settings</button>
+        </div>
+
+        <div class="settings-tab-panel active" data-stab-panel="account">
+        <div class="settings-section-label">Account &amp; Billing</div>
+
+        <div class="settings-card" id="licence-settings-card">
+          <h2>Licence</h2>
+          <div id="licence-status-active" style="display:none;">
+            <p class="settings-hint" style="margin:0 0 0.5rem 0;">Current licence</p>
+            <div class="setting-row" style="align-items:center;flex-wrap:wrap;gap:0.5rem;">
+              <code id="licence-key-obscured" style="font-size:1rem;letter-spacing:1px;padding:0.5rem;background:var(--input-bg,#f8fafc);border-radius:4px;">--------</code>
+              <span id="licence-type-badge" style="display:inline-block;padding:0.2rem 0.6rem;border-radius:4px;font-size:0.8rem;font-weight:700;letter-spacing:0.03em;"></span>
+              <button type="button" id="btn-licence-validate" class="btn btn-secondary btn-small">Validate</button>
+            </div>
+            <p id="licence-time-remaining" class="settings-hint" style="margin:0.5rem 0 0.25rem 0;font-weight:600;"></p>
+            <p id="licence-last-validated" class="settings-hint" style="margin:0 0 1rem 0;font-size:0.8rem;color:var(--text-muted,#64748b);"></p>
+            <p id="licence-validate-result" class="settings-hint" style="margin:0 0 0.5rem 0;display:none;"></p>
+            <div style="display:flex;flex-wrap:wrap;gap:0.5rem;">
+              <button type="button" id="btn-licence-email-key" class="btn btn-secondary">Email my key</button>
+              <button type="button" id="btn-licence-deactivate-device" class="btn btn-secondary">Deactivate device</button>
+              <button type="button" id="btn-licence-change" class="btn btn-secondary">Change licence</button>
+              <button type="button" id="btn-licence-remove" class="btn btn-secondary">Remove licence</button>
+            </div>
+          </div>
+
+          <!-- Shown only when on a trial — direct paid key entry -->
+          <div id="licence-trial-upgrade" style="display:none;margin-top:1.25rem;padding:1rem 1.1rem;background:linear-gradient(135deg,#eff6ff,#f0f9ff);border:2px solid #3b82f6;border-radius:10px;">
+            <p style="margin:0 0 0.4rem 0;font-weight:700;font-size:1rem;color:#1e40af;">&#128273; Enter your paid licence key</p>
+            <p style="margin:0 0 0.75rem 0;font-size:0.85rem;color:#1e3a8a;">Paste the licence key from your purchase confirmation email. This activates cloud backup and removes the trial notice.</p>
+            <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">
+              <input type="text" id="trial-upgrade-key" class="settings-input settings-input--trial" placeholder="CN-XXXX-XXXX-XXXX-XXXX" autocomplete="off" spellcheck="false" style="flex:1;min-width:220px;max-width:340px;font-size:0.95rem;">
+              <button type="button" id="btn-trial-upgrade-activate" class="btn btn-primary" style="padding:0.55rem 1.2rem;font-size:0.95rem;">Activate</button>
+            </div>
+            <p id="trial-upgrade-error" style="display:none;margin:0.5rem 0 0 0;font-size:0.85rem;color:#dc2626;"></p>
+            <p style="margin:0.6rem 0 0 0;font-size:0.8rem;color:#1e3a8a;">Don&rsquo;t have a key? <a href="https://custodynote.com/pricing" target="_blank" rel="noopener" style="color:#1e40af;font-weight:600;">Subscribe at custodynote.com/pricing &rarr;</a></p>
+          </div>
+
+          <div id="licence-status-needs-validation" style="display:none;margin-top:1rem;padding:1rem 1.1rem;background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;">
+            <p style="margin:0 0 0.4rem 0;font-weight:700;font-size:0.95rem;color:#92400e;">&#9888; Online verification needed</p>
+            <p id="licence-grace-message" style="margin:0 0 0.75rem 0;font-size:0.85rem;color:#78350f;">Connect to the internet to verify your subscription. Your licence is still active.</p>
+            <div style="display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center;">
+              <button type="button" id="btn-licence-grace-validate" class="btn btn-primary btn-small">Validate now</button>
+              <button type="button" id="btn-licence-grace-email-key" class="btn btn-secondary btn-small">Email my licence key</button>
+            </div>
+            <div class="forgot-licence-row" style="margin-top:0.75rem;display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">
+              <input type="email" id="licence-grace-forgot-email" placeholder="Purchase email" class="forgot-licence-input settings-input" style="min-width:180px;font-size:0.85rem;" />
+              <span id="licence-grace-forgot-msg" class="forgot-licence-msg" style="font-size:0.8rem;color:var(--text-muted,#666);"></span>
+            </div>
+          </div>
+
+          <div id="licence-status-none" style="display:none;margin-top:1rem;">
+            <p class="settings-hint" style="margin:0 0 0.75rem 0;">Enter your Custody Note licence key to activate.</p>
+            <label for="setting-licence-key">Licence key</label>
+            <input type="text" id="setting-licence-key" class="settings-input" placeholder="CN-XXXX-XXXX-XXXX-XXXX" autocomplete="off" spellcheck="false" style="max-width:320px;">
+            <p class="settings-hint" style="margin:0.25rem 0 0 0;font-size:0.8rem;">Hyphens and spaces are optional; key is normalised to uppercase.</p>
+            <button type="button" id="btn-licence-activate-settings" class="btn btn-primary" style="margin-top:0.5rem;">Activate</button>
+            <p id="licence-activate-error" class="licence-error" style="display:none;margin-top:0.5rem;color:#dc2626;"></p>
+            <div style="margin-top:1rem;padding-top:0.75rem;border-top:1px solid var(--border,#e2e8f0);">
+              <p class="settings-hint" style="margin:0 0 0.5rem 0;"><strong>Forgot your licence key?</strong> Enter your purchase email and we&rsquo;ll send it if we have it on file.</p>
+              <div class="forgot-licence-row" style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">
+                <input type="email" id="licence-none-forgot-email" placeholder="you@example.com" class="forgot-licence-input settings-input" style="min-width:180px;font-size:0.85rem;" />
+                <button type="button" id="licence-none-forgot-btn" class="btn btn-small btn-secondary">Email my licence key</button>
+                <span id="licence-none-forgot-msg" class="forgot-licence-msg" style="font-size:0.8rem;color:var(--text-muted,#666);"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-card">
+          <h2>Your Details</h2>
+          <label>DSCC PIN/Number</label>
+          <input type="text" id="setting-dscc-pin" class="settings-input" placeholder="Your DSCC PIN/number" maxlength="10" style="max-width:200px;">
+          <label style="margin-top:0.75rem;">Fee Earner Name</label>
+          <input type="text" id="setting-fee-earner-name" class="settings-input" placeholder="e.g. Robert Smith">
+          <p class="settings-hint" style="margin-top:4px;">Auto-fills fee earner name in conflict certificates and LAA declarations.</p>
+          <label style="margin-top:0.75rem;">Fee earner signature on documents</label>
+          <div class="settings-radio-group" style="margin:6px 0 10px;display:flex;flex-direction:column;gap:8px;">
+            <label class="toggle-row" style="margin:0;">
+              <input type="radio" name="fee-earner-sig-mode" id="setting-fee-earner-sig-mode-draw" value="draw" checked>
+              <span>Draw or sign on each attendance record (signature pad on the form)</span>
+            </label>
+            <label class="toggle-row" style="margin:0;">
+              <input type="radio" name="fee-earner-sig-mode" id="setting-fee-earner-sig-mode-saved" value="saved">
+              <span>Use a saved image (e.g. scan or photo of your usual wet signature)</span>
+            </label>
+          </div>
+          <div id="fee-earner-sig-saved-panel" style="display:none;margin-bottom:10px;padding:10px 12px;border:1px solid var(--border-color,#e2e8f0);border-radius:8px;background:var(--input-bg,#f8fafc);">
+            <p class="settings-hint" style="margin:0 0 8px 0;">PNG or JPG works best. This image is used on PDFs, LAA forms, and the conflict certificate when saved mode is on.</p>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+              <button type="button" id="btn-fee-earner-sig-pick" class="btn btn-secondary btn-small">Choose image…</button>
+              <button type="button" id="btn-fee-earner-sig-clear" class="btn btn-secondary btn-small">Remove image</button>
+            </div>
+            <div id="fee-earner-sig-preview-wrap" style="margin-top:10px;display:none;">
+              <span class="settings-hint" style="display:block;margin-bottom:4px;">Preview</span>
+              <img id="fee-earner-sig-preview" alt="Saved signature preview" style="max-height:72px;max-width:320px;border:1px solid #cbd5e1;border-radius:4px;padding:4px;background:#fff;">
+            </div>
+          </div>
+          <label style="margin-top:0.75rem;">Office Postcode (travel origin)</label>
+          <input type="text" id="setting-office-postcode" class="settings-input" placeholder="e.g. ME1 1AA">
+          <p class="settings-hint" style="margin-top:4px;">Auto-fills the origin postcode for journey-to-station mileage on new records.</p>
+          <label style="margin-top:0.75rem;">Your email (PDFs sent here to check)</label>
+          <input type="email" id="setting-email" class="settings-input" placeholder="you@example.com">
+        </div>
+
+        <div class="settings-card" id="desktop-shortcut-card">
+          <h2>Find this app on your PC</h2>
+          <p class="settings-hint">If the desktop shortcut goes missing, recreate it here. Open the app folder to pin <strong>Custody Note.exe</strong> to the taskbar.</p>
+          <p class="settings-hint" style="margin:0.35rem 0 0.75rem 0;">Or press the <strong>Windows</strong> key and type <strong>Custody Note</strong> to find it in the Start menu.</p>
+          <div style="display:flex;flex-wrap:wrap;gap:0.5rem;">
+            <button type="button" id="btn-create-desktop-shortcut" class="btn btn-secondary">Create desktop shortcut</button>
+            <button type="button" id="btn-open-app-folder" class="btn btn-secondary">Open app folder</button>
+          </div>
+          <p id="desktop-shortcut-msg" class="settings-hint" style="margin-top:0.75rem;display:none;" role="status"></p>
+        </div>
+
+        <div class="settings-section-label">Billing Defaults</div>
+        <div class="settings-card">
+          <h2>Invoice &amp; Billing Defaults</h2>
+          <p class="settings-hint">These values pre-fill the billing panel for new invoices. You can override them on each invoice.</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.75rem;">
+            <div>
+              <label for="setting-billing-attendance-fee">Attendance fee (&pound;)</label>
+              <input type="number" id="setting-billing-attendance-fee" class="settings-input" step="0.01" min="0" placeholder="160.00">
+            </div>
+            <div>
+              <label for="setting-billing-mileage-rate">Mileage rate (&pound;/mile)</label>
+              <input type="number" id="setting-billing-mileage-rate" class="settings-input" step="0.01" min="0" placeholder="0.45">
+            </div>
+            <div>
+              <label for="setting-billing-vat-rate">VAT rate (%)</label>
+              <input type="number" id="setting-billing-vat-rate" class="settings-input" step="1" min="0" max="100" placeholder="20">
+            </div>
+          </div>
+        </div>
+
+        </div><!-- end account tab panel -->
+
+        <div class="settings-tab-panel" data-stab-panel="integrations">
+        <div class="settings-section-label">Integrations</div>
+        <div class="settings-card" id="quickfile-settings-card">
+          <h2>QuickFile invoicing &amp; directory</h2>
+          <div id="quickfile-settings-content">
+            <p class="settings-hint">Enter your QuickFile API credentials once — they are saved to your Custody Note account and available on every computer you use. Use them to <strong>send invoices</strong> from the billing workflow.</p>
+
+            <div id="qf-connection-status" class="qf-connection-status" role="status" aria-live="polite">
+              <span class="qf-status-dot" id="qf-status-dot"></span>
+              <div class="qf-status-text">
+                <p class="qf-status-headline" id="qf-status-headline">Checking QuickFile connection&hellip;</p>
+                <p class="qf-status-detail" id="qf-status-detail"></p>
+                <ul class="qf-status-instructions" id="qf-status-instructions"></ul>
+              </div>
+            </div>
+
+            <label>Account number</label>
+            <input type="text" id="setting-quickfile-account" class="settings-input" placeholder="Your QuickFile account number" autocomplete="off">
+            <label>API key</label>
+            <input type="password" id="setting-quickfile-apikey" class="settings-input" placeholder="API key from QuickFile" autocomplete="off">
+            <label>Application ID</label>
+            <input type="text" id="setting-quickfile-appid" class="settings-input" placeholder="Application ID from QuickFile" autocomplete="off">
+            <div style="display:flex;flex-wrap:wrap;gap:0.6rem;margin-top:0.9rem;">
+              <button type="button" id="btn-save-qf-settings" class="btn btn-secondary">Save QuickFile settings</button>
+              <button type="button" id="btn-save-test-qf" class="btn btn-secondary">Save and test QuickFile</button>
+            </div>
+            <div id="qf-import-addon-locked" class="addon-locked-message" style="display:none;margin-top:0.9rem;">
+              <p>The optional <strong>import firms from QuickFile</strong> feature requires a QuickFile add-on licence. Invoicing still works once your three credentials above are saved and tested.</p>
+              <a href="https://custodynote.com" target="_blank" rel="noopener noreferrer" class="addon-buy-link">Buy QuickFile add-on</a>
+            </div>
+            <div id="qf-import-addon-section" style="margin-top:0.9rem;">
+              <button type="button" id="btn-save-import-qf" class="btn btn-primary">Save and import firms now</button>
+              <p class="settings-hint" style="margin-top:0.55rem;">Optional: import your QuickFile client directory into <strong>Firms You Work For</strong>.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-card" id="postcode-settings-card">
+          <h2>Postcode Address Lookup</h2>
+          <p class="settings-hint">Look up a UK address by postcode when filling in client details. This feature is included with your CustodyNote licence&nbsp;&mdash; no configuration needed.</p>
+        </div>
+
+        </div><!-- end integrations tab panel -->
+
+        <div class="settings-tab-panel" data-stab-panel="appearance">
+        <div class="settings-section-label">Appearance &amp; Layout</div>
+        <div class="settings-card settings-display-studio">
+          <h2>Display &amp; Layout Studio</h2>
+          <p class="settings-hint">Control readability, panel layout, home screen emphasis, and accessibility without changing your legal workflow.</p>
+
+          <div class="settings-preview-grid">
+            <button type="button" class="settings-preview-card layout-preview-btn" data-layout-mode="standard">
+              <span class="settings-preview-title">Standard</span>
+              <span class="settings-preview-desc">Balanced layout for everyday use</span>
+            </button>
+            <button type="button" class="settings-preview-card layout-preview-btn" data-layout-mode="wide">
+              <span class="settings-preview-title">Wide Editor</span>
+              <span class="settings-preview-desc">Uses more width for longer notes</span>
+            </button>
+            <button type="button" class="settings-preview-card layout-preview-btn" data-layout-mode="focus">
+              <span class="settings-preview-title">Focus</span>
+              <span class="settings-preview-desc">Cleaner screen with less chrome</span>
+            </button>
+            <button type="button" class="settings-preview-card layout-preview-btn" data-layout-mode="tablet">
+              <span class="settings-preview-title">Tablet Friendly</span>
+              <span class="settings-preview-desc">Larger controls and simplified layout</span>
+            </button>
+          </div>
+          <input type="hidden" id="setting-layout-mode" value="standard">
+
+          <div class="settings-layout-grid">
+            <div class="settings-mini-card">
+              <h3>Editor Layout</h3>
+              <label>Section navigation</label>
+              <select id="setting-nav-mode">
+                <option value="auto">Auto</option>
+                <option value="sidebar">Sidebar first</option>
+                <option value="topbar">Top bar first</option>
+              </select>
+              <p class="settings-hint" style="margin:0.35rem 0 0 0;font-size:0.78rem;">Auto uses the <strong>left section list</strong> when the window is wide enough (and hides the horizontal section bar to avoid duplicate navigation). If you prefer the strip under the header, choose <strong>Top bar first</strong>.</p>
+              <label class="toggle-row" style="margin-top:0.9rem;">
+                <span>Show right context panel by default</span>
+                <input type="checkbox" id="setting-show-context-panel">
+              </label>
+              <label class="toggle-row" style="margin-top:0.9rem;">
+                <span>Always show three-column layout<br><small style="font-weight:400;opacity:0.75;">Keeps the left section list visible on smaller screens using a compact rail. The right summary opens as a slide-out drawer so the form stays wider.</small></span>
+                <input type="checkbox" id="setting-force-three-col">
+              </label>
+              <label class="toggle-row" style="margin-top:0.9rem;">
+                <span>Sticky section headings</span>
+                <input type="checkbox" id="setting-sticky-section-headings">
+              </label>
+              <label class="toggle-row" style="margin-top:0.9rem;">
+                <span>Larger textareas for note writing</span>
+                <input type="checkbox" id="setting-larger-textareas">
+              </label>
+            </div>
+
+            <div class="settings-mini-card">
+              <h3>Home Screen</h3>
+              <label>Home priority</label>
+              <select id="setting-home-priority">
+                <option value="active">Active matters first</option>
+                <option value="recent">Recent cases first</option>
+              </select>
+              <label style="margin-top:0.9rem;">System widgets</label>
+              <select id="setting-home-widgets-mode">
+                <option value="expanded">Expanded</option>
+                <option value="compact">Compact</option>
+              </select>
+              <label class="toggle-row" style="margin-top:0.9rem;">
+                <span>Section colour accents</span>
+                <input type="checkbox" id="setting-section-accents">
+              </label>
+              <div class="settings-subsection-label">Front page sections</div>
+              <label class="toggle-row" style="margin-top:0.75rem;">
+                <span>Show active matters strip</span>
+                <input type="checkbox" id="setting-home-show-active">
+              </label>
+              <label class="toggle-row" style="margin-top:0.75rem;">
+                <span>Show dashboard cards</span>
+                <input type="checkbox" id="setting-home-show-dashboard">
+              </label>
+              <label class="toggle-row" style="margin-top:0.75rem;">
+                <span>Show shortcuts/tools</span>
+                <input type="checkbox" id="setting-home-show-shortcuts">
+              </label>
+              <label class="toggle-row" style="margin-top:0.75rem;">
+                <span>Show LAA forms section</span>
+                <input type="checkbox" id="setting-home-show-laa">
+              </label>
+              <label class="toggle-row" style="margin-top:0.75rem;">
+                <span>Show status strip</span>
+                <input type="checkbox" id="setting-home-show-status">
+              </label>
+            </div>
+
+            <div class="settings-mini-card">
+              <h3>Accessibility</h3>
+              <label class="toggle-row">
+                <span>High contrast mode</span>
+                <input type="checkbox" id="setting-high-contrast">
+              </label>
+              <label class="toggle-row" style="margin-top:0.9rem;">
+                <span>Larger controls</span>
+                <input type="checkbox" id="setting-large-controls">
+              </label>
+              <label class="toggle-row" style="margin-top:0.9rem;">
+                <span>Reduced motion</span>
+                <input type="checkbox" id="setting-reduced-motion">
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-card">
+          <h2>Appearance</h2>
+          <label>Colour Theme</label>
+          <div id="theme-picker" class="theme-picker">
+            <button type="button" class="theme-swatch theme-swatch-active" data-theme="default" title="Deep Navy"><span class="swatch-colour" style="background:#0f172a;"></span><span class="swatch-label">Deep Navy</span></button>
+            <button type="button" class="theme-swatch" data-theme="light" title="Classic Light"><span class="swatch-colour" style="background:#f1f5f9;border:1px solid #cbd5e1;"></span><span class="swatch-label">Classic Light</span></button>
+            <button type="button" class="theme-swatch" data-theme="slate" title="Slate Blue"><span class="swatch-colour" style="background:#334766;"></span><span class="swatch-label">Slate Blue</span></button>
+            <button type="button" class="theme-swatch" data-theme="midnight" title="Midnight"><span class="swatch-colour" style="background:#1e293b;"></span><span class="swatch-label">Midnight</span></button>
+            <button type="button" class="theme-swatch" data-theme="teal" title="Blue"><span class="swatch-colour" style="background:#172554;"></span><span class="swatch-label">Blue</span></button>
+            <button type="button" class="theme-swatch" data-theme="emerald" title="Emerald"><span class="swatch-colour" style="background:#064e3b;"></span><span class="swatch-label">Emerald</span></button>
+            <button type="button" class="theme-swatch" data-theme="rose" title="Rose"><span class="swatch-colour" style="background:#4c0519;"></span><span class="swatch-label">Rose</span></button>
+            <button type="button" class="theme-swatch" data-theme="purple" title="Purple"><span class="swatch-colour" style="background:#3b0764;"></span><span class="swatch-label">Purple</span></button>
+            <button type="button" class="theme-swatch" data-theme="charcoal" title="Charcoal"><span class="swatch-colour" style="background:#1c1917;"></span><span class="swatch-label">Charcoal</span></button>
+            <button type="button" class="theme-swatch" data-theme="copper" title="Copper"><span class="swatch-colour" style="background:#451a03;"></span><span class="swatch-label">Copper</span></button>
+          </div>
+          <label class="toggle-row" style="margin-top:1rem;">
+            <span>Dark Mode (for night shifts)</span>
+            <input type="checkbox" id="setting-dark-mode">
+          </label>
+          <label style="margin-top:1rem;">Font Size</label>
+          <div class="font-size-row">
+            <span class="font-label">A</span>
+            <input type="range" id="setting-font-size" min="12" max="50" value="16" step="1">
+            <span class="font-label font-label-lg">A</span>
+            <span id="font-size-val" class="font-size-val">16px</span>
+          </div>
+          <label style="margin-top:1rem;">Scrollbar Size</label>
+          <div class="font-size-row">
+            <span class="font-label" style="font-size:0.75rem;">Thin</span>
+            <input type="range" id="setting-scrollbar-size" min="1" max="4" value="1" step="1">
+            <span class="font-label" style="font-size:0.75rem;">Wide</span>
+            <span id="scrollbar-size-val" class="font-size-val">1x</span>
+          </div>
+          <label style="margin-top:1rem;">Display Density</label>
+          <div style="display:flex;gap:0.5rem;margin-top:0.35rem;flex-wrap:wrap;">
+            <button type="button" class="btn btn-small density-btn" data-density="compact">Compact</button>
+            <button type="button" class="btn btn-small density-btn" data-density="default">Default</button>
+            <button type="button" class="btn btn-small density-btn" data-density="comfortable">Comfortable</button>
+          </div>
+          <label style="margin-top:1rem;">Form subsections</label>
+          <p style="margin:0.35rem 0 0;font-size:0.85rem;color:var(--text-muted,#64748b);line-height:1.4;">Expanded shows optional blocks with fields visible (recommended). Compact collapses optional blocks to save vertical space on small screens.</p>
+          <div style="display:flex;gap:0.5rem;margin-top:0.35rem;flex-wrap:wrap;">
+            <button type="button" class="btn btn-small subsections-mode-btn active" data-subsections-mode="expanded">Expanded</button>
+            <button type="button" class="btn btn-small subsections-mode-btn" data-subsections-mode="compact">Compact (collapse optional)</button>
+          </div>
+        </div>
+
+        </div><!-- end appearance tab panel -->
+
+        <div class="settings-tab-panel" data-stab-panel="backup">
+        <div class="settings-section-label">Backup &amp; Security</div>
+        <div class="settings-card">
+          <h2>Backup &amp; Data Protection</h2>
+          <div id="backup-destination-summary" style="background:var(--input-bg,#f8fafc);border:1px solid var(--border,#e2e8f0);border-radius:10px;padding:0.85rem 1rem;margin-bottom:1.25rem;">
+            <p style="margin:0 0 0.5rem;font-weight:700;font-size:0.92rem;color:var(--on-surface,#1e293b);">Where are your backups going?</p>
+            <div id="backup-dest-local" style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.3rem;font-size:0.85rem;">
+              <span style="font-size:1.1rem;">&#128187;</span>
+              <span><strong>Local:</strong> <span id="backup-dest-local-path">Desktop</span></span>
+            </div>
+            <div id="backup-dest-offsite" style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.3rem;font-size:0.85rem;">
+              <span style="font-size:1.1rem;">&#9729;</span>
+              <span><strong>Off-site:</strong> <span id="backup-dest-offsite-path" style="color:var(--text-muted,#94a3b8);">Not configured</span></span>
+            </div>
+            <div id="backup-dest-cloud" style="display:flex;align-items:center;gap:0.5rem;font-size:0.85rem;">
+              <span style="font-size:1.1rem;">&#9889;</span>
+              <span><strong>AWS Cloud:</strong> <span id="backup-dest-cloud-status">Checking&hellip;</span></span>
+            </div>
+          </div>
+          <div id="cross-device-sync-section" style="margin-bottom:1.5rem;padding-bottom:1rem;border-bottom:1px solid var(--border,#ccc);">
+            <h3 style="margin:0 0 0.5rem 0;font-size:1rem;">Cross-device record sync</h3>
+            <p class="settings-hint" style="margin:0 0 0.5rem;">Records sync automatically in the background when online. Each computer keeps a local copy; changes push to the cloud and pull onto your other devices.</p>
+            <p id="cross-device-sync-status" class="settings-hint" style="margin:0 0 0.5rem;">Checking sync status&hellip;</p>
+            <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.25rem;">
+              <button type="button" id="btn-sync-full-resync" class="btn btn-secondary">Full re-sync from cloud</button>
+              <button type="button" id="btn-sync-push-now" class="btn btn-secondary">Push all pending now</button>
+            </div>
+            <p class="settings-hint" style="margin:0.5rem 0 0;">Use <strong>Full re-sync from cloud</strong> if this computer shows Synced but records from another device are missing. Use <strong>Push all pending now</strong> on the computer that has your records.</p>
+            <p id="cross-device-sync-action-status" class="settings-hint" style="margin:0.35rem 0 0;"></p>
+          </div>
+          <div id="cloud-backup-section" style="margin-bottom:1.5rem;padding-bottom:1rem;border-bottom:1px solid var(--border, #ccc);">
+            <h3 style="margin:0 0 0.5rem 0;font-size:1rem;">Cloud Backup (AWS)</h3>
+            <p id="cloud-backup-checking" class="settings-hint" style="margin:0;color:#64748b;">Checking cloud backup status&hellip;</p>
+            <div id="cloud-backup-not-subscribed" style="display:none;">
+              <div style="background:linear-gradient(135deg,#fef3c7,#fffbeb);border:1px solid #f59e0b;border-radius:8px;padding:1rem;margin-bottom:0.5rem;">
+                <p style="margin:0 0 0.5rem 0;font-weight:600;color:#92400e;">&#9888; Cloud backup not active</p>
+                <p id="cloud-backup-unavailable-reason" style="margin:0 0 0.75rem 0;font-size:0.85rem;color:#78350f;">Cloud backup is included with paid subscriptions. <a href="https://custodynote.com/pricing" target="_blank" rel="noopener" style="color:#1e40af;">Subscribe at custodynote.com</a>, then sign in or enter your licence key under Settings &rsaquo; Licence.</p>
+                <button type="button" id="btn-cloud-backup-subscribe" class="btn btn-primary" style="margin-top:0.25rem;">Verify subscription</button>
+              </div>
+            </div>
+            <div id="cloud-backup-subscribed" style="display:none;">
+              <div style="background:linear-gradient(135deg,#d1fae5,#ecfdf5);border:1px solid #10b981;border-radius:8px;padding:1rem;margin-bottom:0.5rem;">
+                <p style="margin:0 0 0.5rem 0;font-weight:600;color:#065f46;">&#10003; Backing up to AWS automatically</p>
+                <p style="margin:0;font-size:0.85rem;color:#064e3b;">Architecture: <strong>local-first</strong> — the app runs entirely offline from SQLite. Every time you save a record, a local backup is written. In the background (no disruption to your work), an encrypted copy is pushed to <strong>AWS S3 (London)</strong>. You can restore any point-in-time backup here. Dropbox/Google Drive sync is also available via the off-site folder setting below.</p>
+                <p id="cloud-backup-last-success" style="margin:0.5rem 0 0 0;font-size:0.8rem;color:#065f46;"></p>
+              </div>
+              <button type="button" id="btn-cloud-backup-restore" class="btn btn-secondary" style="margin-bottom:0.5rem;">Restore from Cloud Backup</button>
+              <div id="cloud-restore-panel" style="display:none;margin-top:0.75rem;">
+                <p class="settings-hint">Select a backup to restore. This will replace your current database. A safety copy is saved first.</p>
+                <select id="cloud-restore-select" class="settings-input" style="width:100%;max-width:400px;margin-bottom:0.5rem;"></select>
+                <button type="button" id="btn-cloud-restore-confirm" class="btn btn-primary">Restore selected backup</button>
+                <span id="cloud-restore-status" class="settings-hint" style="margin-left:0.5rem;"></span>
+              </div>
+            </div>
+            <p id="cloud-backup-error" class="settings-hint" style="color:#c00;display:none;"></p>
+            <p id="cloud-backup-error-support" class="settings-hint" style="display:none;margin-top:0.25rem;font-size:0.85rem;">Include the reference from the message above when you <a href="https://www.custodynote.com/support" target="_blank" rel="noopener">contact support</a>.</p>
+          </div>
+          <!-- Restore from local backup -->
+          <div style="margin:0.75rem 0 0.5rem;">
+            <button type="button" id="btn-local-backup-restore" class="btn btn-secondary">Restore from Local Backup</button>
+          </div>
+          <div id="local-restore-panel" style="display:none;margin-top:0.75rem;">
+            <p class="settings-hint">Backups found in your local and off-site folders. Select one to restore. <strong>A safety copy of your current database is saved first.</strong></p>
+            <select id="local-restore-select" class="settings-input" style="width:100%;max-width:480px;margin-bottom:0.5rem;font-size:0.85rem;"></select>
+            <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;margin-top:0.25rem;">
+              <button type="button" id="btn-local-restore-confirm" class="btn btn-primary">Restore selected backup</button>
+              <button type="button" id="btn-local-restore-cancel" class="btn btn-secondary">Cancel</button>
+              <span id="local-restore-status" class="settings-hint" style="margin:0;"></span>
+            </div>
+          </div>
+          <p class="settings-hint" style="margin-top:0;">Your attendance data is backed up automatically as encrypted files. Syncing to a cloud folder keeps an off-site copy safe.</p>
+          <label>Local backup folder</label>
+          <div class="setting-row">
+            <input type="text" id="setting-backup-folder" class="settings-input" readonly placeholder="Desktop">
+            <button type="button" id="setting-backup-browse" class="btn btn-secondary">Browse</button>
+          </div>
+          <label style="margin-top:0.75rem;">Sync backups to the cloud <span style="color:#059669;font-weight:600;">(recommended)</span></label>
+          <p class="settings-hint" style="margin:0 0 0.5rem;">Choose a folder that syncs to OneDrive, Dropbox, or Google Drive. Encrypted backups are copied there automatically.</p>
+          <div id="offsite-backup-chooser" class="offsite-backup-chooser">
+            <div class="offsite-scanning">Scanning for cloud folders&hellip;</div>
+          </div>
+          <button type="button" id="setting-detect-cloud-folders" class="btn btn-secondary" style="margin-top:0.5rem;">Detect cloud folders</button>
+          <input type="text" id="setting-offsite-backup-folder" readonly style="display:none;" aria-hidden="true">
+          <div class="settings-advanced-section" style="display:none;">
+            <label>Custom cloud backup URL (optional)</label>
+            <input type="url" id="setting-cloud-backup-url" class="settings-input" placeholder="https://your-backup-api.example.com/api/backup" style="width:100%;max-width:400px;" autocomplete="off">
+            <p class="settings-hint" style="margin-top:0.25rem;">For your own backup API only. Leave blank to use Custody Note&rsquo;s managed AWS backup (included with your licence).</p>
+            <label style="margin-top:0.5rem;">Custom cloud backup token (optional)</label>
+            <input type="password" id="setting-cloud-backup-token" class="settings-input" placeholder="Secret token for your API" style="width:100%;max-width:400px;" autocomplete="off">
+            <p class="settings-hint" style="margin-top:0.25rem;">Sent as <code>Authorization: Bearer &lt;token&gt;</code> when using a custom backup URL above.</p>
+          </div>
+        </div>
+
+        <div class="settings-card">
+          <h2>Security &amp; Encryption</h2>
+          <p id="encryption-status" class="settings-path-display">Checking...</p>
+          <div id="safeStorage-warning" style="display:none;" class="settings-warning-banner">
+            Windows credential protection is unavailable on this machine. Your licence file is stored without OS encryption. Consider moving to a supported Windows account type.
+          </div>
+          <div style="margin-top:0.75rem;">
+            <label>Auto-lock after inactivity</label>
+            <p class="settings-hint">Locks the screen after the selected period of no activity. Recommended for shared or unattended machines.</p>
+            <select id="setting-idle-timeout" class="settings-input" style="width:200px;">
+              <option value="0">Disabled</option>
+              <option value="5">5 minutes</option>
+              <option value="10">10 minutes</option>
+              <option value="15">15 minutes</option>
+              <option value="30">30 minutes</option>
+            </select>
+          </div>
+          <label>Recovery Password</label>
+          <p class="settings-hint">Set a recovery password so you can access your data if you move to a new computer or your laptop is lost/stolen. <strong>Keep this password safe</strong> &mdash; if you forget it and lose your computer, your data cannot be recovered.</p>
+          <p class="settings-hint">If you need to recover (e.g. new computer), start the app with your database and recovery.dat in place; a window will ask for this password.</p>
+          <p id="recovery-status" class="settings-hint" style="font-weight:600;"></p>
+          <div style="display:flex;align-items:center;gap:0.4rem;margin-bottom:0.4rem;">
+            <input type="password" id="setting-recovery-pw" class="settings-input" placeholder="New recovery password" style="flex:1;">
+            <button type="button" id="btn-toggle-recovery-pw" class="btn btn-small" aria-label="Show password">Show</button>
+          </div>
+          <div style="display:flex;align-items:center;gap:0.4rem;">
+            <input type="password" id="setting-recovery-pw-confirm" class="settings-input" placeholder="Confirm recovery password" style="flex:1;">
+            <button type="button" id="btn-toggle-recovery-pw-confirm" class="btn btn-small" aria-label="Show password">Show</button>
+          </div>
+          <div style="display:flex;align-items:center;gap:0.5rem;margin-top:0.5rem;flex-wrap:wrap;">
+            <button type="button" id="btn-set-recovery-pw" class="btn btn-secondary">Set Recovery Password</button>
+            <button type="button" id="btn-cloud-recover-key" class="btn btn-secondary" title="Recover encryption key from cloud using your licence key">Recover from Cloud</button>
+          </div>
+          <p id="cloud-recover-status" class="settings-hint" style="margin-top:0.35rem;"></p>
+        </div>
+
+        </div><!-- end backup tab panel -->
+
+        <div class="settings-tab-panel" data-stab-panel="advanced">
+        <div class="settings-section-label">Import, Workflows &amp; Add-ons</div>
+        <div class="settings-card">
+          <h2>Import record (Admin)</h2>
+          <p class="settings-hint">Load a previous record from a PDF exported by this app, or from a JSON backup. The record will be added as a new draft and opened for editing.</p>
+          <button type="button" id="settings-load-from-pdf" class="btn btn-primary">Load from PDF or JSON</button>
+          <div style="margin-top:0.75rem;">
+            <label style="display:block;margin-bottom:6px;">Import from file path (paste)</label>
+            <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;">
+              <input type="text" id="settings-import-path" class="settings-input" placeholder="C:\path\to\file.pdf or .json" style="flex:1;min-width:260px;">
+              <button type="button" id="settings-import-path-btn" class="btn btn-secondary">Import</button>
+            </div>
+            <p class="settings-hint" style="margin-top:6px;">Tip: you can also drag-and-drop a PDF/JSON onto the app window to import it.</p>
+          </div>
+        </div>
+
+        <div class="settings-card">
+          <h2>Auto-import folder (optional)</h2>
+          <p class="settings-hint">When enabled, the app will automatically import any new PDF/JSON files added to a folder (e.g. a “Custody Note exports” folder). Imported files are not moved or deleted.</p>
+          <label class="toggle-row">
+            <span>Enable auto-import</span>
+            <input type="checkbox" id="setting-auto-import-enabled">
+          </label>
+          <label style="margin-top:0.75rem;">Auto-import folder</label>
+          <div class="setting-row">
+            <input type="text" id="setting-auto-import-folder" class="settings-input" readonly placeholder="Choose a folder">
+            <button type="button" id="setting-auto-import-browse" class="btn btn-secondary">Browse</button>
+          </div>
+          <p class="settings-hint">The app checks the folder periodically and imports the newest files first.</p>
+        </div>
+
+        </div><!-- end advanced tab panel -->
+
+        <div class="settings-tab-panel" data-stab-panel="support">
+        <div class="settings-section-label">Support, Diagnostics &amp; Reference</div>
+        <div class="settings-card">
+          <h2>Storage &amp; Connectivity</h2>
+          <label>Database location</label>
+          <p id="settings-db-path" class="settings-path-display">Loading...</p>
+          <div style="margin:0.5rem 0 1rem;display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;">
+            <button type="button" id="btn-db-repair" class="btn btn-secondary">Repair database (fix duplicates)</button>
+            <span id="db-repair-status" class="settings-hint" style="margin:0;"></span>
+          </div>
+          <label>Backup folder</label>
+          <p id="settings-backup-path-display" class="settings-path-display">Loading...</p>
+          <label>Off-site backup folder</label>
+          <p id="settings-offsite-backup-path-display" class="settings-path-display">Loading...</p>
+          <label>Connectivity</label>
+          <p id="settings-connectivity" class="settings-path-display">Checking...</p>
+          <p class="settings-hint">The app works fully offline. All data is stored locally on this computer in an SQLite database. No internet connection is required for core functionality.</p>
+        </div>
+
+        <div class="settings-card" id="settings-laa-forms-card">
+          <h2>LAA Forms (Official)</h2>
+          <p>Open official LAA PDF form templates. Forms used for generation are verified automatically on startup.</p>
+          <div id="settings-laa-versions" class="settings-laa-versions" aria-live="polite">
+            <p class="settings-hint">Checking template versions…</p>
+          </div>
+          <p id="settings-laa-last-check" class="settings-hint" style="margin-top:0.35rem;"></p>
+          <button type="button" class="btn btn-secondary btn-small" id="settings-laa-check-updates" style="margin-top:0.5rem;">Check for LAA form updates</button>
+          <button type="button" class="btn btn-secondary laa-link" id="settings-laa-crm1" style="margin-top:0.75rem;display:block;text-align:left;">CRM1 &mdash; Client&rsquo;s Details</button>
+          <button type="button" class="btn btn-secondary laa-link" id="settings-laa-crm2" style="margin-top:0.5rem;display:block;text-align:left;">CRM2 &mdash; Advice &amp; Assistance</button>
+          <button type="button" class="btn btn-secondary laa-link" id="settings-laa-crm3" style="margin-top:0.5rem;display:block;text-align:left;">CRM3 &mdash; Advocacy Assistance</button>
+          <button type="button" class="btn btn-secondary laa-link" id="settings-laa-declaration" style="margin-top:0.5rem;display:block;text-align:left;">Applicant Declaration</button>
+        </div>
+
+        <div class="settings-card" id="modules-installed-card">
+          <h2>Additional Modules Installed</h2>
+          <p class="settings-hint" id="modules-installed-empty">No additional modules installed.</p>
+          <div id="modules-list"></div>
+        </div>
+
+        <div class="settings-card">
+          <h2>Support &amp; Suggestions</h2>
+          <details id="support-faq-details" class="support-faq-details" open style="margin-top:0.75rem;border:1px solid var(--border,#ddd);border-radius:8px;padding:0;">
+            <summary style="padding:0.75rem 1rem;cursor:pointer;font-weight:600;user-select:none;">What do you do if you need support?</summary>
+            <div style="padding:0 1rem 1rem;border-top:1px solid var(--border,#eee);">
+              <ul style="margin:0.5rem 0 0 0;padding-left:1.25rem;line-height:1.7;">
+                <li><strong>Writing attendance notes</strong> — Structure, templates, and PACE guidance on the website.
+                  <button type="button" class="btn btn-small support-faq-link" data-url="" id="help-attendance-notes-btn">Attendance note guide</button>
+                  <button type="button" class="btn btn-small support-faq-link" data-url="" id="help-pace-interview-btn">PACE interview notes</button>
+                </li>
+                <li><strong>Support forum</strong> — Post questions, get help from the team and other users. <button type="button" class="btn btn-small support-faq-link" data-url="https://www.custodynote.com/support" id="help-support-forum-btn">Open forum</button></li>
+                <li><strong>Forgot licence key?</strong> — Enter your email and we&apos;ll send it if we have it on file.
+                  <div class="forgot-licence-row" style="margin-top:0.35rem;display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">
+                    <input type="email" id="forgot-licence-email" placeholder="you@example.com" class="forgot-licence-input settings-input" style="min-width:180px;font-size:0.85rem;" />
+                    <button type="button" id="forgot-licence-btn" class="btn btn-small btn-primary">Email my key</button>
+                    <span id="forgot-licence-msg" class="forgot-licence-msg" style="font-size:0.8rem;color:var(--text-muted,#666);"></span>
+                  </div>
+                </li>
+                <li><strong>FAQ</strong> — Trials, licences, cloud backup, billing. <button type="button" class="btn btn-small support-faq-link" data-url="https://www.custodynote.com/faq" id="help-faq-btn">View FAQ</button></li>
+                <li><strong>Sales or general enquiries</strong> — Use the Contact form on the website. <button type="button" class="btn btn-small support-faq-link" data-url="https://www.custodynote.com/contact" id="help-contact-btn">Contact</button></li>
+              </ul>
+            </div>
+          </details>
+          <div style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-top:0.75rem;">
+            <button type="button" id="suggestions-forum-open-btn" class="btn btn-primary">Open Support Forum</button>
+            <button type="button" id="check-updates-btn" class="btn btn-secondary">Check for updates</button>
+          </div>
+
+          <div class="share-app-card" style="margin-top:1.25rem;padding:1rem;background:linear-gradient(135deg,#eff6ff,#f0f9ff);border:1px solid #93c5fd;border-radius:10px;">
+            <h3 class="share-app-title" style="margin:0 0 0.25rem 0;font-size:0.95rem;color:#1e40af;">Share Custody Note</h3>
+            <p class="share-app-desc" style="margin:0 0 0.75rem 0;font-size:0.8rem;color:#1e3a8a;">Recommend the app to a colleague — copy the link or open an email.</p>
+            <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+              <button type="button" id="share-app-copy-btn" class="btn btn-secondary" style="font-size:0.85rem;">Copy download link</button>
+              <button type="button" id="share-app-email-btn" class="btn btn-secondary" style="font-size:0.85rem;">Email link</button>
+            </div>
+          </div>
+          <p id="check-updates-status" class="settings-hint" style="margin-top:0.5rem;min-height:1.5em;"></p>
+        </div>
+
+        <!-- SYSTEM STATUS DIAGNOSTIC CARD -->
+        <div class="settings-card" id="system-status-card">
+          <h2>System Status</h2>
+          <p class="settings-hint" style="margin-top:0;">Real-time diagnostics for licence, cloud backup, and auto-updates.</p>
+
+          <div id="sysstat-licence" style="margin-bottom:1rem;padding:0.75rem;border-radius:8px;background:var(--input-bg,#f8fafc);border:1px solid var(--border,#e2e8f0);">
+            <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.35rem;">
+              <span id="sysstat-licence-icon" style="font-size:1.1rem;">⏳</span>
+              <strong>Licence</strong>
+            </div>
+            <p id="sysstat-licence-line1" class="settings-hint" style="margin:0.15rem 0 0 0;font-size:0.85rem;">Checking…</p>
+            <p id="sysstat-licence-line2" class="settings-hint" style="margin:0.1rem 0 0 0;font-size:0.8rem;color:var(--text-muted,#64748b);"></p>
+            <p id="sysstat-licence-line3" class="settings-hint" style="margin:0.1rem 0 0 0;font-size:0.8rem;color:var(--text-muted,#64748b);"></p>
+          </div>
+
+          <div id="sysstat-backup" style="margin-bottom:1rem;padding:0.75rem;border-radius:8px;background:var(--input-bg,#f8fafc);border:1px solid var(--border,#e2e8f0);">
+            <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.35rem;">
+              <span id="sysstat-backup-icon" style="font-size:1.1rem;">⏳</span>
+              <strong>Cloud Backup</strong>
+            </div>
+            <p id="sysstat-backup-line1" class="settings-hint" style="margin:0.15rem 0 0 0;font-size:0.85rem;">Checking…</p>
+            <p id="sysstat-backup-line2" class="settings-hint" style="margin:0.1rem 0 0 0;font-size:0.8rem;color:var(--text-muted,#64748b);"></p>
+          </div>
+
+          <div id="sysstat-update" style="margin-bottom:0.5rem;padding:0.75rem;border-radius:8px;background:var(--input-bg,#f8fafc);border:1px solid var(--border,#e2e8f0);">
+            <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.35rem;">
+              <span id="sysstat-update-icon" style="font-size:1.1rem;">⏳</span>
+              <strong>Auto-Update</strong>
+            </div>
+            <p id="sysstat-update-line1" class="settings-hint" style="margin:0.15rem 0 0 0;font-size:0.85rem;">Checking…</p>
+            <p id="sysstat-update-line2" class="settings-hint" style="margin:0.1rem 0 0 0;font-size:0.8rem;color:var(--text-muted,#64748b);"></p>
+          </div>
+
+          <button type="button" id="sysstat-refresh-btn" class="btn btn-secondary" style="margin-top:0.25rem;">Refresh diagnostics</button>
+        </div>
+
+        <div class="settings-card" id="useful-links-card">
+          <h2>Useful Links</h2>
+          <p class="settings-hint" style="margin-top:0;">Quick access to essential resources for police station reps and criminal defence practitioners.</p>
+
+          <h3 class="useful-links-category">Custody Note Website</h3>
+          <div class="useful-links-grid">
+            <a href="https://www.custodynote.com/download" class="useful-link-btn" data-ext-url="https://www.custodynote.com/download">Download</a>
+            <a href="https://www.custodynote.com/trial" class="useful-link-btn" data-ext-url="https://www.custodynote.com/trial">Start trial</a>
+            <a href="https://www.custodynote.com/support" class="useful-link-btn" data-ext-url="https://www.custodynote.com/support">Support</a>
+            <a href="https://www.custodynote.com/changelog" class="useful-link-btn" data-ext-url="https://www.custodynote.com/changelog">Changelog</a>
+            <a href="https://www.custodynote.com/contact" class="useful-link-btn" data-ext-url="https://www.custodynote.com/contact">Contact</a>
+          </div>
+
+          <h3 class="useful-links-category">PSR Connect &amp; Tools</h3>
+          <div class="useful-links-grid">
+            <a href="https://www.policestationrepuk.com/" class="useful-link-btn" data-ext-url="https://www.policestationrepuk.com/">PSR Connect Home</a>
+            <a href="https://policestationrepuk.com/EscapeFeeCalculator" class="useful-link-btn" data-ext-url="https://policestationrepuk.com/EscapeFeeCalculator">Escape Fee Calculator</a>
+            <a href="https://policestationrepuk.com/PoliceStationRates" class="useful-link-btn" data-ext-url="https://policestationrepuk.com/PoliceStationRates">Police Station Rates</a>
+            <a href="https://policestationrepuk.com/FormsLibrary" class="useful-link-btn" data-ext-url="https://policestationrepuk.com/FormsLibrary">Forms Library</a>
+            <a href="https://policestationrepuk.com/LegalUpdates" class="useful-link-btn" data-ext-url="https://policestationrepuk.com/LegalUpdates">Legal Updates</a>
+            <a href="https://policestationrepuk.com/PACE" class="useful-link-btn" data-ext-url="https://policestationrepuk.com/PACE">PACE Reference</a>
+            <a href="https://policestationrepuk.com/StationsDirectory" class="useful-link-btn" data-ext-url="https://policestationrepuk.com/StationsDirectory">Stations Directory</a>
+            <a href="https://policestationrepuk.com/InterviewUnderCaution" class="useful-link-btn" data-ext-url="https://policestationrepuk.com/InterviewUnderCaution">Interview Under Caution</a>
+            <a href="https://policestationrepuk.com/PoliceDisclosureGuide" class="useful-link-btn" data-ext-url="https://policestationrepuk.com/PoliceDisclosureGuide">Disclosure Guide</a>
+            <a href="https://policestationrepuk.com/CrownCourtFees" class="useful-link-btn" data-ext-url="https://policestationrepuk.com/CrownCourtFees">Crown Court Fees</a>
+            <a href="https://policestationrepuk.com/MagistratesCourtFees" class="useful-link-btn" data-ext-url="https://policestationrepuk.com/MagistratesCourtFees">Magistrates Court Fees</a>
+            <a href="https://policestationrepuk.com/Wiki" class="useful-link-btn" data-ext-url="https://policestationrepuk.com/Wiki">Knowledge Base</a>
+          </div>
+
+          <h3 class="useful-links-category">Legal Aid &amp; LAA</h3>
+          <div class="useful-links-grid">
+            <a href="https://apply-for-criminal-legal-aid.service.justice.gov.uk" class="useful-link-btn" data-ext-url="https://apply-for-criminal-legal-aid.service.justice.gov.uk">Crime Apply (online)</a>
+            <a href="https://www.gov.uk/government/collections/criminal-legal-aid-application-forms" class="useful-link-btn" data-ext-url="https://www.gov.uk/government/collections/criminal-legal-aid-application-forms">LAA Application Forms</a>
+            <a href="https://www.gov.uk/guidance/legal-aid-crime-eform" class="useful-link-btn" data-ext-url="https://www.gov.uk/guidance/legal-aid-crime-eform">Crime eForm Guidance</a>
+            <a href="https://legalaidlearning.justice.gov.uk/apply-faq/" class="useful-link-btn" data-ext-url="https://legalaidlearning.justice.gov.uk/apply-faq/">Legal Aid FAQs</a>
+          </div>
+
+          <h3 class="useful-links-category">DSCC &amp; Duty Solicitor</h3>
+          <div class="useful-links-grid">
+            <a href="https://www.dutysolicitors.org/" class="useful-link-btn" data-ext-url="https://www.dutysolicitors.org/">DSCC Portal (rotas)</a>
+            <a href="https://www.gov.uk/guidance/duty-solicitors-rotas-information-and-guidance" class="useful-link-btn" data-ext-url="https://www.gov.uk/guidance/duty-solicitors-rotas-information-and-guidance">Duty Solicitor Guidance</a>
+          </div>
+
+          <h3 class="useful-links-category">PACE &amp; Legislation</h3>
+          <div class="useful-links-grid">
+            <a href="https://www.gov.uk/guidance/police-and-criminal-evidence-act-1984-pace-codes-of-practice" class="useful-link-btn" data-ext-url="https://www.gov.uk/guidance/police-and-criminal-evidence-act-1984-pace-codes-of-practice">PACE Codes A&ndash;H</a>
+            <a href="https://www.legislation.gov.uk/ukpga/1984/60/contents" class="useful-link-btn" data-ext-url="https://www.legislation.gov.uk/ukpga/1984/60/contents">PACE 1984 (full text)</a>
+            <a href="https://www.legislation.gov.uk/ukpga/1976/63/contents" class="useful-link-btn" data-ext-url="https://www.legislation.gov.uk/ukpga/1976/63/contents">Bail Act 1976</a>
+            <a href="https://www.legislation.gov.uk/ukpga/2003/44/contents" class="useful-link-btn" data-ext-url="https://www.legislation.gov.uk/ukpga/2003/44/contents">Criminal Justice Act 2003</a>
+            <a href="https://www.legislation.gov.uk/ukpga/1983/20/contents" class="useful-link-btn" data-ext-url="https://www.legislation.gov.uk/ukpga/1983/20/contents">Mental Health Act 1983</a>
+            <a href="https://www.legislation.gov.uk/ukpga/1971/38/contents" class="useful-link-btn" data-ext-url="https://www.legislation.gov.uk/ukpga/1971/38/contents">Misuse of Drugs Act 1971</a>
+          </div>
+
+          <h3 class="useful-links-category">Sentencing &amp; CPS</h3>
+          <div class="useful-links-grid">
+            <a href="https://www.sentencingcouncil.org.uk/" class="useful-link-btn" data-ext-url="https://www.sentencingcouncil.org.uk/">Sentencing Council</a>
+            <a href="https://www.sentencingcouncil.org.uk/sentencing-and-the-council/about-sentencing-guidelines/magistrates-court-sentencing-guidelines/" class="useful-link-btn" data-ext-url="https://www.sentencingcouncil.org.uk/sentencing-and-the-council/about-sentencing-guidelines/magistrates-court-sentencing-guidelines/">Magistrates Guidelines</a>
+            <a href="https://www.cps.gov.uk/prosecution-guidance" class="useful-link-btn" data-ext-url="https://www.cps.gov.uk/prosecution-guidance">CPS Prosecution Guidance</a>
+            <a href="https://www.cps.gov.uk/publication/code-crown-prosecutors" class="useful-link-btn" data-ext-url="https://www.cps.gov.uk/publication/code-crown-prosecutors">Code for Crown Prosecutors</a>
+          </div>
+
+          <h3 class="useful-links-category">Court Listings</h3>
+          <div class="useful-links-grid">
+            <a href="https://www.courtserve.net/" class="useful-link-btn" data-ext-url="https://www.courtserve.net/">CourtServe (magistrates)</a>
+            <a href="https://xhibit.justice.gov.uk/" class="useful-link-btn" data-ext-url="https://xhibit.justice.gov.uk/">Xhibit (Crown Court)</a>
+            <a href="https://www.gov.uk/find-court-tribunal" class="useful-link-btn" data-ext-url="https://www.gov.uk/find-court-tribunal">Find a Court</a>
+          </div>
+
+          <h3 class="useful-links-category">Professional Bodies</h3>
+          <div class="useful-links-grid">
+            <a href="https://www.lawsociety.org.uk/en/career-advice/individual-accreditations/criminal-litigation-accreditation/" class="useful-link-btn" data-ext-url="https://www.lawsociety.org.uk/en/career-advice/individual-accreditations/criminal-litigation-accreditation/">Law Society (CLA)</a>
+            <a href="https://www.clsa.co.uk/" class="useful-link-btn" data-ext-url="https://www.clsa.co.uk/">CLSA</a>
+            <a href="https://www.lccsa.org.uk/" class="useful-link-btn" data-ext-url="https://www.lccsa.org.uk/">LCCSA</a>
+            <a href="https://www.appropriateadult.org.uk/" class="useful-link-btn" data-ext-url="https://www.appropriateadult.org.uk/">Appropriate Adult</a>
+          </div>
+        </div>
+        </div><!-- end support tab panel -->
+
+      </div>
+
+      <!-- HELP / INSTRUCTIONS VIEW -->
+      <div id="view-help" class="view">
+        <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1rem;">
+          <button type="button" id="help-back-btn" class="btn btn-secondary">&larr; Home</button>
+          <h2 style="margin:0;color:var(--primary);">How to Use Custody Note</h2>
+        </div>
+        <div class="help-page">
+
+          <p class="help-intro">Custody Note is a complete digital attendance note and LAA billing tool for police station representatives. Everything is stored locally on your computer &mdash; no internet connection is required. This guide covers every feature in detail.</p>
+          <p class="help-intro" style="margin-top:0.5rem;">Need help? <a href="#" data-ext-href="https://www.custodynote.com/support">Support forum</a> &middot; <a href="#" data-ext-href="https://www.custodynote.com/contact">Contact us</a> &middot; <a href="#" data-ext-href="https://www.custodynote.com/faq">FAQ</a></p>
+
+          <details class="help-section" open>
+            <summary class="help-heading">Recommended order of work (typical matter)</summary>
+            <div class="help-content">
+              <ol style="margin-top:0.5rem;padding-left:1.25rem;">
+                <li>Start a record from <strong>Home</strong> (Custody, Voluntary, Quick Capture, or Tel Advice).</li>
+                <li>Complete the sections in order; use <strong>Sections</strong> in the header to jump. The app saves drafts automatically while you work.</li>
+                <li>When the note is complete, <strong>Finalise</strong> &mdash; the record locks to protect the legal record.</li>
+                <li>Then use <strong>Billing</strong> (bottom bar) or <strong>Documents &amp; Billing</strong> on the record for attachments, QuickFile invoice, and completion.</li>
+                <li>Generate <strong>PDF</strong> or <strong>LAA Forms</strong> from the header when you need outputs.</li>
+                <li>When the file is finished, <strong>Archive</strong> the record to hide it from the main list (you can still find it under the Archived filter).</li>
+              </ol>
+            </div>
+          </details>
+
+          <details class="help-section" open>
+            <summary class="help-heading">Getting Started</summary>
+            <div class="help-content">
+              <p>When you first launch the app, you will be asked for your <strong>DSCC PIN/Number</strong>. This is used in PDF headers and billing. You can skip this and set it later in Settings.</p>
+              <h4>Recommended first steps:</h4>
+              <ol>
+                <li>Go to <strong>Settings</strong> (gear menu, top-right) and enter your <strong>Fee Earner Name</strong>. This auto-fills into conflict certificates and LAA declarations on every new record.</li>
+                <li>Set your <strong>email address</strong> so exported PDFs can be sent to you for checking.</li>
+                <li>Add the <strong>firms that instruct you</strong> via the Firms page. Star one as your default firm.</li>
+                <li>Set a <strong>backup folder</strong> in Settings so your data is automatically backed up every 2 minutes (and hourly archives kept). Optionally set an <strong>off-site backup folder</strong> (e.g. OneDrive or Dropbox) so backups also copy to the cloud.</li>
+                <li>Set a <strong>recovery password</strong> in Settings &gt; Security &amp; Encryption. This lets you recover your database if you move to a new computer.</li>
+              </ol>
+            </div>
+          </details>
+
+          <details class="help-section">
+            <summary class="help-heading">Licence Activation and Trial</summary>
+            <div class="help-content">
+              <p>Custody Note requires a valid licence or trial to run. When you first install the app, you can start a <strong>30-day free trial</strong> to try all features.</p>
+              <h4>Trial</h4>
+              <ul>
+                <li>On first launch, if no licence is entered, the app will offer a trial. Click <strong>Start trial</strong> to begin.</li>
+                <li>The trial lasts 30 days and includes all features, including automatic cloud backup to AWS.</li>
+                <li>You will see a reminder as the trial nears expiry. When expired, the app will show the licence overlay until you enter a valid licence key.</li>
+              </ul>
+              <h4>Activating a subscription</h4>
+              <ul>
+                <li>After purchasing a subscription at <a href="https://custodynote.com" target="_blank" rel="noopener">custodynote.com</a>, you will receive a licence key by email.</li>
+                <li>Enter your licence key in the activation overlay when prompted (e.g. when trial has expired or when opening the app without a valid licence).</li>
+                <li>The app validates your licence online. You need an internet connection for activation and periodic validation. If you have not opened the app for a while, you have a <strong>60-day offline grace period</strong> before online verification is required — your subscription remains active during this time.</li>
+                <li><strong>Forgot your licence key?</strong> Use <strong>Email my licence key</strong> on the sign-in overlay, or go to <strong>Settings &gt; Account &gt; Licence</strong> (or Settings &gt; Support). Enter the email address you used when purchasing.</li>
+                <li>If you see a "subscription" or "trial" message and you have paid, ensure you entered the exact licence key from your email. Keys are case-sensitive; enter them exactly as shown.</li>
+              </ul>
+              <h4>Renewing or changing your subscription</h4>
+              <p>To renew, upgrade, or cancel, log in to your account at custodynote.com or use the link in your subscription confirmation email. The app will automatically recognise an active subscription when it next validates.</p>
+              <h4>Taskbar or desktop shortcut opens an old version?</h4>
+              <p>If you already have Custody Note installed, updates download automatically in the app. If the Custody Note icon on your taskbar or desktop launches an older version after you install an update, the shortcut is still pointing at the previous install. <strong>Fix:</strong> Unpin from the taskbar (right‑click the icon → Unpin from taskbar). Then open the <strong>Start Menu</strong>, search for <strong>Custody Note</strong>, right‑click it → <strong>Pin to taskbar</strong>. That pins the current installed version.</p>
+            </div>
+          </details>
+
+          <details class="help-section">
+            <summary class="help-heading">Home Screen</summary>
+            <div class="help-content">
+              <p>The home screen is your command centre. It shows a greeting, the current date and time, and action cards:</p>
+              <ul>
+                <li><strong>New Tel Advice</strong> &mdash; Start a telephone advice record (INVB claim). Use this for police station advice calls where you do not physically attend.</li>
+                <li><strong>Quick Capture</strong> &mdash; Rapidly capture key case details when you first receive an instruction. Choose Custody or Voluntary mode; you can expand into a full form later.</li>
+                <li><strong>Custody Attendance</strong> &mdash; Start a full police station attendance note when the client is <em>in custody</em> (under arrest). Includes PACE reviews, detention clock, and custody record.</li>
+                <li><strong>Voluntary Attendance</strong> &mdash; Start a voluntary interview attendance note when the client attends <em>voluntarily</em> (not under arrest). Client is free to leave unless arrested. No PACE reviews or detention clock.</li>
+              </ul>
+              <p>Below the cards you will see <strong>Latest activity</strong> showing your most recent records (up to 10). Use <strong>View all</strong> to open the full list in All Records. A status strip confirms your internet and backup status.</p>
+              <p>The <strong>search bar</strong> at the top of the header lets you search across all records by client name, UFN, station, custody number, or date.</p>
+            </div>
+          </details>
+
+          <details class="help-section">
+            <summary class="help-heading">Quick Capture</summary>
+            <div class="help-content">
+              <p>Quick Capture is designed for the moment you receive an instruction &mdash; while driving, on the phone, or in a rush. At the top, choose <strong>Attendance Type</strong>: <em>Custody</em> (client under arrest) or <em>Voluntary</em> (client attending voluntarily).</p>
+              <p>It captures the essential details:</p>
+              <ul>
+                <li>Client name, police station, offence, DSCC number</li>
+                <li>Instruction time, first contact time (LAA requirement)</li>
+                <li>Instructing firm, OIC details, custody number</li>
+                <li>Travel times (set off / arrived)</li>
+              </ul>
+              <p>You have two options when saving:</p>
+              <ul>
+                <li><strong>Save as Draft</strong> &mdash; Saves the quick capture data. You can open it later from All Records to continue.</li>
+                <li><strong>Expand to Full Form</strong> &mdash; Immediately opens the full attendance form (custody or voluntary) with all your quick capture data pre-filled.</li>
+              </ul>
+            </div>
+          </details>
+
+          <details class="help-section">
+            <summary class="help-heading">New Attendance (Full Form)</summary>
+            <div class="help-content">
+              <p>The main attendance form has <strong>9 sections</strong> in the flow (1–9), navigated with Previous/Next or the <strong>Sections</strong> button. <strong>Consents &amp; Retainer, Third Party Authority, Authorities, Communications Log, Supervisor Review, LAA Declaration, and Admin &amp; Billing</strong> are <em>not</em> part of this flow &mdash; they open in a <strong>separate screen</strong> when you tap their card on section 1 or from Home.</p>
+
+              <h4>1. Case Reference &amp; Arrival</h4>
+              <p>The first field is <strong>Attendance type</strong> &mdash; choose <em>Custody</em> (client under arrest) or <em>Voluntary</em> (client attending voluntarily). Changing this switches the form to the appropriate layout. Then: DSCC number, UFN, work type, instruction time, first contact with client, police station (typeahead search), instructing firm, OIC details. The police station field lets you type the first few letters and select from the LAA station list.</p>
+
+              <h4>2. Journey to Station</h4>
+              <p>Set-off time, arrival time, mileage. Used for travel and waiting time calculations.</p>
+
+              <h4>3. Custody Record</h4>
+              <p>Client personal details (name, DOB, address, nationality), NI number, benefits, passported benefit status (auto-detected from the benefit you select), employment, accommodation, marital status, risk assessment, PACE reviews, ethnicity and disability codes.</p>
+              <div class="help-tip"><strong>Tip:</strong> Date of birth accepts flexible formats &mdash; type <em>15/03/1987</em>, <em>15-3-87</em>, or <em>15 mar 1987</em> and it will auto-parse.</div>
+              <div class="help-tip"><strong>Tip:</strong> When you select a benefit type, the app automatically sets whether it is a passporting benefit (Universal Credit, Income Support, income-based JSA/ESA, Pension Credit Guarantee = Yes; all others = No).</div>
+
+              <h4>4. Offences</h4>
+              <p>Record up to four offences with details and statute. These are used to auto-fill charges if the client is charged (see Outcome section).</p>
+
+              <h4>5. Disclosure &amp; Evidence</h4>
+              <p>Record what disclosure was received, PACE searches, forensic samples, and the name of the complainant/alleged victim.</p>
+
+              <h4>6. Consultation (Attend on Client)</h4>
+              <p>Record your consultation with the client: advice given, conflict check, instructions, welfare, checklist items.</p>
+
+              <h4>7. Interview</h4>
+              <p>Record one or more interviews with start/end times, advice given, and notes. Use <strong>+ Add interview</strong> for further interviews.</p>
+              <p class="help-tip" style="margin-top:0.5rem;"><strong>Note:</strong> These notes are not verbatim and should not be relied upon as if a transcript.</p>
+
+              <h4>8. Outcome</h4>
+              <p>Record the outcome decision (NFA, Charged, Bail, RUI, etc.). If the client is charged, the app offers to <strong>pre-fill the charge details</strong> from the offences in Section 4 &mdash; a confirmation box appears so you can accept or decline.</p>
+              <p>The <strong>Court Name</strong> field has typeahead autocomplete &mdash; start typing and matching courts appear.</p>
+
+              <h4>9. Time Recording &amp; Fees</h4>
+              <p>Record attendance, travel, waiting, and advice times (social/unsocial hours). The app calculates whether the case is an escape fee case automatically.</p>
+
+              <h4>Stand-alone options (separate screen)</h4>
+              <p>These open in a <strong>separate screen</strong> when you tap their card on section 1 or from Home; they are not in the main 1–9 flow.</p>
+              <ul>
+                <li><strong>Consents &amp; Retainer</strong> &mdash; Client retainer / authority to act. Fields auto-fill from client details entered earlier.</li>
+                <li><strong>Third Party Authority</strong> &mdash; Record authority from the client to contact third parties. Each entry captures name, relationship, contact details, what information is authorised to disclose, and outcome. Use <strong>+ Add third party</strong> for multiple entries.</li>
+                <li><strong>Authorities</strong> &mdash; Appointed Solicitor (reference, contact details), Medical Authorities (per provider), Other Professional Authority (social services, housing, education, etc.).</li>
+                <li><strong>Communications Log</strong> &mdash; Log telephone calls, emails, and text messages. Each entry: type, direction, date, time, party, summary. Use <strong>+ Add entry</strong> for each.</li>
+                <li><strong>Supervisor Review</strong> &mdash; For firms that require supervisor sign-off.</li>
+                <li><strong>LAA Declaration</strong> &mdash; Declaration text, client and fee earner names (fee earner auto-fills from Settings), signatures (pads or full-screen canvas).</li>
+                <li><strong>Admin &amp; Billing</strong> &mdash; File number (ours) / invoice number, UFN, LAA account, MAAT ID.</li>
+              </ul>
+            </div>
+          </details>
+
+          <details class="help-section">
+            <summary class="help-heading">Voluntary Attendance</summary>
+            <div class="help-content">
+              <p>Use <strong>Voluntary Attendance</strong> when the client attends <em>voluntarily</em> under PACE &mdash; not under arrest, free to leave unless arrested. The form has <strong>7 sections</strong> tailored to voluntary interviews:</p>
+              <ol>
+                <li><strong>Matter Setup</strong> &mdash; Date, firm, client, location, OIC/interviewer, instruction source, DSCC reference, UFN, allegation.</li>
+                <li><strong>Voluntary attendance confirmation (end of section 3)</strong> &mdash; After client identity, contact, and welfare (including fitness for interview), record that the client attended voluntarily and was not under arrest, notice of rights, pre-interview caution, sub-type, and constable (where relevant). The free-to-leave advice is recorded in the Consultation section, after disclosure and advice.</li>
+                <li><strong>Welfare &amp; Safeguards</strong> &mdash; Youth/vulnerable adult, appropriate adult, interpreter, fitness to be interviewed.</li>
+                <li><strong>Disclosure &amp; Preparation</strong> &mdash; Disclosure summary, advice given, reasons, interview strategy.</li>
+                <li><strong>Attendance Record</strong> &mdash; Consultation and interview times, representations made. If the client is <strong>arrested during attendance</strong>, complete arrest time and conversion notes, then use <strong>Convert to custody workflow</strong> to create a new custody record with audit trail.</li>
+                <li><strong>Outcome &amp; Billing</strong> &mdash; Outcome code (CN04–CN11), sufficient benefit, time recording.</li>
+                <li><strong>Client Aftercare</strong> &mdash; What was explained, next steps, follow-up tasks.</li>
+              </ol>
+              <p>The <strong>File completion</strong> panel (Time recording section) shows checks for outcome, time recording, DSCC (where applicable), and links to <strong>Finish matter</strong> for documents, QuickFile invoice, and marking office work complete. A <strong>confidentiality reminder</strong> may appear before export.</p>
+            </div>
+          </details>
+
+          <details class="help-section">
+            <summary class="help-heading">Telephone Advice (INVB)</summary>
+            <div class="help-content">
+              <p>The telephone advice form is a streamlined 4-section form for police station advice calls where you do not physically attend:</p>
+              <ol>
+                <li><strong>Call Details</strong> &mdash; DSCC number, station, firm, OIC, instruction time, first contact time.</li>
+                <li><strong>Client &amp; Advice</strong> &mdash; Client details, offence, disclosure, advice given, sufficient benefit test.</li>
+                <li><strong>Outcome</strong> &mdash; Outcome decision, time recording, fee calculation.</li>
+                <li><strong>Sign Off</strong> &mdash; LAA declaration, client/fee earner names. Signatures are <strong>optional</strong> (toggle on if the client is present or the firm requires them).</li>
+              </ol>
+              <p>This form meets all minimum LAA requirements for INVB (telephone advice) claims. The fields required for an LAA audit pass are highlighted.</p>
+            </div>
+          </details>
+
+          <details class="help-section">
+            <summary class="help-heading">Navigating the Form</summary>
+            <div class="help-content">
+              <ul>
+                <li><strong>Previous / Next buttons</strong> &mdash; at the bottom of each section to move between sections.</li>
+                <li><strong>Sections button</strong> &mdash; opens a popup listing all sections so you can jump directly to any one.</li>
+                <li><strong>Context bar</strong> &mdash; the bar below the header always shows the client name, station, date, and current section for quick reference.</li>
+                <li><strong>Progress bar</strong> &mdash; the coloured bar above the bottom buttons shows how far through the form you are.</li>
+                <li><strong>Auto-save</strong> &mdash; the form auto-saves your work every few seconds. You will see "Saved" appear near the top of the form.</li>
+              </ul>
+              <h4>Keyboard Shortcuts</h4>
+              <table class="help-kb-table">
+                <tr><td><kbd>Ctrl</kbd> + <kbd>&rarr;</kbd></td><td>Next section</td></tr>
+                <tr><td><kbd>Ctrl</kbd> + <kbd>&larr;</kbd></td><td>Previous section</td></tr>
+                <tr><td><kbd>Ctrl</kbd> + <kbd>S</kbd></td><td>Save and exit</td></tr>
+                <tr><td><kbd>Esc</kbd></td><td>Close popup / go back</td></tr>
+              </table>
+            </div>
+          </details>
+
+          <details class="help-section">
+            <summary class="help-heading">All Records</summary>
+            <div class="help-content">
+              <p>Access All Records from the gear menu or by clicking <strong>View all</strong> on the home screen.</p>
+              <ul>
+                <li><strong>Search</strong> &mdash; search by client name, UFN, station, custody number, or date.</li>
+                <li><strong>Filter</strong> &mdash; filter by All, Drafts, or Finalised records; and by <strong>Attendance Type</strong> (All / Custody / Voluntary / Telephone).</li>
+                <li><strong>Sort</strong> &mdash; sort by newest, oldest, client name A-Z, or station.</li>
+                <li><strong>Compact view</strong> &mdash; toggle compact view for a denser list.</li>
+              </ul>
+              <h4>Record Actions</h4>
+              <p>Each record in the list has action buttons:</p>
+              <ul>
+                <li><strong>Edit</strong> &mdash; Opens the record for editing. If the record is finalised, you will be asked to confirm; the status reverts to draft until you re-finalise.</li>
+                <li><strong>Print PDF</strong> &mdash; Opens an in-app print preview of the full attendance note with a Print dialog.</li>
+                <li><strong>Export PDF</strong> &mdash; Saves the attendance note as a PDF file to your Desktop.</li>
+                <li><strong>Duplicate</strong> &mdash; Saves a <strong>new draft</strong> for another client in the same custody session.<br>
+                  <em>Kept</em>: station, OIC, attendance date, firm/fee earner, offences, disclosure officer, interviews, comms log, attending contacts.<br>
+                  <em>Cleared</em>: client identity (name, DOB, address, phone/email, NI/ARC, CRN, UFN/MAAT, file refs); custody &amp; arrest, PACE reviews, strip-search; supervisor / appropriate adult / interpreter; disclosure narrative, co-suspects, witnesses, CCTV, exhibits, devices, samples, special warnings; conflict check + means/financial; advice &amp; instructions; outcome &amp; bail; time recording, fees, mileage, parking, disbursements; consents/retainer; signatures; CRM14; QuickFile/billing links; officer email log; workflow timestamps and lock/archive flags. Photos and attached files are <strong>not</strong> copied across.</li>
+                <li><strong>New matter</strong> &mdash; Starts a new matter for the <strong>same client</strong>, carrying over personal details; you get a new file number on save.</li>
+                <li><strong>Delete</strong> &mdash; Deletes the record. Finalised records are soft-deleted (can be recovered). You will be asked for a reason.</li>
+              </ul>
+              <p>Click anywhere on the record row (not a button) to open it in view/edit mode.</p>
+            </div>
+          </details>
+
+          <details class="help-section">
+            <summary class="help-heading">Signatures</summary>
+            <div class="help-content">
+              <p>Signature pads appear in the LAA Declaration, Consents, and Supervisor Review sections. You can sign directly in the inline canvas, but for touchscreens (tablets, laptops with touchscreens) use the <strong>Sign</strong> button:</p>
+              <ol>
+                <li>Press the blue <strong>Sign</strong> button next to the signature pad.</li>
+                <li>A full-screen overlay opens with a large white canvas.</li>
+                <li>Sign with your finger or stylus.</li>
+                <li>Press <strong>Done</strong> to save the signature back to the form, or <strong>Cancel</strong> to discard.</li>
+                <li>Use <strong>Clear</strong> to wipe the canvas and start again.</li>
+              </ol>
+              <p>The inline pad also has <strong>Clear</strong> and <strong>Undo</strong> buttons.</p>
+              <p>Signature timestamps (date and time) are automatically recorded when you sign.</p>
+            </div>
+          </details>
+
+          <details class="help-section">
+            <summary class="help-heading">Firms</summary>
+            <div class="help-content">
+              <p>Manage firms that instruct you from the <strong>Firms</strong> page (gear menu or bottom navigation).</p>
+              <ul>
+                <li><strong>Add a new firm</strong> &mdash; enter firm name, LAA account number, contact name, phone, and email.</li>
+                <li><strong>Use existing firm</strong> &mdash; search your saved firms by name or contact.</li>
+                <li><strong>Edit a firm</strong> &mdash; click the <strong>Edit</strong> button on any firm row to amend its name, LAA account, contact details, phone, or email. Click <strong>Save</strong> to confirm.</li>
+                <li><strong>Star a firm</strong> &mdash; click the star icon to set a firm as your default. The default firm is auto-selected on new records.</li>
+                <li><strong>Remove a firm</strong> &mdash; click <strong>Remove</strong> to delete a firm from your list.</li>
+              </ul>
+              <p>When creating a new record, you can select from your saved firms or add a new firm inline.</p>
+            </div>
+          </details>
+
+          <details class="help-section">
+            <summary class="help-heading">Reports</summary>
+            <div class="help-content">
+              <p>The Reports page (gear menu) shows:</p>
+              <ul>
+                <li><strong>This Month</strong> &mdash; total attendances this calendar month.</li>
+                <li><strong>This Year</strong> &mdash; total attendances this calendar year.</li>
+                <li><strong>Escape Fee Cases</strong> &mdash; number of cases exceeding the LAA escape threshold.</li>
+                <li><strong>By Attendance Type</strong> &mdash; breakdown by Custody, Voluntary, and Telephone.</li>
+                <li><strong>By Firm</strong> &mdash; breakdown of records by instructing firm.</li>
+                <li><strong>By Station</strong> &mdash; breakdown of records by police station.</li>
+              </ul>
+            </div>
+          </details>
+
+          <details class="help-section">
+            <summary class="help-heading">Settings</summary>
+            <div class="help-content">
+              <h4>Your Details</h4>
+              <ul>
+                <li><strong>DSCC PIN/Number</strong> &mdash; appears on PDF headers and is used for billing.</li>
+                <li><strong>Fee Earner Name</strong> &mdash; auto-fills into conflict certificates and LAA declarations on every new record.</li>
+                <li><strong>Email</strong> &mdash; PDFs can be sent here for checking.</li>
+                <li><strong>Supervisor Review</strong> &mdash; for firms that require supervisor sign-off.</li>
+              </ul>
+              <h4>Appearance</h4>
+              <ul>
+                <li><strong>Colour Theme</strong> &mdash; choose from Deep Navy, Classic Light, Slate Blue, Midnight, or Teal.</li>
+                <li><strong>Dark Mode</strong> &mdash; for night shifts.</li>
+                <li><strong>Font Size</strong> &mdash; adjust from 12px to 20px using the slider.</li>
+              </ul>
+              <h4>Backup</h4>
+              <p>The app backs up your attendance database automatically as encrypted files. In Settings &gt; Backup you can set:</p>
+              <ul>
+                <li><strong>Backup folder</strong> &mdash; Where backups are saved (e.g. Desktop or a dedicated folder). A <strong>quick backup</strong> runs every 2 minutes when you&rsquo;ve made changes, saving a single file that is overwritten each time. An <strong>hourly archive</strong> creates a new timestamped file every hour; the app keeps up to 48 of these and deletes older ones. From the Attendance List (Records), use <strong>Backup now</strong> to create an immediate backup.</li>
+                <li><strong>Off-site backup folder (optional)</strong> &mdash; A second folder (e.g. inside OneDrive, Dropbox, or Google Drive). Whenever a backup runs, the same encrypted files are copied here so they sync to the cloud. This gives you a copy away from your computer in case of loss, theft, or hardware failure. Your data is not sent to any server you don&rsquo;t control &mdash; you choose the folder and the sync is handled by your cloud provider.</li>
+              </ul>
+              <p>All backups are encrypted. Set a <strong>recovery password</strong> (Settings &gt; Security) so you can open a backup on another computer if needed.</p>
+              <h4>Security &amp; Encryption</h4>
+              <p>Your database is encrypted with AES-256-GCM. Set a <strong>recovery password</strong> so you can access your data on a new computer. Keep this password safe.</p>
+            </div>
+          </details>
+
+          <details class="help-section">
+            <summary class="help-heading">Saving, Finalising &amp; PDF Export</summary>
+            <div class="help-content">
+              <p>Records have two statuses:</p>
+              <ul>
+                <li><strong>Draft</strong> &mdash; work in progress, can be edited freely.</li>
+                <li><strong>Finalised</strong> &mdash; locked for editing. To make changes, use the <strong>Amend</strong> button in All Records, which reverts the record to draft.</li>
+              </ul>
+              <p>To finalise a record, press <strong>Save / Exit</strong> and choose <strong>Finalise</strong>. The app checks for missing required fields and warns you before finalising.</p>
+              <p>To export an attendance PDF, use <strong>&#163; Billing</strong> (preview or download), or <strong>Export PDF</strong> from All Records. PDFs are generated in the main process. A <strong>confidentiality reminder</strong> may appear before export &mdash; only share with authorised recipients (SRA standards).</p>
+              <p>Official LAA forms (CRM1, CRM2, CRM3, Applicant Declaration) are available in Settings and from the <strong>LAA Forms</strong> button in the form header. Forms are pre-filled from the current record where possible.</p>
+              <h4>LAA billing codes</h4>
+              <p>The form uses standard LAA codes for billing and claims. Key fields: <strong>DSCC number</strong> (from the duty solicitor call centre), <strong>UFN</strong> (Unique File Number from the instructing firm), <strong>MAAT ID</strong> (client identifier on the Legal Aid Agency system), and <strong>LAA account</strong> (for case tracking). These appear in Admin &amp; Billing and in the form header. Use them to match your exported PDFs and time records to LAA claims and firm file systems.</p>
+            </div>
+          </details>
+
+          <details class="help-section">
+            <summary class="help-heading">Data Safety &amp; Privacy</summary>
+            <div class="help-content">
+              <ul>
+                <li>All data is stored <strong>locally</strong> on your computer in an encrypted SQLite database.</li>
+                <li><strong>No data is sent to any server.</strong> The app works fully offline.</li>
+                <li>The database is encrypted with <strong>AES-256-GCM</strong>. The encryption key is protected by Windows Credential Store.</li>
+                <li>Automatic backups run every 2 minutes (quick) and every hour (archive). You can set an off-site backup folder (e.g. OneDrive) so the same encrypted files are copied there and sync to the cloud.</li>
+                <li>Set a <strong>recovery password</strong> in Settings to protect against data loss if your computer is lost or replaced.</li>
+                <li>Deleted finalised records are soft-deleted (not permanently removed) for audit trail purposes.</li>
+              </ul>
+            </div>
+          </details>
+
+          <details class="help-section">
+            <summary class="help-heading">Cloud Backup</summary>
+            <div class="help-content">
+              <p><strong>Cloud Backup</strong> is an optional add-on that automatically uploads your encrypted database to a secure UK data centre (AWS London).</p>
+              <ul>
+                <li><strong>Incorruptible:</strong> Backups are protected by AWS Object Lock &mdash; once uploaded, nobody (not even us) can delete or modify them. Ever.</li>
+                <li><strong>Encrypted:</strong> Your data is encrypted on your computer before upload. We cannot read your backups.</li>
+                <li><strong>Isolated:</strong> Only your licence key can access your backups. No other subscriber can see your data (SRA-compliant).</li>
+                <li><strong>Restore:</strong> If your computer fails, install Custody Note on a new machine, enter your licence key, and restore from the cloud. You will need your recovery password.</li>
+              </ul>
+              <p>To subscribe, go to <strong>Settings &gt; Cloud Backup</strong> or visit <a href="#" data-ext-href="https://custodynote.com/pricing">custodynote.com/pricing</a>.</p>
+              <p style="margin-top:0.75rem;padding:0.75rem;background:#d1fae5;border-radius:6px;border:1px solid #10b981;font-size:0.9rem;"><strong>&#10003; Cloud Backup included:</strong> With an active licence, your database is automatically backed up to AWS (encrypted, UK data centre). Connect to the internet to sync and enable backups.</p>
+            </div>
+          </details>
+
+          <details class="help-section">
+            <summary class="help-heading">Tips &amp; Shortcuts</summary>
+            <div class="help-content">
+              <ul>
+                <li>Use <strong>Quick Capture</strong> when you first get a call &mdash; capture the essentials, then expand to the full form when you arrive at the station.</li>
+                <li>The <strong>Now</strong> button next to time fields sets the current time instantly.</li>
+                <li>The <strong>DOB field</strong> accepts flexible date formats: <em>15/03/1987</em>, <em>15-3-87</em>, <em>15 mar 1987</em>. The client&rsquo;s age is calculated automatically.</li>
+                <li>Police station and court name fields have <strong>typeahead search</strong> &mdash; type the first few letters and pick from the list.</li>
+                <li>When a client is <strong>charged</strong>, the app offers to pre-fill charge details from the offences you recorded in Section 4.</li>
+                <li>The <strong>Scratchpad</strong> (bottom-right corner) is a floating notepad for temporary notes during an attendance.</li>
+                <li>Use <strong>Duplicate</strong> when another client arrives in the same suite: station, offences, interviews and your comms log are kept; identity, advice, disclosure, outcome, fees, photos and signatures are cleared; the new draft opens for editing.</li>
+                <li>Toggle <strong>Dark Mode</strong> for night shifts using the moon icon in the top-right header.</li>
+              </ul>
+            </div>
+          </details>
+
+        </div>
+      </div>
+
+    </main>
+    <footer class="app-footer">
+      <div class="footer-row">
+        <div class="footer-status-group">
+          <span class="footer-chip footer-meta-chip" id="app-version-wrap" title="">
+            v<span id="app-version">...</span><span id="app-version-sub" class="app-version-sub"></span>
+          </span>
+          <span id="app-updated" style="display:none;"></span>
+          <span id="licence-footer-badge" class="footer-chip footer-licence-chip" style="cursor:pointer;" title="Click to open Licence settings"></span>
+          <span id="net-status-text" class="footer-indicator footer-chip connected">Checking&hellip;</span>
+          <span id="backup-status-text" class="footer-indicator footer-chip backup-ok">Backup checking&hellip;</span>
+          <span id="cloud-backup-footer-wrap"><span id="cloud-backup-footer-status" class="footer-indicator footer-chip warning" style="cursor:pointer;" title="Open Settings to check Cloud Backup">Local only</span></span>
+          <span id="aws-s3-footer-wrap" style="display:none;"><span id="aws-s3-status-footer" class="footer-indicator footer-chip backup-active"></span></span>
+          <span id="sync-footer-wrap" style="display:none;"><span id="sync-status-indicator" class="footer-indicator footer-chip synced" style="display:none;"></span></span>
+          <span id="update-footer-wrap" style="display:none;"><span id="update-footer-status" class="footer-indicator footer-chip synced" style="cursor:pointer;"></span></span>
+          <span id="footer-autosave-wrap" style="display:none;"><span id="footer-autosave" class="footer-indicator footer-chip backup-ok"></span></span>
+        </div>
+        <span class="footer-brand">&copy; Defence Legal Services Ltd 2026</span>
+      </div>
+    </footer>
+
+    <!-- Bottom navigation bar (persistent, all views) -->
+    <nav id="bottom-nav" class="bottom-nav" aria-label="Main navigation">
+      <button type="button" class="bottom-nav-btn" data-nav="home" title="Home">
+        <span class="bottom-nav-icon">&#8962;</span>
+        <span class="bottom-nav-label">Home</span>
+      </button>
+      <button type="button" class="bottom-nav-btn" data-nav="list" title="Records">
+        <span class="bottom-nav-icon">&#128196;</span>
+        <span class="bottom-nav-label">Records</span>
+      </button>
+      <button type="button" class="bottom-nav-btn bottom-nav-new" data-nav="new-attendance" title="New Record">
+        <span class="bottom-nav-icon">&#43;</span>
+        <span class="bottom-nav-label">New</span>
+      </button>
+      <button type="button" class="bottom-nav-btn" data-nav="firms" title="Firms">
+        <span class="bottom-nav-icon">&#127970;</span>
+        <span class="bottom-nav-label">Firms</span>
+      </button>
+      <button type="button" class="bottom-nav-btn bottom-nav-bill-matter" data-nav="matter-billing" title="Billing &mdash; documents, QuickFile invoice, finish matter">
+        <span class="bottom-nav-icon">&#128203;</span>
+        <span class="bottom-nav-label">Billing</span>
+      </button>
+      <button type="button" class="bottom-nav-btn" data-nav="settings" title="Settings">
+        <span class="bottom-nav-icon">&#9881;</span>
+        <span class="bottom-nav-label">Settings</span>
+      </button>
+      <button type="button" class="bottom-nav-btn bottom-nav-update" id="bottom-nav-update" data-nav="update" title="Check for app updates">
+        <span class="bottom-nav-icon">&#8635;</span>
+        <span class="bottom-nav-label" id="bottom-nav-update-label">Update</span>
+      </button>
+    </nav>
+    <!-- First-launch setup (multi-step wizard) -->
+    <div id="first-launch-modal" class="first-launch-overlay" style="display:none;" role="dialog" aria-modal="true" aria-label="Welcome setup">
+      <div class="first-launch-box">
+        <!-- Step 1: Your details -->
+        <div id="fl-step-1" class="fl-step">
+          <h2>Welcome to Custody Note</h2>
+          <p>Let's get you set up in under a minute. These details appear on your attendance notes and LAA declarations.</p>
+          <label for="fl-fee-earner-name">Fee Earner Name <span style="color:#dc2626;">*</span></label>
+          <input type="text" id="fl-fee-earner-name" class="settings-input" placeholder="e.g. Robert Smith" style="margin-bottom:0.75rem;">
+          <label for="fl-dscc-pin">DSCC PIN/Number <span style="color:#dc2626;">*</span></label>
+          <input type="text" id="fl-dscc-pin" class="settings-input" placeholder="Your DSCC PIN/number" maxlength="10" style="margin-bottom:0.75rem;">
+          <label for="fl-office-postcode">Office Postcode (travel origin)</label>
+          <input type="text" id="fl-office-postcode" class="settings-input" placeholder="e.g. ME1 1AA" style="margin-bottom:0.75rem;">
+          <p style="font-size:0.78rem;color:var(--text-muted,#94a3b8);margin:0 0 0.5rem;">Auto-fills origin postcode for journey mileage on new records.</p>
+          <label for="fl-email">Email address</label>
+          <input type="email" id="fl-email" class="settings-input" placeholder="your@email.com" style="margin-bottom:0.75rem;">
+          <p style="font-size:0.78rem;color:var(--text-muted,#94a3b8);margin:0 0 0.5rem;">Used for login, licence delivery, and exporting notes by email.</p>
+          <div class="first-launch-footer">
+            <button type="button" id="fl-skip" class="btn btn-secondary">Skip for now</button>
+            <button type="button" id="fl-next-1" class="btn btn-primary">Next</button>
+          </div>
+        </div>
+        <!-- Step 2: Backup folder -->
+        <div id="fl-step-2" class="fl-step" style="display:none;">
+          <h2>Backup your notes</h2>
+          <p>Choose a backup folder so your attendance notes are safe. A cloud folder (OneDrive, Dropbox, Google Drive) is recommended.</p>
+          <div id="fl-backup-status" style="margin-bottom:0.75rem;">
+            <p id="fl-backup-auto" style="display:none;font-size:0.9rem;"><span style="color:#059669;font-weight:600;">&#10003;</span> Cloud folder detected: <strong id="fl-backup-path"></strong></p>
+            <p id="fl-backup-manual" style="font-size:0.9rem;">No cloud folder detected &mdash; choose a folder manually, or skip and set it up later in Settings.</p>
+          </div>
+          <div class="first-launch-footer">
+            <button type="button" id="fl-backup-choose" class="btn btn-secondary">Choose folder</button>
+            <button type="button" id="fl-next-2" class="btn btn-primary">Next</button>
+          </div>
+        </div>
+        <!-- Step 3: Quick overview -->
+        <div id="fl-step-3" class="fl-step" style="display:none;">
+          <h2>You're ready to go</h2>
+          <div style="font-size:0.88rem;line-height:1.6;margin-bottom:1rem;">
+            <p style="margin:0 0 0.6rem;"><strong>1.</strong> Tap <strong>New Custody</strong> or <strong>New Voluntary</strong> on the home screen to start a note.</p>
+            <p style="margin:0 0 0.6rem;"><strong>2.</strong> Fill in each section &mdash; your work is saved automatically every few seconds.</p>
+            <p style="margin:0 0 0.6rem;"><strong>3.</strong> When you're done, tap <strong>Finalise</strong> to lock the record, then export as PDF or Word.</p>
+            <p style="margin:0 0 0.6rem;"><strong>4.</strong> Find all your records in the <strong>Records</strong> tab at the bottom.</p>
+          </div>
+          <p style="font-size:0.8rem;color:var(--text-muted,#94a3b8);margin:0 0 0.75rem;">You can change any setting later via the Settings tab.</p>
+          <div class="first-launch-footer">
+            <button type="button" id="fl-save" class="btn btn-primary" style="width:100%;">Start using Custody Note</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Performance panel (Ctrl+Shift+P) -->
+    <div id="performance-panel-overlay" class="sync-diagnostics-overlay" style="display:none;">
+      <div class="sync-diagnostics-box">
+        <h3>Performance</h3>
+        <pre id="performance-panel-content" style="font-size:12px;margin:0;white-space:pre-wrap;max-height:70vh;overflow:auto;"></pre>
+        <div style="margin-top:8px;"><button type="button" id="performance-panel-close" class="btn btn-secondary" style="font-size:13px;">Close</button></div>
+      </div>
+    </div>
+
+    <!-- Sync diagnostics panel (Ctrl+Shift+D) -->
+    <div id="sync-diagnostics-overlay" class="sync-diagnostics-overlay" style="display:none;">
+      <div class="sync-diagnostics-box">
+        <h3>Sync diagnostics</h3>
+        <div id="sync-diag-summary" style="margin-bottom:12px;font-family:monospace;font-size:13px;"></div>
+        <details style="margin-bottom:8px;"><summary style="cursor:pointer;font-weight:600;">Queue items</summary>
+          <div id="sync-diag-queue" style="max-height:200px;overflow-y:auto;font-size:12px;font-family:monospace;white-space:pre-wrap;background:#f5f5f5;padding:6px;border-radius:4px;margin-top:4px;"></div>
+        </details>
+        <details style="margin-bottom:8px;"><summary style="cursor:pointer;font-weight:600;">Recent sync attempts</summary>
+          <div id="sync-diag-attempts" style="max-height:180px;overflow-y:auto;font-size:12px;font-family:monospace;white-space:pre-wrap;background:#f5f5f5;padding:6px;border-radius:4px;margin-top:4px;"></div>
+        </details>
+        <pre id="sync-diagnostics-content" style="display:none;"></pre>
+        <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
+          <button type="button" id="sync-diag-force-retry" class="btn btn-primary" style="font-size:13px;">Force retry all</button>
+          <button type="button" id="sync-diag-export" class="btn btn-secondary" style="font-size:13px;">Export diagnostics</button>
+          <button type="button" id="sync-diagnostics-close" class="btn btn-secondary" style="font-size:13px;">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Login overlay (magic link) -->
+    <div id="licence-overlay" class="licence-overlay" style="display:none;" role="dialog" aria-modal="true" aria-label="Sign in to Custody Note">
+      <div class="licence-box">
+        <div class="licence-logo">
+          <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" width="48" height="48">
+            <rect x="4" y="8" width="56" height="48" rx="6" stroke="#3b82f6" stroke-width="3" fill="none"/>
+            <circle cx="50" cy="46" r="10" fill="#2563eb"/>
+            <path d="M47 46l2.5 2.5L53 44" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          </svg>
+        </div>
+        <h2 id="licence-title">Sign in to Custody Note</h2>
+        <p id="licence-message" class="licence-message">Enter the email address you used to purchase.</p>
+
+        <!-- State 1: Email input -->
+        <div id="magic-link-form">
+          <label for="magic-link-email">Email address</label>
+          <input type="email" id="magic-link-email" placeholder="your@email.com" autocomplete="email" spellcheck="false">
+          <p id="licence-error" class="licence-error" style="display:none;"></p>
+          <div class="licence-actions" style="margin-top:0.5rem;">
+            <button type="button" id="magic-link-send-btn" class="btn btn-primary" style="width:100%;padding:0.6rem;">Send login link</button>
+          </div>
+        </div>
+
+        <!-- State 2: Check your email -->
+        <div id="magic-link-waiting" style="display:none;text-align:center;">
+          <div style="font-size:2.5rem;margin:0.5rem 0;">&#9993;</div>
+          <p style="font-size:1rem;line-height:1.5;margin:0.5rem 0 1rem;">Check your email and click the login link.<br><span id="magic-link-sent-email" style="font-weight:600;"></span></p>
+          <p id="magic-link-poll-status" style="font-size:0.85rem;color:#94a3b8;margin-bottom:1rem;">Waiting for you to click the link&hellip;</p>
+          <div style="display:flex;gap:0.5rem;justify-content:center;">
+            <button type="button" id="magic-link-resend-btn" class="btn btn-secondary" style="padding:0.4rem 1rem;font-size:0.85rem;">Resend link</button>
+            <button type="button" id="magic-link-change-btn" class="btn btn-secondary" style="padding:0.4rem 1rem;font-size:0.85rem;">Change email</button>
+          </div>
+        </div>
+
+        <!-- Email licence key recovery -->
+        <div id="licence-overlay-email-key" style="margin-top:1rem;border-top:1px solid rgba(255,255,255,0.1);padding-top:1rem;">
+          <p class="licence-hint" style="font-size:0.82rem;margin:0 0 0.5rem;color:#94a3b8;">Forgot your licence key? We can email it if we have it on file.</p>
+          <label for="overlay-forgot-licence-email" style="font-size:0.85rem;">Purchase email</label>
+          <input type="email" id="overlay-forgot-licence-email" placeholder="your@email.com" autocomplete="email" spellcheck="false">
+          <div class="licence-actions" style="margin-top:0.5rem;">
+            <button type="button" id="overlay-forgot-licence-btn" class="btn btn-secondary" style="width:100%;padding:0.5rem;">Email my licence key</button>
+          </div>
+          <p id="overlay-forgot-licence-msg" style="font-size:0.8rem;color:#94a3b8;margin:0.5rem 0 0;min-height:1.2em;"></p>
+        </div>
+
+        <!-- Licence key fallback -->
+        <div id="licence-key-fallback" style="margin-top:1.2rem;text-align:center;border-top:1px solid rgba(255,255,255,0.1);padding-top:1rem;">
+          <p class="licence-hint" style="font-size:0.82rem;margin:0 0 0.5rem;">
+            <a href="#" id="licence-key-toggle" style="color:#60a5fa;text-decoration:underline;cursor:pointer;">Have a licence key instead?</a>
+          </p>
+          <div id="licence-key-form" style="display:none;">
+            <input type="text" id="licence-key-input" placeholder="CN-XXXX-XXXX-XXXX-XXXX" autocomplete="off" spellcheck="false">
+            <div class="licence-actions" style="margin-top:0.5rem;">
+              <button type="button" id="licence-activate-btn" class="btn btn-primary" style="width:100%;padding:0.6rem;">Activate</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="licence-renew-section" style="display:none;">
+          <p class="licence-hint">Need an account? Visit <a href="https://www.custodynote.com/pricing" id="licence-renew-link" class="licence-link">custodynote.com/pricing</a></p>
+        </div>
+        <p class="licence-footer-text">&copy; Defence Legal Services Ltd 2026</p>
+      </div>
+    </div>
+
+    <!-- Floating scratchpad -->
+    <div id="scratchpad" class="scratchpad hidden">
+      <div class="scratchpad-header">
+        <span>Quick Notes</span>
+        <div style="display:flex;gap:0.3rem;">
+          <button type="button" id="scratchpad-fullscreen" class="btn-small" title="Full screen">&#x26F6;</button>
+          <button type="button" id="scratchpad-close" class="btn-small">Minimise</button>
+        </div>
+      </div>
+      <textarea id="scratchpad-text" placeholder="Jot down anything here... These notes stay until you clear them."></textarea>
+    </div>
+    <button type="button" id="scratchpad-toggle" class="scratchpad-fab" title="Quick Notes">&#128221;</button>
+  </div>
+  <script src="renderer/lib/duplicate-attendance.js"></script>
+  <script src="renderer/lib/station-visits.js"></script>
+  <script src="renderer/lib/quickfileConnectionState.js"></script>
+  <script src="renderer/lib/quickfileConfigured.js"></script>
+  <script src="renderer/lib/crm1Validation.js"></script>
+  <script src="renderer/lib/websiteLinks.js"></script>
+  <!-- ── Module layer (load order matters) ─────────────────────
+       1. toast.js     — UI feedback (no dependencies)
+       2. app.js       — state vars + all functions + init()
+       3. views/*.js   — override view-specific functions from app.js
+       4. csv-exporter — override CSV functions from app.js
+  ──────────────────────────────────────────────────────────── -->
+  <script src="renderer/toast.js"></script>
+  <script src="renderer/emailCopy.js"></script>
+  <script src="renderer/licence.js"></script>
+  <!-- Wheel-style ("rotating counter") date/time picker. Self-contained, attaches a 🕑/📅 button next to every native date/time/datetime-local input. Native typing still works. -->
+  <script src="renderer/widgets/wheelDateTimePicker.js"></script>
+  <script src="lib/magistratesCourtsSearch.js"></script>
+  <script src="lib/defenceSummary.js"></script>
+  <script src="lib/clientAddress.js"></script>
+  <script src="lib/laaPrivacyNoticeV7.js"></script>
+  <script src="lib/laaDeclarationPdf.js"></script>
+  <script src="lib/clientSignatureAttachment.js"></script>
+  <script src="lib/officerEmailTemplateOptions.js"></script>
+  <script src="app.js"></script>
+  <script src="renderer/views/officerEmailsPanel.js"></script>
+  <script src="renderer/views/officerEmailsStandalone.js"></script>
+  <script src="renderer/views/reports.js"></script>
+  <script src="renderer/views/authorities.js"></script>
+  <script src="renderer/views/settings.js"></script>
+  <script src="renderer/views/list.js"></script>
+  <script src="renderer/csv-exporter.js"></script>
+  <script src="renderer/laa-forms.js"></script>
+  <script src="renderer/filenameUtils.js"></script>
+  <script src="renderer/billingUtils.js"></script>
+  <script src="renderer/views/billing.js"></script>
+  <script src="renderer/views/workflow-stepper.js"></script>
+  <script src="renderer/views/documents-screen.js"></script>
+  <script src="renderer/views/billing-screen.js"></script>
+  <script src="renderer/views/completion-screen.js"></script>
+  <script src="renderer/views/station-mileage-admin.js"></script>
+  <!-- laa-forms.js: CRM14 HTML summary for billing previews; CRM1–3 & declaration use official PDFs via IPC -->
+  <script src="renderer/audit-log.js"></script>
+  <script src="renderer/templateSystem/placeholders.js"></script>
+  <script src="renderer/templateSystem/templateEngine.js"></script>
+  <script src="renderer/templateSystem/templateStore.js"></script>
+  <script src="renderer/templateSystem/templateManager.js"></script>
+  <!-- Event wiring, service-worker cleanup, fallback splash timer, admin shortcut -->
+  <script src="renderer/init-events.js"></script>
+
+  <!-- Admin licence panel (hidden, Ctrl+Shift+A to toggle) -->
+  <div id="admin-licence-panel" class="admin-panel" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;flex;">
+    <div class="admin-panel-inner" style="background:#fff;border-radius:12px;max-width:900px;width:95vw;max-height:90vh;overflow:auto;padding:1.5rem;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+      <h2 style="margin:0 0 1rem 0;font-size:1.25rem;">Licence Admin</h2>
+      <div id="admin-setup-section" style="display:none;">
+        <p class="admin-hint" style="font-size:0.85rem;color:#666;">Admin not configured. Set up admin with your setup token (from ADMIN_SETUP_TOKEN env):</p>
+        <div style="margin-bottom:0.75rem;">
+          <input type="text" id="admin-setup-token-inp" class="settings-input" placeholder="Setup token" style="width:100%;margin-bottom:0.5rem;" />
+          <input type="password" id="admin-setup-password-inp" class="settings-input" placeholder="New admin password" style="width:100%;" />
+        </div>
+        <button type="button" id="admin-setup-btn" class="btn btn-primary" style="margin-bottom:1rem;">Set password</button>
+        <p id="admin-setup-msg" style="font-size:0.8rem;color:#c00;min-height:1.2em;"></p>
+      </div>
+      <div id="admin-login-section">
+        <p class="admin-hint" style="font-size:0.85rem;color:#666;">Enter admin password:</p>
+        <div style="display:flex;gap:0.5rem;margin-bottom:1rem;">
+          <input type="password" id="admin-password-inp" class="settings-input" placeholder="Password" style="flex:1;" />
+          <button type="button" id="admin-login-btn" class="btn btn-primary">Login</button>
+        </div>
+        <p id="admin-login-msg" style="font-size:0.8rem;color:#c00;min-height:1.2em;"></p>
+      </div>
+      <div id="admin-content-section" style="display:none;">
+        <!-- Tab bar -->
+        <div id="admin-tabs" style="display:flex;gap:0;margin-bottom:1rem;border-bottom:2px solid #e2e8f0;">
+          <button type="button" class="admin-tab active" data-tab="search" style="padding:0.5rem 1rem;border:none;background:none;cursor:pointer;font-weight:600;border-bottom:2px solid #3b82f6;margin-bottom:-2px;color:#3b82f6;">Local Search</button>
+          <button type="button" class="admin-tab" data-tab="dashboard" style="padding:0.5rem 1rem;border:none;background:none;cursor:pointer;font-weight:500;color:#64748b;margin-bottom:-2px;">Licence Dashboard</button>
+        </div>
+        <!-- Local search tab -->
+        <div id="admin-tab-search">
+          <div style="display:flex;gap:0.5rem;margin-bottom:1rem;">
+            <input type="text" id="admin-search-inp" class="settings-input" placeholder="Search by email" style="flex:1;" />
+            <button type="button" id="admin-search-btn" class="btn btn-secondary">Search</button>
+            <button type="button" id="admin-sync-btn" class="btn btn-secondary">Sync</button>
+          </div>
+          <p id="admin-sync-msg" style="font-size:0.8rem;color:#666;min-height:1.2em;"></p>
+          <div id="admin-results" style="margin-top:1rem;font-size:0.85rem;"></div>
+        </div>
+        <!-- Dashboard tab -->
+        <div id="admin-tab-dashboard" style="display:none;">
+          <p style="margin:0 0 0.75rem 0;font-size:0.8rem;color:#64748b;">Full stats (downloads, trials, subscribers): <a href="https://custodynote.com/admin/stats" target="_blank" rel="noopener" style="color:#2563eb;font-weight:600;">custodynote.com/admin/stats</a></p>
+          <div id="admin-dash-stats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:0.75rem;margin-bottom:1rem;"></div>
+          <div style="display:flex;gap:0.5rem;margin-bottom:0.75rem;align-items:center;">
+            <input type="text" id="admin-dash-filter" class="settings-input" placeholder="Filter by email or key…" style="flex:1;font-size:0.85rem;" />
+            <button type="button" id="admin-dash-refresh" class="btn btn-secondary">Refresh</button>
+            <button type="button" id="admin-dash-export" class="btn btn-secondary">Export CSV</button>
+          </div>
+          <p id="admin-dash-status" style="font-size:0.8rem;color:#666;min-height:1.2em;"></p>
+          <div id="admin-dash-table" style="margin-top:0.5rem;font-size:0.82rem;max-height:50vh;overflow-y:auto;"></div>
+        </div>
+      </div>
+      <button type="button" id="admin-close-btn" class="btn btn-secondary" style="margin-top:1rem;">Close</button>
+    </div>
+  </div>
+
+  <!-- Cloud backup restore prompt (when backups exist and user has not dismissed recently) -->
+  <div id="cloud-backup-restore-prompt-modal" class="first-launch-overlay" style="display:none;" role="dialog" aria-modal="true" aria-label="Cloud backups available">
+    <div class="first-launch-box" style="max-width:420px;">
+      <h2 style="margin:0 0 0.5rem;">Cloud backups available</h2>
+      <p style="margin:0 0 1rem;font-size:0.9rem;color:var(--text-muted,#64748b);">You have cloud backups. Restore from a backup or continue with data on this device.</p>
+      <label for="cloud-backup-restore-select" style="display:block;margin-bottom:0.35rem;font-weight:600;">Choose a backup</label>
+      <select id="cloud-backup-restore-select" style="width:100%;padding:0.5rem;margin-bottom:1rem;font-size:0.9rem;">
+        <option value="">Loading…</option>
+      </select>
+      <p id="cloud-backup-restore-prompt-note" class="settings-hint" style="margin:0 0 1rem;font-size:0.8rem;">Restoring replaces this device's data with the selected backup. A safety copy is saved first.</p>
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+        <button type="button" id="cloud-backup-restore-prompt-continue" class="btn btn-secondary">Continue with this device</button>
+        <button type="button" id="cloud-backup-restore-prompt-restore" class="btn btn-primary">Restore selected backup</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Session lock overlay -->
+  <div id="session-lock-overlay" style="display:none;" role="dialog" aria-modal="true" aria-label="Session locked">
+    <div id="session-lock-box">
+      <div id="session-lock-icon">&#128274;</div>
+      <h2>Screen Locked</h2>
+      <p id="session-lock-copy">This session has been locked due to inactivity.</p>
+      <p id="session-lock-hint" class="session-lock-hint">Enter your recovery password or admin password to continue.</p>
+      <div class="session-lock-input-row">
+        <input type="password" id="session-lock-password" class="form-input" autocomplete="current-password" placeholder="Password" />
+        <button type="button" id="session-lock-toggle" class="btn btn-secondary" aria-label="Show password">Show</button>
+      </div>
+      <div id="session-lock-error" class="session-lock-error" aria-live="polite"></div>
+      <button type="button" id="session-lock-unlock-btn" class="btn btn-primary" style="width:100%;margin-top:0.5rem;">Unlock</button>
+      <div id="session-lock-magic" style="margin-top:0.75rem;text-align:center;">
+        <a href="#" id="session-lock-forgot" style="font-size:0.82rem;color:#60a5fa;text-decoration:underline;cursor:pointer;">Forgot password? Unlock via email</a>
+      </div>
+      <!-- Magic link unlock state -->
+      <div id="session-lock-magic-flow" style="display:none;text-align:center;margin-top:0.5rem;">
+        <p id="session-lock-magic-status" style="font-size:0.88rem;color:var(--text-muted,#94a3b8);margin:0 0 0.5rem;">Sending unlock link to your email&hellip;</p>
+        <button type="button" id="session-lock-magic-cancel" class="btn btn-secondary" style="font-size:0.82rem;">Cancel</button>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

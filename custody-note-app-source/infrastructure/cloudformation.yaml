@@ -1,0 +1,154 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Custody Note – Incorruptible Cloud Backup Infrastructure.
+  Creates an S3 bucket with Object Lock (Compliance mode), an IAM role for
+  STS-based per-subscriber credential scoping, and a lifecycle rule to
+  transition old backups to cheaper storage tiers.
+
+Parameters:
+  BucketName:
+    Type: String
+    Default: custody-note-backups
+    Description: Name of the S3 bucket for encrypted backup storage.
+  RetentionDays:
+    Type: Number
+    Default: 36500
+    Description: Object Lock retention period in days (Compliance mode). 36500 ≈ 100 years (effectively permanent).
+  TransitionToIADays:
+    Type: Number
+    Default: 30
+    Description: Days before transitioning current objects to Infrequent Access storage.
+  GlacierDays:
+    Type: Number
+    Default: 90
+    Description: Days before transitioning noncurrent versions to Glacier Deep Archive.
+
+Resources:
+
+  BackupBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref BucketName
+      ObjectLockEnabled: true
+      ObjectLockConfiguration:
+        ObjectLockEnabled: Enabled
+        Rule:
+          DefaultRetention:
+            Mode: COMPLIANCE
+            Days: !Ref RetentionDays
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: TransitionToIA
+            Status: Enabled
+            Prefix: backups/
+            Transitions:
+              - StorageClass: STANDARD_IA
+                TransitionInDays: !Ref TransitionToIADays
+          - Id: NoncurrentToGlacier
+            Status: Enabled
+            Prefix: backups/
+            NoncurrentVersionTransitions:
+              - StorageClass: DEEP_ARCHIVE
+                NoncurrentDays: !Ref GlacierDays
+      Tags:
+        - Key: Project
+          Value: CustodyNote
+        - Key: Purpose
+          Value: IncorruptibleBackup
+
+  BackupBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref BackupBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: EnforceTLS
+            Effect: Deny
+            Principal: '*'
+            Action: 's3:*'
+            Resource:
+              - !Sub 'arn:aws:s3:::${BucketName}'
+              - !Sub 'arn:aws:s3:::${BucketName}/*'
+            Condition:
+              Bool:
+                aws:SecureTransport: 'false'
+
+  BackupUploadRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: CustodyNoteBackupRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+            Action: 'sts:AssumeRole'
+            Condition:
+              StringEquals:
+                sts:ExternalId: custody-note-backup
+      MaxSessionDuration: 3600
+      Policies:
+        - PolicyName: CustodyNoteBackupFullPrefix
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: AllowBackupOperations
+                Effect: Allow
+                Action:
+                  - 's3:PutObject'
+                  - 's3:GetObject'
+                  - 's3:ListBucket'
+                Resource:
+                  - !Sub 'arn:aws:s3:::${BucketName}'
+                  - !Sub 'arn:aws:s3:::${BucketName}/backups/*'
+      Tags:
+        - Key: Project
+          Value: CustodyNote
+
+  ApiUser:
+    Type: AWS::IAM::User
+    Properties:
+      UserName: custody-note-api
+      Policies:
+        - PolicyName: AssumeBackupRole
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: 'sts:AssumeRole'
+                Resource: !GetAtt BackupUploadRole.Arn
+
+  ApiUserAccessKey:
+    Type: AWS::IAM::AccessKey
+    Properties:
+      UserName: !Ref ApiUser
+
+Outputs:
+  BucketArn:
+    Description: ARN of the backup S3 bucket
+    Value: !GetAtt BackupBucket.Arn
+  BucketName:
+    Description: Name of the backup S3 bucket
+    Value: !Ref BackupBucket
+  RoleArn:
+    Description: ARN of the IAM role for STS AssumeRole
+    Value: !GetAtt BackupUploadRole.Arn
+  ApiUserAccessKeyId:
+    Description: Access key ID for the API user (store securely)
+    Value: !Ref ApiUserAccessKey
+  ApiUserSecretAccessKey:
+    Description: Secret access key for the API user (store securely)
+    Value: !GetAtt ApiUserAccessKey.SecretAccessKey

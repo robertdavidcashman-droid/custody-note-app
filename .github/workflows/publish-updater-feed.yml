@@ -1,0 +1,65 @@
+# One-click (Actions → Run workflow) publish of an already-built Windows release
+# from robertdavidcashman-droid → production updater feed robertcashman-bit.
+#
+# Requires secret GH_PAT (robertcashman-bit, repo scope).
+
+name: Publish updater feed
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to mirror (e.g. v1.9.52)'
+        required: true
+        default: 'v1.9.52'
+
+concurrency:
+  group: publish-updater-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Require GH_PAT
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          if [ -z "${GH_PAT}" ]; then
+            echo "::error::Add Actions secret GH_PAT (PAT from robertcashman-bit with repo scope). See DEPLOY_ONCE.md"
+            exit 1
+          fi
+
+      - name: Mirror release assets to robertcashman-bit
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+          TAG: ${{ inputs.tag }}
+          REPO_SRC: robertdavidcashman-droid/custody-note-app
+          REPO_DST: robertcashman-bit/custody-note-app
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/cn-mirror && cd /tmp/cn-mirror
+          gh release download "$TAG" --repo "$REPO_SRC" \
+            -p 'Custody-Note-Setup-*.exe' \
+            -p 'Custody-Note-Setup-*.exe.blockmap' \
+            -p 'latest.yml'
+          VERSION="${TAG#v}"
+          NOTES="Custody Note ${VERSION} — mirrored to production updater feed."
+          if gh release view "$TAG" --repo "$REPO_DST" >/dev/null 2>&1; then
+            gh release upload "$TAG" --repo "$REPO_DST" --clobber \
+              Custody-Note-Setup-*.exe \
+              Custody-Note-Setup-*.exe.blockmap \
+              latest.yml
+            gh release edit "$TAG" --repo "$REPO_DST" --draft=false --latest \
+              --title "$VERSION" --notes "$NOTES"
+          else
+            gh release create "$TAG" --repo "$REPO_DST" \
+              --title "$VERSION" --notes "$NOTES" \
+              Custody-Note-Setup-*.exe \
+              Custody-Note-Setup-*.exe.blockmap \
+              latest.yml
+          fi
+          echo "Published $TAG on $REPO_DST"
+          curl -fsSL "https://github.com/${REPO_DST}/releases/latest/download/latest.yml" | head -5

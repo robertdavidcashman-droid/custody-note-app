@@ -1,0 +1,60 @@
+---
+description: Auto-updater safety rules — prevents update loops and install failures
+globs: main.js
+alwaysApply: false
+---
+
+# Updater Safety Rules
+
+This app has experienced repeated production incidents from auto-update loops and NSIS install failures. These rules are mandatory when touching updater code.
+
+## Architecture
+
+- All updater logic lives in `main.js` in the auto-updater block
+- State is persisted in `cn-auto-update-state.json` (in userData)
+- Logs go to `cn-auto-update.log` (in userData)
+- The renderer shows update status via IPC events (`app-update-status`)
+
+## Mandatory checks before modifying updater code
+
+1. Read the ENTIRE existing auto-updater block in main.js first
+2. Identify all `autoUpdater.on(...)` registrations — there must be exactly one per event
+3. Identify all `autoUpdater.checkForUpdates()` call sites — minimise these
+4. Identify the `quitAndInstall` call path — must be guarded against double-call
+5. Check `cn-auto-update-state.json` schema — do not break it
+
+## Patterns that have caused incidents
+
+- Multiple checkForUpdates calls on timers without cooldown → loop
+- Re-registering updater listeners on window focus → duplicate handlers
+- quitAndInstall called without destroying BrowserWindow first → file lock
+- quitAndInstall without forced app.exit timeout → NSIS "Failed to uninstall" error
+- Not checking app.isPackaged → updater crashes in dev mode
+- Not persisting pendingInstallVersion → cannot detect failed installs
+- Not incrementing failedInstallCount → infinite retry loop
+
+## Required flow
+
+```
+startup → check pendingInstallVersion vs current version
+        → if mismatch: increment failedInstallCount, log failure
+        → if failedInstallCount >= MAX: block auto-updates, notify user
+
+app.whenReady → register updater listeners ONCE
+             → delay first check ~10s
+             → periodic check every 6h with cooldown
+
+update-downloaded → store pendingInstallVersion
+                  → prompt user (with warning about restart)
+
+user confirms → gracefulQuitAndInstall()
+             → flush DB, destroy window, quitAndInstall
+             → setTimeout → app.exit(0) as safety net
+```
+
+## Never
+
+- Call checkForUpdates from renderer-triggered events (focus, visibility)
+- Remove the circuit breaker (MAX_FAILED_INSTALLS)
+- Remove the forced app.exit(0) timeout after quitAndInstall
+- Remove persistent logging of updater events

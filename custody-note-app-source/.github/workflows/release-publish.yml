@@ -1,0 +1,12 @@
+# STUB — not executed by GitHub Actions.
+# Live workflow: /.github/workflows/release-publish.yml (repo root)
+name: "STUB do-not-use Release and deploy (nested)"
+on:
+  workflow_dispatch:
+jobs:
+  stub:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "This nested workflow is ignored. Use /.github/workflows/release-publish.yml"
+          exit 1
