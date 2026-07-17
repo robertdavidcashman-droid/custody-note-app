@@ -130,7 +130,7 @@ See `LOGGING_STANDARD.md` for what to log and where. Hard rules:
 
 The only supported distribution channel is the signed Windows installer
 published as a GitHub Release at
-`https://github.com/robertcashman-bit/custody-note-app/releases/latest`.
+`https://github.com/robertdavidcashman-droid/custody-note-app/releases/latest`.
 The marketing site `https://custodynote.com` links to that release.
 There is no web/PWA build: the app is Electron-only, and any in-browser
 build was removed in May 2026 (along with the Vercel project, the
@@ -172,7 +172,7 @@ feed (see `package.json` `build.publish.provider: "github"` and
   third-party penetration testing is recommended before deployment with
   real client data at scale.**
 - The auto-updater trusts GitHub's release signing. A compromise of the
-  `robertcashman-bit/custody-note-app` GitHub account would let an attacker
+  `robertdavidcashman-droid/custody-note-app` GitHub account would let an attacker
   ship a malicious update. Treat the GitHub account itself as a critical
   asset (MFA hardware-key, PAT scope minimisation, regular access review).
 

@@ -10,10 +10,10 @@
     {
       "name": "PoliceStationRepUK",
       "dir": "Policestationrepuk",
-      "github": "robertcashman-bit/Policestationrepuk",
+      "github": "robertdavidcashman-droid/policestationrepuk",
       "branch": "master",
       "vercel": "policestationrepuk-new",
-      "notes": "Production is bit until droid mirror is seeded (scripts/seed-missing-workspaces.sh). Vercel project name may be policestationrepuk or policestationrepuk-new — confirm in dashboard."
+      "notes": "Sole home on droid. Reconnect Vercel Git if the project still points at archived bit. Vercel project name may be policestationrepuk or policestationrepuk-new — confirm in dashboard."
     },
     {
       "name": "CustodyNoteWebsite",
@@ -28,7 +28,7 @@
       "github": "robertdavidcashman-droid/psrtrain",
       "branch": "main",
       "vercel": "pstrain-rebuild",
-      "notes": "Empty shell until seeded. Live site is on Vercel project serving psrtrain.com (often pstrain-rebuild). Run seed-missing-workspaces.sh with SRC_PSRTRAIN after identifying the Git repo."
+      "notes": "Empty shell until source is recovered. Live site is on Vercel project serving psrtrain.com (often pstrain-rebuild). Set SRC_PSRTRAIN=owner/repo and run seed-missing-workspaces.sh after identifying the Git repo."
     },
     {
       "name": "CustodyNoteApp",
@@ -36,7 +36,7 @@
       "github": "robertdavidcashman-droid/custody-note-app",
       "branch": "main",
       "vercel": null,
-      "updaterFeed": "robertcashman-bit/custody-note-app"
+      "updaterFeed": "robertdavidcashman-droid/custody-note-app"
     }
   ]
 }

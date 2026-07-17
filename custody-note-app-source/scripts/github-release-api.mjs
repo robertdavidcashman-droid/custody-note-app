@@ -1,8 +1,8 @@
 /**
  * GitHub release helpers — draft releases are invisible to /releases/tags/{tag}.
  *
- * Production auto-update feed is robertcashman-bit/custody-note-app (installed
- * apps check that owner). Override with RELEASE_OWNER / RELEASE_REPO or
+ * Production auto-update feed is robertdavidcashman-droid/custody-note-app
+ * (sole home after bit cutover). Override with RELEASE_OWNER / RELEASE_REPO or
  * PUBLISH_GITHUB_REPOSITORY when needed.
  */
 function resolveReleaseRepo() {
@@ -17,8 +17,8 @@ function resolveReleaseRepo() {
       repo: String(process.env.RELEASE_REPO).trim(),
     };
   }
-  /* Default: production updater feed (not the five-workspace shell repo). */
-  return { owner: 'robertcashman-bit', repo: 'custody-note-app' };
+  /* Default: production updater feed on droid. */
+  return { owner: 'robertdavidcashman-droid', repo: 'custody-note-app' };
 }
 
 const _resolved = resolveReleaseRepo();
