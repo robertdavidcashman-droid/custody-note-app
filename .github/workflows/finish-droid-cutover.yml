@@ -4,6 +4,10 @@ name: Finish droid cutover
 on:
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   finish:
     runs-on: ubuntu-latest
@@ -37,6 +41,10 @@ jobs:
           git remote remove dest 2>/dev/null || true
           git remote add dest "https://x-access-token:${GH_TOKEN}@github.com/${DST}.git"
           branch=$(git rev-parse --abbrev-ref HEAD)
+          if [ "$(git ls-remote --heads dest | wc -l | tr -d ' ')" != "0" ]; then
+            echo "$DST already has branches — skipping seed"
+            exit 0
+          fi
           git push dest "${branch}:refs/heads/master" --force
           echo "Seeded $DST"
 
@@ -46,21 +54,19 @@ jobs:
         run: |
           set -euo pipefail
           git clone "https://x-access-token:${GH_TOKEN}@github.com/robertdavidcashman-droid/custody-note-website.git" website
+          git -C website config user.name "github-actions[bot]"
+          git -C website config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           cd custody-note-app-source
           npm ci
-          WEBSITE_ROOT="$GITHUB_WORKSPACE/website" node scripts/sync-website.mjs
+          WEBSITE_ROOT="$GITHUB_WORKSPACE/website" SYNC_WEBSITE_NO_PUSH=1 node scripts/sync-website.mjs
           cd "$GITHUB_WORKSPACE/website"
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if git diff --quiet && git diff --cached --quiet; then
-            # sync-website may have already committed+pushed; ensure remote is current
-            git push origin HEAD:master || true
-            echo "Website already up to date or sync pushed"
-          else
-            git add -A
-            git commit -m "Changelog: sync releases.json to app version" || true
-            git push origin HEAD:master
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Website already up to date"
+            exit 0
           fi
+          git commit -m "Changelog: sync releases.json to app version"
+          git push origin HEAD:master
 
       - name: Placeholder on empty psrtrain
         env:
@@ -68,14 +74,24 @@ jobs:
         run: |
           set -euo pipefail
           REPO=robertdavidcashman-droid/psrtrain
+          if ! gh repo view "$REPO" >/dev/null 2>&1; then
+            gh repo create "$REPO" --public --description "psrtrain.com — sole home on droid"
+          fi
           tmp=$(mktemp -d)
           git clone "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" "$tmp/psr"
           cd "$tmp/psr"
-          if git rev-parse HEAD >/dev/null 2>&1; then
-            echo "psrtrain already has commits — leave alone"
-            exit 0
+          if git rev-parse --verify HEAD >/dev/null 2>&1; then
+            commit_count="$(git rev-list --count HEAD)"
+            file_count="$(git ls-tree -r --name-only HEAD | wc -l | tr -d ' ')"
+            only_file="$(git ls-tree -r --name-only HEAD | tr -d '\n')"
+            if [ "$commit_count" -eq 1 ] && [ "$file_count" -eq 1 ] && [ "$only_file" = "README.md" ]; then
+              echo "psrtrain only has bootstrap README — writing placeholder"
+            else
+              echo "psrtrain already has commits — leave alone"
+              exit 0
+            fi
           fi
-          git checkout -b main 2>/dev/null || true
+          git checkout -B main
           printf '%s\n' '# psrtrain' '' 'Placeholder until the live psrtrain.com source is recovered.' 'Sole GitHub home: robertdavidcashman-droid.' > README.md
           git add README.md
           git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com'             commit -m "docs: placeholder until PSRTrain source recovered"
