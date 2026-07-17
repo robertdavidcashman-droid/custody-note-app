@@ -3606,7 +3606,7 @@ function createWindow() {
 
               /* 29. Billing API surface check */
               var billingApis = [
-                'quickfileSuggestNextInvoiceNumber', 'quickfileCreateInvoice', 'stationMileageGet', 'stationsMileageList',
+                'quickfileSuggestNextInvoiceNumber', 'quickfileHealInvoiceNumber', 'quickfileCreateInvoice', 'stationMileageGet', 'stationsMileageList',
                 'stationMileageSave', 'stationMileageBulkSave',
                 'billingAuditLogAdd', 'billingAuditLogGet',
                 'billableAttendances', 'attendanceInvoiceStatus'
@@ -4644,11 +4644,23 @@ app.whenReady().then(async () => {
       const tag = r && r.skipped ? r.skipped : (r && r.usedLocal ? 'cached' : 'pulled');
       console.info('[QuickFile] startup pull: ' + tag);
     };
+    const maybeHealInvoiceNumbers = function () {
+      const status = getQuickFileSettingsStatus();
+      if (status.missing.length) return;
+      healInvoiceNumberSequence({ soft: true, reason: 'startup' }).catch(function (e) {
+        console.warn('[QuickFile] startup invoice-number heal failed:', e && e.message);
+      });
+    };
     if (qfStatus.missing.length > 0) {
       logQfStartup(await qfStartup);
+      maybeHealInvoiceNumbers();
     } else {
-      qfStartup.then(logQfStartup).catch(function (e) {
+      qfStartup.then(function (r) {
+        logQfStartup(r);
+        maybeHealInvoiceNumbers();
+      }).catch(function (e) {
         console.warn('[QuickFile] startup pull failed:', e && e.message);
+        maybeHealInvoiceNumbers();
       });
     }
   } catch (qfErr) {
@@ -7752,11 +7764,14 @@ ipcMain.handle('quickfile-test-connection', async () => {
       },
     });
     const records = quickFileExtractRecords(body);
+    const heal = await healInvoiceNumberSequence({ soft: true, reason: 'test-connection' });
     recordQuickFileConnectionResult(true, '');
     return {
       ok: true,
       sampleCount: records.length,
       checkedAt: new Date().toISOString(),
+      nextInvoiceNumber: (heal && heal.number) || peekNextSequentialInvoiceNumber(),
+      invoiceNumberHeal: heal,
     };
   } catch (err) {
     const msg = err && err.message ? err.message : String(err);
@@ -7904,22 +7919,30 @@ function sanitizeQuickFileInvoiceNumber(raw) {
   return s;
 }
 
-function getNextSequentialInvoiceNumber() {
+function readStoredNextInvoiceNumber() {
   const row = dbAll("SELECT value FROM settings WHERE key = 'nextInvoiceNumber'");
   let next = row.length ? parseInt(row[0].value, 10) : NaN;
   if (!Number.isFinite(next) || next < 1) next = 6066;
-  const formatted = String(next).padStart(6, '0');
-  db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('nextInvoiceNumber', ?)", [String(next + 1)]);
+  return next;
+}
+
+function setStoredNextInvoiceNumber(n) {
+  const next = Number(n);
+  if (!Number.isFinite(next) || next < 1) return;
+  db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('nextInvoiceNumber', ?)", [String(Math.floor(next))]);
   saveDb();
+}
+
+function getNextSequentialInvoiceNumber() {
+  const next = readStoredNextInvoiceNumber();
+  const formatted = String(next).padStart(6, '0');
+  setStoredNextInvoiceNumber(next + 1);
   return formatted;
 }
 
 /** Next invoice number that would be issued (does not advance the counter). */
 function peekNextSequentialInvoiceNumber() {
-  const row = dbAll("SELECT value FROM settings WHERE key = 'nextInvoiceNumber'");
-  let next = row.length ? parseInt(row[0].value, 10) : NaN;
-  if (!Number.isFinite(next) || next < 1) next = 6066;
-  return String(next).padStart(6, '0');
+  return String(readStoredNextInvoiceNumber()).padStart(6, '0');
 }
 
 /** Largest numeric segment from an invoice reference (handles "006069", "INV-6069", etc.). */
@@ -7943,10 +7966,11 @@ function quickFileExtractInvoiceSearchRecords(body) {
   return arr.filter(Boolean);
 }
 
+/** Numeric max invoice number across a recent QuickFile search page (not string-order first row). */
 async function quickFileGetMaxInvoiceNumberNumeric() {
   const body = await quickFileRequest('/1_2/invoice/search', {
     SearchParameters: {
-      ReturnCount: 1,
+      ReturnCount: 100,
       Offset: 0,
       OrderResultsBy: 'InvoiceNumber',
       OrderDirection: 'DESC',
@@ -7954,30 +7978,81 @@ async function quickFileGetMaxInvoiceNumberNumeric() {
     },
   });
   const records = quickFileExtractInvoiceSearchRecords(body);
-  if (!records.length) return null;
-  const inv = records[0];
-  const invNum = inv.InvoiceNumber || inv.Invoice_No || inv.InvoiceNo || inv.InvoiceNum || '';
-  const n = parseInvoiceNumberNumericPart(invNum);
-  return Number.isFinite(n) ? n : null;
+  let max = null;
+  for (let i = 0; i < records.length; i++) {
+    const inv = records[i];
+    const invNum = inv.InvoiceNumber || inv.Invoice_No || inv.InvoiceNo || inv.InvoiceNum || '';
+    const n = parseInvoiceNumberNumericPart(invNum);
+    if (Number.isFinite(n) && (max === null || n > max)) max = n;
+  }
+  return max;
 }
 
-/** Align local nextInvoiceNumber so the next issued number is above QuickFile's highest (handles invoices created outside the app). */
-async function syncNextInvoiceNumberFromQuickFileLedger() {
+/**
+ * Self-heal: align local nextInvoiceNumber with the QuickFile ledger.
+ * soft:true swallows API errors and returns { ok:false }; otherwise rethrows.
+ */
+async function healInvoiceNumberSequence(opts) {
+  const reason = (opts && opts.reason) || 'unspecified';
+  const soft = !!(opts && opts.soft);
+  const previousNext = readStoredNextInvoiceNumber();
   try {
-    const max = await quickFileGetMaxInvoiceNumberNumeric();
-    if (max === null || !Number.isFinite(max)) return;
-    const row = dbAll("SELECT value FROM settings WHERE key = 'nextInvoiceNumber'");
-    let storedNext = row.length ? parseInt(row[0].value, 10) : NaN;
-    if (!Number.isFinite(storedNext) || storedNext < 1) storedNext = 6066;
-    const requiredNext = max + 1;
-    if (storedNext < requiredNext) {
-      db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('nextInvoiceNumber', ?)", [String(requiredNext)]);
-      saveDb();
-      console.warn('[QuickFile] Bumped nextInvoiceNumber to ' + requiredNext + ' (QuickFile max invoice # was ' + max + ')');
+    const ledgerMax = await quickFileGetMaxInvoiceNumberNumeric();
+    let next = previousNext;
+    let bumped = false;
+    if (ledgerMax !== null && Number.isFinite(ledgerMax)) {
+      const requiredNext = ledgerMax + 1;
+      if (next < requiredNext) {
+        next = requiredNext;
+        setStoredNextInvoiceNumber(next);
+        bumped = true;
+      }
     }
+    console.warn(
+      '[QuickFile] invoice-number-heal reason=' + reason
+      + ' previous=' + previousNext
+      + ' next=' + next
+      + ' ledgerMax=' + (ledgerMax == null ? 'none' : ledgerMax)
+      + ' bumped=' + bumped
+    );
+    return {
+      ok: true,
+      previousNext,
+      next,
+      ledgerMax,
+      bumped,
+      number: String(next).padStart(6, '0'),
+    };
   } catch (e) {
-    console.warn('[QuickFile] syncNextInvoiceNumberFromQuickFileLedger:', e && e.message ? e.message : e);
+    const msg = e && e.message ? e.message : String(e);
+    console.warn('[QuickFile] invoice-number-heal failed reason=' + reason + ': ' + msg);
+    if (soft) {
+      return {
+        ok: false,
+        previousNext,
+        next: previousNext,
+        ledgerMax: null,
+        bumped: false,
+        number: String(previousNext).padStart(6, '0'),
+        error: msg,
+      };
+    }
+    throw e;
   }
+}
+
+/** Keep local counter ahead of an invoice number QuickFile just assigned. */
+function bumpLocalNextAfterAssignedInvoiceNumber(assigned) {
+  const n = parseInvoiceNumberNumericPart(assigned);
+  if (!Number.isFinite(n)) return;
+  const stored = readStoredNextInvoiceNumber();
+  const required = n + 1;
+  if (stored < required) setStoredNextInvoiceNumber(required);
+}
+
+/** @deprecated Prefer healInvoiceNumberSequence — soft wrapper for older call sites/tests. */
+async function syncNextInvoiceNumberFromQuickFileLedger() {
+  return healInvoiceNumberSequence({ soft: true, reason: 'legacy-sync' });
 }
 
 function isQuickFileInvoiceNumberDuplicateError(err) {
@@ -7986,13 +8061,35 @@ function isQuickFileInvoiceNumberDuplicateError(err) {
   if (msg.includes('already exists')) return true;
   if (/invoice\s*#?\s*[\d\w-]+\s*already/.test(msg)) return true;
   if (msg.includes('duplicate') && msg.includes('invoice')) return true;
-  if (msg.includes('invoice number') && (msg.includes('taken') || msg.includes('use'))) return true;
+  if (msg.includes('invoice number') && (msg.includes('taken') || msg.includes('use') || msg.includes('unique') || msg.includes('in use'))) return true;
+  if (msg.includes('must be unique') && msg.includes('invoice')) return true;
+  if (msg.includes('in use') && msg.includes('invoice')) return true;
   return false;
 }
 
+ipcMain.handle('quickfile-heal-invoice-number', async () => {
+  await ensureQuickFileSettingsFromServer({ reason: 'heal-invoice-number', force: true });
+  const heal = await healInvoiceNumberSequence({ soft: true, reason: 'ipc-heal' });
+  return {
+    ok: !!heal.ok,
+    number: heal.number || peekNextSequentialInvoiceNumber(),
+    previousNext: heal.previousNext,
+    next: heal.next,
+    ledgerMax: heal.ledgerMax,
+    bumped: !!heal.bumped,
+    error: heal.error || null,
+  };
+});
+
 ipcMain.handle('quickfile-suggest-next-invoice-number', async () => {
-  await syncNextInvoiceNumberFromQuickFileLedger();
-  return { ok: true, number: peekNextSequentialInvoiceNumber() };
+  await ensureQuickFileSettingsFromServer({ reason: 'suggest-next-invoice', force: false });
+  try {
+    const heal = await healInvoiceNumberSequence({ soft: false, reason: 'suggest' });
+    return { ok: true, number: peekNextSequentialInvoiceNumber(), heal };
+  } catch (e) {
+    const msg = e && e.message ? e.message : String(e);
+    return { ok: false, error: msg, number: peekNextSequentialInvoiceNumber() };
+  }
 });
 
 function buildQuickFileItemLine(shortName, description, unitCost, qty, vatRate) {
@@ -8190,16 +8287,18 @@ ipcMain.handle('quickfile-create-invoice', async (_, params) => {
 
     const invDate = invoiceDate || new Date().toISOString().slice(0, 10);
 
-    await syncNextInvoiceNumberFromQuickFileLedger();
+    try {
+      await healInvoiceNumberSequence({ soft: false, reason: 'create-invoice' });
+    } catch (healErr) {
+      throw new Error(
+        'Could not sync next invoice number from QuickFile: '
+        + (healErr && healErr.message ? healErr.message : String(healErr))
+        + '. Check your connection and try again.'
+      );
+    }
 
-    const MAX_INVOICE_NUMBER_ATTEMPTS = 35;
-    let invoiceBody;
-    let lastCreateErr;
-    for (let attempt = 0; attempt < MAX_INVOICE_NUMBER_ATTEMPTS; attempt++) {
-      const invNum = getNextSequentialInvoiceNumber();
-      const singleInvoiceData = { IssueDate: invDate, InvoiceNumber: invNum };
-
-      const invoicePayload = {
+    function buildInvoiceCreatePayload(singleInvoiceData) {
+      return {
         InvoiceData: {
           InvoiceType: 'INVOICE',
           ClientID: clientIdNum,
@@ -8217,22 +8316,57 @@ ipcMain.handle('quickfile-create-invoice', async (_, params) => {
           },
         },
       };
+    }
+
+    const MAX_INVOICE_NUMBER_ATTEMPTS = 35;
+    let invoiceBody;
+    let lastCreateErr;
+    let lastAttemptedInvNum = '';
+    let exhaustedDuplicateRetries = false;
+    for (let attempt = 0; attempt < MAX_INVOICE_NUMBER_ATTEMPTS; attempt++) {
+      const invNum = getNextSequentialInvoiceNumber();
+      lastAttemptedInvNum = invNum;
+      const invoicePayload = buildInvoiceCreatePayload({ IssueDate: invDate, InvoiceNumber: invNum });
       validateQuickFileInvoicePayload(invoicePayload);
       try {
         invoiceBody = await quickFileRequest('/1_2/invoice/create', invoicePayload);
         break;
       } catch (e) {
         lastCreateErr = e;
-        if (!isQuickFileInvoiceNumberDuplicateError(e) || attempt === MAX_INVOICE_NUMBER_ATTEMPTS - 1) {
-          throw e;
+        const dup = isQuickFileInvoiceNumberDuplicateError(e);
+        console.warn(
+          '[QuickFile] invoice/create failed attempt=' + (attempt + 1)
+          + ' number=' + invNum
+          + ' duplicate=' + dup
+          + ': ' + (e && e.message ? e.message : e)
+        );
+        if (!dup) throw e;
+        if (attempt === MAX_INVOICE_NUMBER_ATTEMPTS - 1) {
+          exhaustedDuplicateRetries = true;
+          break;
         }
+        await healInvoiceNumberSequence({ soft: true, reason: 'create-duplicate-retry' });
         console.warn('[QuickFile] Invoice number conflict, trying next:', e && e.message ? e.message : e);
+      }
+    }
+
+    /* Final fallback: omit InvoiceNumber so QuickFile auto-increments the next free number. */
+    if (!invoiceBody && exhaustedDuplicateRetries) {
+      console.warn('[QuickFile] Exhausted sequential numbers — creating with QuickFile auto-assigned invoice number');
+      await healInvoiceNumberSequence({ soft: true, reason: 'create-auto-assign-fallback' });
+      const autoPayload = buildInvoiceCreatePayload({ IssueDate: invDate });
+      validateQuickFileInvoicePayload(autoPayload);
+      try {
+        invoiceBody = await quickFileRequest('/1_2/invoice/create', autoPayload);
+      } catch (autoErr) {
+        throw lastCreateErr || autoErr;
       }
     }
     if (!invoiceBody) throw lastCreateErr || new Error('QuickFile invoice/create failed');
 
     const invoiceId = invoiceBody.InvoiceID || invoiceBody.InvoiceId || invoiceBody.RecordID || '';
-    const invoiceNumber = invoiceBody.InvoiceNumber || '';
+    const invoiceNumber = invoiceBody.InvoiceNumber || lastAttemptedInvNum || '';
+    bumpLocalNextAfterAssignedInvoiceNumber(invoiceNumber);
 
     const subtotal = (attendanceFee || 0) + mileageCost + (parkingAmount || 0);
     const vat = subtotal * vr;
@@ -8377,6 +8511,8 @@ ipcMain.handle('quickfile-create-invoice', async (_, params) => {
       );
       saveDb();
     }
+    /* Best-effort heal so the next Send already uses a free number. */
+    healInvoiceNumberSequence({ soft: true, reason: 'create-failed' }).catch(function () {});
     return { ok: false, error: err.message || String(err) };
   }
 });

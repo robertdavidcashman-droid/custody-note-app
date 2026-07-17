@@ -6507,9 +6507,11 @@ var REQUIRED_FIELD_KEYS = [
           var success = sampleCount > 0
             ? 'QuickFile connection successful. Directory access is working.'
             : 'QuickFile connection successful. The API responded, but no client rows were returned in the sample check.';
+          var nextInv = result && result.nextInvoiceNumber ? String(result.nextInvoiceNumber) : '';
+          if (nextInv) success += ' Next invoice #: ' + nextInv + '.';
           var msg = lengthsLine ? (lengthsLine + ' \u2014 ' + success) : success;
           setQuickFileStatusMessage(msg);
-          showToast('QuickFile connection successful', 'success');
+          showToast(nextInv ? ('QuickFile connection successful — next invoice #' + nextInv) : 'QuickFile connection successful', 'success');
         }).catch(function(err) {
           var message = err && err.message ? err.message : String(err);
           var combined = lengthsLine ? (lengthsLine + ' \u2014 ' + message) : message;

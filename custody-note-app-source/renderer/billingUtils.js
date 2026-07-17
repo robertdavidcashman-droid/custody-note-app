@@ -155,11 +155,25 @@ function isAlreadyInvoicedError(reason, code) {
   return /already has invoice/i.test(String(reason || ''));
 }
 
+function looksLikeInvoiceNumberConflictError(reason) {
+  var msg = String(reason || '').toLowerCase();
+  if (!msg) return false;
+  if (msg.indexOf('already exists') !== -1) return true;
+  if (/invoice\s*#?\s*[\d\w-]+\s*already/.test(msg)) return true;
+  if (msg.indexOf('duplicate') !== -1 && msg.indexOf('invoice') !== -1) return true;
+  if (msg.indexOf('invoice number') !== -1 && (msg.indexOf('taken') !== -1 || msg.indexOf('use') !== -1 || msg.indexOf('unique') !== -1)) return true;
+  if (msg.indexOf('could not sync next invoice number') !== -1) return true;
+  return false;
+}
+
 function formatBillingCreateFailureToast(reason, code) {
   if (isAlreadyInvoicedError(reason, code)) {
     return 'This record already has an invoice. Click Continue to Review & complete to move on.';
   }
   var msg = String(reason || 'Unknown error');
+  if (looksLikeInvoiceNumberConflictError(msg)) {
+    return 'Send to QuickFile failed: ' + msg + '. Invoice numbering will re-sync automatically — press "Send Bill to QuickFile" again.';
+  }
   var looksLikeConnection = /not configured|auth|credential|401|403|HTTP 5\d\d|timeout|ENOTFOUND|ECONN|network|parse error|empty response/i.test(msg);
   if (looksLikeConnection) {
     return 'Send to QuickFile failed: ' + msg + '. Check Settings \u2192 QuickFile and click "Test QuickFile connection", then press Send again.';
@@ -176,6 +190,7 @@ function formatLegacyBillingCreateFailureToast(reason, code) {
 
 if (typeof window !== 'undefined') {
   window.isAlreadyInvoicedError = isAlreadyInvoicedError;
+  window.looksLikeInvoiceNumberConflictError = looksLikeInvoiceNumberConflictError;
   window.formatBillingCreateFailureToast = formatBillingCreateFailureToast;
   window.formatLegacyBillingCreateFailureToast = formatLegacyBillingCreateFailureToast;
 }

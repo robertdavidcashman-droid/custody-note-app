@@ -286,6 +286,7 @@ contextBridge.exposeInMainWorld('api', {
   quickfileSettingsPush: () => ipcRenderer.invoke('quickfile-settings-push'),
   quickfileSettingsEnsure: () => ipcRenderer.invoke('quickfile-settings-ensure'),
   quickfileSuggestNextInvoiceNumber: () => ipcRenderer.invoke('quickfile-suggest-next-invoice-number'),
+  quickfileHealInvoiceNumber: () => ipcRenderer.invoke('quickfile-heal-invoice-number'),
   quickfileCreateInvoice: (params) => ipcRenderer.invoke('quickfile-create-invoice', params),
   /* Postcode lookup */
   postcodeLookup: (postcode) => ipcRenderer.invoke('postcode-lookup', postcode),

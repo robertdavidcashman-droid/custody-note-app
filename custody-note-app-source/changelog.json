@@ -1,9 +1,20 @@
 {
   "releases": [
     {
+      "version": "1.9.52",
+      "date": "2026-07-17",
+      "latest": true,
+      "changes": [
+        "QuickFile: if an invoice number is already used, automatically find the next free number and send the invoice (with attachments) instead of failing",
+        "QuickFile: self-healing invoice numbering — syncs with the QuickFile ledger on startup, Test connection, before each send, and after conflicts or failed sends",
+        "QuickFile: final fallback lets QuickFile auto-assign the next number if local retries are exhausted",
+        "Billing: clearer recovery message when invoice-number sync still cannot complete"
+      ]
+    },
+    {
       "version": "1.9.51",
       "date": "2026-07-07",
-      "latest": true,
+      "latest": false,
       "changes": [
         "Cross-device sync: much faster catch-up — batch push sends up to 100 records per sync cycle (20 per request) instead of 5 one-at-a-time",
         "Cross-device sync: quicker idle polling (10s) and faster sync after save (1s debounce) so missing records appear on other devices sooner",
