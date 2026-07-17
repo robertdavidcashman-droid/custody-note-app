@@ -31,12 +31,20 @@ while IFS=$'\t' read -r name dir slug branch; do
       ok "$name: clone present ($branch) → $remote_safe"
       case "$remote" in
         *robertcashman-bit*)
-          # Transition: local may still fetch bit until droid repo is created (DEPLOY_ONCE §6)
-          if curl -fsSI "https://github.com/${slug}" >/dev/null 2>&1; then
-            bad "$name: origin still points at archived bit — retarget to $slug"
-          else
-            warn "$name: origin still on bit; droid repo $slug not created yet — see DEPLOY_ONCE.md §6"
-          fi
+          # Transition: local may still fetch bit until droid repo is created (DEPLOY_ONCE §6).
+          # Use HTTP status (not curl exit alone) so network/rate-limit errors are not treated as "missing".
+          http_code=$(curl -o /dev/null -sS -w '%{http_code}' -I --max-time 15 "https://github.com/${slug}" 2>/dev/null || echo "000")
+          case "$http_code" in
+            200)
+              bad "$name: origin still points at archived bit — retarget to $slug"
+              ;;
+            404)
+              warn "$name: origin still on bit; droid repo $slug not created yet — see DEPLOY_ONCE.md §6"
+              ;;
+            *)
+              warn "$name: origin still on bit; could not confirm droid repo $slug (HTTP ${http_code}) — see DEPLOY_ONCE.md §6"
+              ;;
+          esac
           ;;
       esac
     fi
