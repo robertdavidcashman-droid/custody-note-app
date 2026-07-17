@@ -87,9 +87,9 @@ seed_mirror() {
 
 # RepUK: prefer local clone (already has history), else optional SRC_REPUK
 if git -C "$ROOT/Policestationrepuk" rev-parse HEAD >/dev/null 2>&1; then
-  push_local_to_droid "Policestationrepuk" "robertdavidcashman-droid/policestationrepuk" "master" || true
+  push_local_to_droid "Policestationrepuk" "robertdavidcashman-droid/Policestationrepuk" "master" || true
 elif [[ -n "${SRC_REPUK:-}" ]]; then
-  seed_mirror "$SRC_REPUK" "robertdavidcashman-droid/policestationrepuk" "Policestationrepuk" "master" || true
+  seed_mirror "$SRC_REPUK" "robertdavidcashman-droid/Policestationrepuk" "Policestationrepuk" "master" || true
 else
   echo "WARN: No local Policestationrepuk commits and SRC_REPUK unset."
 fi
