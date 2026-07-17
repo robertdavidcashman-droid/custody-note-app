@@ -1,0 +1,132 @@
+# Build signed + notarised macOS installers and attach them to an existing
+# GitHub Release (default: v1.9.52). Does not rebuild Windows.
+#
+# Requires Actions secrets:
+#   MAC_CERTIFICATE_P12_BASE64, MAC_CERTIFICATE_P12_PASSWORD, MAC_KEYCHAIN_PASSWORD
+#   APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID
+#
+# Run: Actions → "Release macOS only" → Run workflow
+
+name: Release macOS only
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing release tag (e.g. v1.9.52)'
+        required: true
+        default: 'v1.9.52'
+
+concurrency:
+  group: release-mac-${{ github.repository }}-${{ inputs.tag || 'v1.9.52' }}
+  cancel-in-progress: false
+
+env:
+  APP_DIR: custody-note-app-source
+  PUBLISH_GITHUB_REPOSITORY: robertdavidcashman-droid/custody-note-app
+
+jobs:
+  release-mac:
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+
+      - name: Require Mac signing secrets
+        env:
+          MAC_CERTIFICATE_P12_BASE64: ${{ secrets.MAC_CERTIFICATE_P12_BASE64 }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          missing=""
+          [ -z "${MAC_CERTIFICATE_P12_BASE64}" ] && missing+="MAC_CERTIFICATE_P12_BASE64 "
+          [ -z "${APPLE_ID}" ] && missing+="APPLE_ID "
+          [ -z "${APPLE_APP_SPECIFIC_PASSWORD}" ] && missing+="APPLE_APP_SPECIFIC_PASSWORD "
+          [ -z "${APPLE_TEAM_ID}" ] && missing+="APPLE_TEAM_ID "
+          if [ -n "$missing" ]; then
+            echo "::error::Missing Actions secrets: $missing"
+            echo "Add them under Settings → Secrets → Actions, then re-run."
+            echo "Or on your Mac (with Keychain cert + .env.local):"
+            echo "  cd custody-note-app-source && npm ci && npm run complete-mac-release"
+            exit 1
+          fi
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: custody-note-app-source/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: custody-note-app-source
+
+      - name: Import Apple Developer ID certificate into a temporary keychain
+        env:
+          MAC_CERTIFICATE_P12_BASE64:   ${{ secrets.MAC_CERTIFICATE_P12_BASE64 }}
+          MAC_CERTIFICATE_P12_PASSWORD: ${{ secrets.MAC_CERTIFICATE_P12_PASSWORD }}
+          MAC_KEYCHAIN_PASSWORD:        ${{ secrets.MAC_KEYCHAIN_PASSWORD }}
+        run: |
+          set -euo pipefail
+          CERT_PATH="$RUNNER_TEMP/cn-cert.p12"
+          KEYCHAIN_PATH="$RUNNER_TEMP/cn-build.keychain-db"
+
+          printf '%s' "$MAC_CERTIFICATE_P12_BASE64" | base64 --decode > "$CERT_PATH"
+          test -s "$CERT_PATH"
+
+          # Default keychain password if secret unset (CI-only ephemeral keychain)
+          KC_PASS="${MAC_KEYCHAIN_PASSWORD:-cn-ci-keychain}"
+
+          security create-keychain -p "$KC_PASS" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain      -p "$KC_PASS" "$KEYCHAIN_PATH"
+          security import "$CERT_PATH" -P "${MAC_CERTIFICATE_P12_PASSWORD}" \
+            -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security list-keychain -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | xargs)
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "$KC_PASS" "$KEYCHAIN_PATH"
+
+          security find-identity -v -p codesigning "$KEYCHAIN_PATH"
+          rm -f "$CERT_PATH"
+
+      - name: Preflight Apple notarization credentials
+        working-directory: custody-note-app-source
+        env:
+          APPLE_ID:                    ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID:               ${{ secrets.APPLE_TEAM_ID }}
+        run: node scripts/preflight-apple-notary.mjs
+
+      - name: Build, sign, notarise + upload macOS assets
+        working-directory: custody-note-app-source
+        env:
+          GH_TOKEN:                    ${{ secrets.GITHUB_TOKEN }}
+          APPLE_ID:                    ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID:               ${{ secrets.APPLE_TEAM_ID }}
+          CN_PUBLISH:                  always
+          PUBLISH_GITHUB_REPOSITORY:   robertdavidcashman-droid/custody-note-app
+        run: npm run build:mac:signed
+
+      - name: Regenerate latest-mac.yml from uploaded Mac assets
+        working-directory: custody-note-app-source
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PUBLISH_GITHUB_REPOSITORY: robertdavidcashman-droid/custody-note-app
+        run: |
+          TAG="${{ inputs.tag }}"
+          node scripts/repair-github-mac-updater-feed.mjs --tag "$TAG"
+
+      - name: Ensure release stays latest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ inputs.tag }}"
+          gh release edit "$TAG" --repo "$PUBLISH_GITHUB_REPOSITORY" --latest || true
+          gh release view "$TAG" --repo "$PUBLISH_GITHUB_REPOSITORY" --json assets --jq '.assets[].name'
