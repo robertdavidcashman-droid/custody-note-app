@@ -49,22 +49,19 @@ Vercel → Project → **Settings → Git → Connect Repository**
 ### 5. Optional — Mac signed app builds
 Same Actions secrets page, paste Apple cert secrets. Without them, **Windows-only** releases still publish.
 
-### 6. Seed RepUK onto droid (one-time, if the droid repo is missing)
+### 6. Finish remaining Git pushes (one PAT + one button)
 
-Cloud agents cannot create new GitHub repos under your account. On a machine signed in as **robertdavidcashman-droid**:
+Cloud agents run as `cursor[bot]` and **cannot** create repos or push `custody-note-website` / `psrtrain`. Do this once:
 
-```bash
-gh repo create robertdavidcashman-droid/policestationrepuk --public \
-  --description "PoliceStationRepUK.com — sole home on droid"
-# from a clone that already has the site (e.g. workspace Policestationrepuk/)
-git remote add droid https://github.com/robertdavidcashman-droid/policestationrepuk.git
-git push droid master:master
-git remote set-url origin https://github.com/robertdavidcashman-droid/policestationrepuk.git
-```
+1. Create a classic PAT while logged in as **`robertdavidcashman-droid`**:  
+   https://github.com/settings/tokens/new?scopes=repo&description=CustodyNote%20droid%20GH_PAT  
+2. Add it as Actions secret **`GH_PAT`**:  
+   https://github.com/robertdavidcashman-droid/custody-note-app/settings/secrets/actions  
+3. Run the workflow:  
+   https://github.com/robertdavidcashman-droid/custody-note-app/actions/workflows/finish-droid-cutover.yml  
+   → **Run workflow** → **Run workflow**
 
-Or: `bash scripts/seed-missing-workspaces.sh` with `GITHUB_PAT` that can create repos.
-
-PSRTrain (`robertdavidcashman-droid/psrtrain`) stays empty until you point `SRC_PSRTRAIN=owner/repo` at the live source.
+That seeds `policestationrepuk`, pushes the website 1.9.52 changelog, and stubs empty `psrtrain`.
 
 ### 7. Lock bit forever
 When you can open the bit GitHub account, **Archive** (do not delete yet):
