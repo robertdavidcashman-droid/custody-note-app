@@ -29,10 +29,24 @@ while IFS=$'\t' read -r name dir slug branch; do
       bad "$name: no origin remote"
     else
       ok "$name: clone present ($branch) → $remote_safe"
+      case "$remote" in
+        *robertcashman-bit*)
+          # Transition: local may still fetch bit until droid repo is created (DEPLOY_ONCE §6)
+          if curl -fsSI "https://github.com/${slug}" >/dev/null 2>&1; then
+            bad "$name: origin still points at archived bit — retarget to $slug"
+          else
+            warn "$name: origin still on bit; droid repo $slug not created yet — see DEPLOY_ONCE.md §6"
+          fi
+          ;;
+      esac
     fi
     # empty repo?
     if ! git -C "$path" rev-parse HEAD >/dev/null 2>&1; then
-      bad "$name: clone has no commits (needs seed)"
+      if [[ "$name" == "PSRUKTrain" ]]; then
+        warn "$name: clone has no commits (source recovery pending — see DEPLOY_ONCE.md §6)"
+      else
+        bad "$name: clone has no commits (needs seed)"
+      fi
     fi
   else
     ok "$name: root repo ($slug)"
@@ -48,23 +62,29 @@ PY
 echo ""
 echo "=== Desktop updater feed (installed apps) ==="
 APP_VER=$(node -p "require('$ROOT/custody-note-app-source/package.json').version" 2>/dev/null || echo "")
-BIT_YML=$(curl -fsSL "https://github.com/robertcashman-bit/custody-note-app/releases/latest/download/latest.yml" 2>/dev/null | head -1 || true)
-BIT_VER=$(echo "$BIT_YML" | sed -n 's/^version: *//p')
 DROID_YML=$(curl -fsSL "https://github.com/robertdavidcashman-droid/custody-note-app/releases/latest/download/latest.yml" 2>/dev/null | head -1 || true)
 DROID_VER=$(echo "$DROID_YML" | sed -n 's/^version: *//p')
+PUBLISH_OWNER=$(node -p "require('$ROOT/custody-note-app-source/package.json').build.publish.owner" 2>/dev/null || echo "")
 
 if [[ -z "$APP_VER" ]]; then
   bad "Could not read custody-note-app-source/package.json version"
 else
   ok "App source version: $APP_VER"
 fi
-if [[ "$BIT_VER" == "$APP_VER" ]]; then
-  ok "Production updater (robertcashman-bit) is $BIT_VER"
+if [[ "$PUBLISH_OWNER" == "robertdavidcashman-droid" ]]; then
+  ok "package.json publish.owner is droid"
 else
-  bad "Production updater (robertcashman-bit) is '${BIT_VER:-missing}' but app source is '$APP_VER' — Check for updates will not offer this build"
+  bad "package.json publish.owner is '${PUBLISH_OWNER:-missing}' (want robertdavidcashman-droid)"
 fi
-if [[ -n "$DROID_VER" ]]; then
-  warn "Droid releases latest is $DROID_VER (mirror/debug only; apps update from bit)"
+if [[ "$DROID_VER" == "$APP_VER" ]]; then
+  ok "Production updater (droid) is $DROID_VER"
+else
+  bad "Production updater (droid) is '${DROID_VER:-missing}' but app source is '$APP_VER' — Check for updates will not offer this build"
+fi
+if [[ -f "$ROOT/.github/workflows/publish-updater-feed.yml" ]]; then
+  bad "Bit-mirror workflow still present: .github/workflows/publish-updater-feed.yml — delete it"
+else
+  ok "No bit-mirror publish-updater-feed workflow"
 fi
 
 echo ""
@@ -100,6 +120,11 @@ for f in auto-tag-release.yml release-publish.yml; do
     bad "Missing root workflow: .github/workflows/$f"
   fi
 done
+if grep -q 'robertcashman-bit' "$ROOT/.github/workflows/release-publish.yml" 2>/dev/null; then
+  bad "release-publish.yml still references robertcashman-bit"
+else
+  ok "release-publish.yml has no bit references"
+fi
 if [[ -f "$ROOT/custody-note-app-source/.github/workflows/README.md" ]]; then
   ok "Nested workflows folder documents stubs (live CI is root-only)"
 elif [[ -f "$ROOT/custody-note-app-source/.github/workflows/release-publish.yml" ]]; then
@@ -112,12 +137,12 @@ if [[ -n "${VERCEL_TOKEN:-}" ]]; then
   bash "$ROOT/scripts/verify-vercel-links.sh" || FAIL=1
 else
   warn "VERCEL_TOKEN unset — skip live Vercel Git check. Authenticate Vercel MCP or set token, then re-run."
-  warn "Manual: see DEPLOY_ONCE.md §3"
+  warn "Manual: see DEPLOY_ONCE.md §4"
 fi
 
 echo ""
 echo "=== Secrets presence (local env only) ==="
-[[ -n "${GH_PAT:-}${GITHUB_PAT:-}" ]] && ok "GH_PAT/GITHUB_PAT present in this environment" || warn "GH_PAT/GITHUB_PAT not in env — Actions secret may still be set on the repo"
+[[ -n "${GH_PAT:-}${GITHUB_PAT:-}" ]] && ok "GH_PAT/GITHUB_PAT present in this environment" || warn "GH_PAT/GITHUB_PAT not in env — optional for website push / seeding"
 [[ -n "${VERCEL_TOKEN:-}" ]] && ok "VERCEL_TOKEN present" || warn "VERCEL_TOKEN not in env"
 
 echo ""
@@ -125,5 +150,5 @@ if [[ "$FAIL" -eq 0 ]]; then
   echo "ALL CHECKS PASSED"
   exit 0
 fi
-echo "FAILED — fix items above (usually: set GH_PAT, publish updater to bit, push website)"
+echo "FAILED — fix items above (usually: publish updater on droid, seed empty clones, push website)"
 exit 1

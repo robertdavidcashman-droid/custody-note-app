@@ -2,6 +2,8 @@
 
 Multi-project layout for all Custody Note / police station rep sites.
 
+**Sole GitHub home:** `robertdavidcashman-droid`. Do not publish to `robertcashman-bit` (archive those repos).
+
 ## Deploy once, then never think about it
 
 **One-time clicks:** see [`DEPLOY_ONCE.md`](DEPLOY_ONCE.md)
@@ -9,7 +11,7 @@ Multi-project layout for all Custody Note / police station rep sites.
 | Everyday action | Automatic result |
 |-----------------|------------------|
 | Push a website repo’s primary branch | Vercel production deploy |
-| Bump `custody-note-app-source` version + changelog on `main` | Tag → Windows installer → **robertcashman-bit** updater → website changelog → Vercel |
+| Bump `custody-note-app-source` version + changelog on `main` | Tag → Windows installer → **droid** updater → website changelog → Vercel |
 
 Health check anytime:
 
@@ -17,20 +19,15 @@ Health check anytime:
 bash scripts/verify-all-deploys.sh
 ```
 
-Mirror a built release to the live updater feed (after `GH_PAT` secret exists):
-
-- Actions → **Publish updater feed** → Run workflow → tag `v1.9.52`
-- Or: `bash custody-note-app-source/deploy-bundles/publish-v1.9.52-to-bit.sh`
-
 ## Projects
 
 | Workspace | Domain | Folder | GitHub repo | Vercel project |
 |-----------|--------|--------|-------------|----------------|
 | PoliceStationAgent.com | policestationagent.com | `one/` | `robertdavidcashman-droid/one` | web44ai |
-| PoliceStationRepUK.com | policestationrepuk.org | `Policestationrepuk/` | `robertcashman-bit/Policestationrepuk` | policestationrepuk-new |
+| PoliceStationRepUK.com | policestationrepuk.org | `Policestationrepuk/` | `robertdavidcashman-droid/policestationrepuk` | policestationrepuk-new |
 | CustodyNote website | custodynote.com | `custody-note-website/` | `robertdavidcashman-droid/custody-note-website` | custody-note-website |
 | PSRUKTrain.com | psrtrain.com | `pstrain-rebuild/` | `robertdavidcashman-droid/psrtrain` *(seed required)* | pstrain-rebuild |
-| CustodyNoteApp | (desktop) | `.` + `custody-note-app-source/` | `robertdavidcashman-droid/custody-note-app` | none — updater feed is `robertcashman-bit/custody-note-app` |
+| CustodyNoteApp | (desktop) | `.` + `custody-note-app-source/` | `robertdavidcashman-droid/custody-note-app` | none — updater feed is this same repo |
 
 Configuration: [`workspaces.manifest.json`](workspaces.manifest.json)
 
@@ -49,7 +46,7 @@ Manual sync anytime:
 ```bash
 bash scripts/sync-all-workspaces.sh
 bash scripts/verify-workspaces.sh
-bash scripts/seed-missing-workspaces.sh   # needs GITHUB_PAT — mirrors RepUK/PSRTrain
+bash scripts/seed-missing-workspaces.sh   # needs GITHUB_PAT — seeds RepUK/PSRTrain onto droid
 bash scripts/verify-all-deploys.sh
 ```
 
@@ -73,7 +70,7 @@ Logs: `~/Library/Logs/cursor-workspace-sync.log`
 
 | Secret | Where | Purpose |
 |--------|-------|---------|
-| `GH_PAT` | App repo Actions secrets | Publish to bit updater + push website from CI |
+| `GH_PAT` | App repo Actions secrets | Optional: push website from CI when default token cannot |
 | `GITHUB_PAT` | Cursor Cloud secrets | Bootstrap/seed repos from agents |
 | `VERCEL_TOKEN` | Cursor Cloud secrets | `verify-vercel-links.sh` |
 
@@ -96,7 +93,7 @@ bash scripts/verify-vercel-links.sh
 1. Edit `custody-note-app-source/package.json` version + `changelog.json`
 2. Merge to `main`
 3. `Auto-tag release if needed` creates `v{x.y.z}`
-4. `Release and deploy` builds Windows (and Mac if secrets), publishes to **robertcashman-bit**, syncs website
+4. `Release and deploy` builds Windows (and Mac if secrets), publishes to **droid** releases, syncs website
 
 Root workflows live in [`.github/workflows/`](.github/workflows/) — **not** under `custody-note-app-source/.github/`.
 

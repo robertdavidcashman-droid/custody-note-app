@@ -222,7 +222,7 @@ if (Test-Path $ExpectedExe) {
     Write-Warning "Real EXE NOT FOUND at $ExpectedExe"
     Write-Warning "You probably have not installed Custody Note for the current Windows user."
     Write-Warning "Run the latest installer (Custody-Note-Setup-x.y.z.exe) from"
-    Write-Warning "https://github.com/robertcashman-bit/custody-note-app/releases or https://custodynote.com/download"
+    Write-Warning "https://github.com/robertdavidcashman-droid/custody-note-app/releases or https://custodynote.com/download"
 }
 Write-Host ''
 

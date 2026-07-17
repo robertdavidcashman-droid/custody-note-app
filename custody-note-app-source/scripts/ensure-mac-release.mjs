@@ -41,7 +41,7 @@ const tag = `v${version}`;
 
 try {
   const inProgress = execSync(
-    'gh run list --repo robertcashman-bit/custody-note-app --workflow "Release and deploy" --status in_progress --json headBranch',
+    'gh run list --repo robertdavidcashman-droid/custody-note-app --workflow "Release and deploy" --status in_progress --json headBranch',
     { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] },
   );
   const runs = JSON.parse(inProgress || '[]');

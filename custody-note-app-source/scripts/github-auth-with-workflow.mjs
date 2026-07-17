@@ -55,8 +55,8 @@ function loginWithToken(token) {
 }
 
 function deviceLogin() {
-  console.log('[github-auth] Opening device login for robertcashman-bit (needs workflow scope)…');
-  console.log('[github-auth] Sign in as robertcashman-bit — not robertdavidcashman-droid.');
+  console.log('[github-auth] Opening device login for robertdavidcashman-droid (needs workflow scope)…');
+  console.log('[github-auth] Sign in as robertdavidcashman-droid (sole production account).');
   const r = spawnSync(
     gh,
     ['auth', 'login', '-h', 'github.com', '--git-protocol', 'https', '-s', 'repo,workflow,read:org,gist', '-w'],

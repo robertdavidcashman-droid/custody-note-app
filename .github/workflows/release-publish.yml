@@ -1,10 +1,10 @@
 # On push of a version tag (e.g. v1.9.52), build Windows + signed macOS installers,
-# publish to the production updater repo (robertcashman-bit/custody-note-app),
+# publish to the production updater repo (robertdavidcashman-droid/custody-note-app),
 # then sync the marketing website.
 #
 # App source lives in custody-note-app-source/ (five-workspace layout).
-# Requires secret GH_PAT with write access to robertcashman-bit/custody-note-app
-# (installed apps check that feed — GITHUB_TOKEN from this repo cannot publish there).
+# Uses GITHUB_TOKEN for releases on this repo. Optional GH_PAT can push
+# custody-note-website if the default token cannot write that repo.
 
 name: Release and deploy
 
@@ -20,7 +20,7 @@ concurrency:
 
 env:
   APP_DIR: custody-note-app-source
-  PUBLISH_GITHUB_REPOSITORY: robertcashman-bit/custody-note-app
+  PUBLISH_GITHUB_REPOSITORY: robertdavidcashman-droid/custody-note-app
 
 jobs:
   release-windows:
@@ -32,16 +32,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ github.ref }}
-
-      - name: Require GH_PAT for production publish
-        env:
-          GH_PAT: ${{ secrets.GH_PAT }}
-        run: |
-          if [ -z "${GH_PAT}" ]; then
-            echo "::error::Secret GH_PAT is not set. Installed apps update from robertcashman-bit/custody-note-app; add a PAT with repo write on that account as Actions secret GH_PAT."
-            exit 1
-          fi
-        shell: bash
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -57,8 +47,8 @@ jobs:
       - name: Build + upload Windows installer to GitHub
         working-directory: custody-note-app-source
         env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
-          PUBLISH_GITHUB_REPOSITORY: robertcashman-bit/custody-note-app
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PUBLISH_GITHUB_REPOSITORY: robertdavidcashman-droid/custody-note-app
         run: npx electron-builder --win --publish always
 
   release-mac:
@@ -136,20 +126,20 @@ jobs:
         if: steps.mac_secrets.outputs.configured == 'true'
         working-directory: custody-note-app-source
         env:
-          GH_TOKEN:                    ${{ secrets.GH_PAT }}
+          GH_TOKEN:                    ${{ secrets.GITHUB_TOKEN }}
           APPLE_ID:                    ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID:               ${{ secrets.APPLE_TEAM_ID }}
           CN_PUBLISH:                  always
-          PUBLISH_GITHUB_REPOSITORY:   robertcashman-bit/custody-note-app
+          PUBLISH_GITHUB_REPOSITORY:   robertdavidcashman-droid/custody-note-app
         run: npm run build:mac:signed
 
       - name: Regenerate latest-mac.yml from uploaded Mac assets
         if: steps.mac_secrets.outputs.configured == 'true'
         working-directory: custody-note-app-source
         env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
-          PUBLISH_GITHUB_REPOSITORY: robertcashman-bit/custody-note-app
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PUBLISH_GITHUB_REPOSITORY: robertdavidcashman-droid/custody-note-app
         run: |
           VERSION=$(node -p "require('./package.json').version")
           node scripts/repair-github-mac-updater-feed.mjs --tag "v${VERSION}"
@@ -169,8 +159,8 @@ jobs:
       - name: Wait for updater assets, then publish
         working-directory: custody-note-app-source
         env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
-          PUBLISH_GITHUB_REPOSITORY: robertcashman-bit/custody-note-app
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PUBLISH_GITHUB_REPOSITORY: robertdavidcashman-droid/custody-note-app
           MAC_CERTIFICATE_P12_BASE64: ${{ secrets.MAC_CERTIFICATE_P12_BASE64 }}
         run: |
           set -e
@@ -253,13 +243,18 @@ jobs:
     needs: publish-release
     continue-on-error: true
     steps:
-      - name: Require GH_PAT for website push
+      - name: Resolve website push token
+        id: token
         env:
           GH_PAT: ${{ secrets.GH_PAT }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if [ -z "${GH_PAT}" ]; then
-            echo "::warning::GH_PAT missing — cannot push custody-note-website. See DEPLOY_ONCE.md"
-            exit 1
+          if [ -n "${GH_PAT}" ]; then
+            echo "token=${GH_PAT}" >> "$GITHUB_OUTPUT"
+            echo "Using GH_PAT for website push."
+          else
+            echo "token=${GITHUB_TOKEN}" >> "$GITHUB_OUTPUT"
+            echo "::warning::GH_PAT missing — trying GITHUB_TOKEN for custody-note-website (may 403 if no cross-repo write)."
           fi
 
       - name: Checkout app
@@ -272,7 +267,7 @@ jobs:
         with:
           repository: robertdavidcashman-droid/custody-note-website
           path: custody-note-website
-          token: ${{ secrets.GH_PAT }}
+          token: ${{ steps.token.outputs.token }}
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -294,8 +289,7 @@ jobs:
         working-directory: custody-note-app-source
         env:
           WEBSITE_ROOT: ${{ github.workspace }}/custody-note-website
-          # sync-website.mjs pushes with local git credentials from checkout token
-          GH_TOKEN: ${{ secrets.GH_PAT }}
+          GH_TOKEN: ${{ steps.token.outputs.token }}
         run: |
           cd "${{ github.workspace }}/custody-note-website"
           git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/robertdavidcashman-droid/custody-note-website.git"

@@ -33,13 +33,10 @@ import json, sys
 manifest = json.load(open(sys.argv[1]))
 for repo in manifest["repos"]:
     slug = repo["github"]
-    # Skip bit production sources — bootstrap only creates droid targets.
-    if slug.startswith("robertcashman-bit/"):
-        continue
     if slug.endswith("/policestationrepuk") or slug.endswith("/psrtrain"):
         print(f"{slug}\t{repo['name']}")
 PY
   [[ -n "${slug:-}" ]] && create_if_missing "$slug" "$desc"
 done
 
-echo "GitHub bootstrap complete. To copy content into empty mirrors: bash scripts/seed-missing-workspaces.sh"
+echo "GitHub bootstrap complete. To copy content into empty repos: bash scripts/seed-missing-workspaces.sh"
