@@ -42,7 +42,7 @@ Vercel → Project → **Settings → Git → Connect Repository**
 | Vercel project | Connect to |
 |----------------|------------|
 | `web44ai` | `robertdavidcashman-droid/one` |
-| Project serving **policestationrepuk.org** | `robertdavidcashman-droid/policestationrepuk` |
+| Project serving **policestationrepuk.org** | `robertdavidcashman-droid/Policestationrepuk` |
 | `custody-note-website` | `robertdavidcashman-droid/custody-note-website` |
 | Project serving **psrtrain.com** | `robertdavidcashman-droid/psrtrain` *(after source is seeded)* |
 

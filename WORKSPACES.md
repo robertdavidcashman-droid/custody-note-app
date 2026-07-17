@@ -24,7 +24,7 @@ bash scripts/verify-all-deploys.sh
 | Workspace | Domain | Folder | GitHub repo | Vercel project |
 |-----------|--------|--------|-------------|----------------|
 | PoliceStationAgent.com | policestationagent.com | `one/` | `robertdavidcashman-droid/one` | web44ai |
-| PoliceStationRepUK.com | policestationrepuk.org | `Policestationrepuk/` | `robertdavidcashman-droid/policestationrepuk` | policestationrepuk-new |
+| PoliceStationRepUK.com | policestationrepuk.org | `Policestationrepuk/` | `robertdavidcashman-droid/Policestationrepuk` | policestationrepuk-new |
 | CustodyNote website | custodynote.com | `custody-note-website/` | `robertdavidcashman-droid/custody-note-website` | custody-note-website |
 | PSRUKTrain.com | psrtrain.com | `pstrain-rebuild/` | `robertdavidcashman-droid/psrtrain` *(seed required)* | pstrain-rebuild |
 | CustodyNoteApp | (desktop) | `.` + `custody-note-app-source/` | `robertdavidcashman-droid/custody-note-app` | none — updater feed is this same repo |
