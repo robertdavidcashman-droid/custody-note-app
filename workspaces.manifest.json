@@ -28,7 +28,7 @@
       "github": "robertdavidcashman-droid/psrtrain",
       "branch": "main",
       "vercel": "pstrain-rebuild",
-      "notes": "Empty shell until source is recovered. Live site is on Vercel project serving psrtrain.com (often pstrain-rebuild). Set SRC_PSRTRAIN=owner/repo and run seed-missing-workspaces.sh after identifying the Git repo."
+      "notes": "Source imported on droid (workflows omitted in import; restore CI with a workflow-scoped PAT). Reconnect Vercel Git to robertdavidcashman-droid/psrtrain."
     },
     {
       "name": "CustodyNoteApp",
