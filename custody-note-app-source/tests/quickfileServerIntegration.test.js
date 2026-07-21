@@ -1,16 +1,21 @@
 'use strict';
 
 /**
- * Integration checks for QuickFile account sync against custodynote.com.
+ * Integration checks for QuickFile account sync against a deployed API base.
  *
- * Always runs: route returns JSON (not HTML 404).
- * With SMOKE_LICENCE_KEY: pull encrypted blob for the licence (user said credentials saved).
+ * Run with:
+ *   SMOKE_API_BASE=https://<deployment-host>
+ * Optionally:
+ *   SMOKE_LICENCE_KEY=<real key with saved credentials>
+ *
+ * Default behaviour is to skip when SMOKE_API_BASE is not set (so unit tests
+ * remain hermetic and don't depend on production deployments).
  */
 const { describe, it } = require('node:test');
 const assert = require('node:assert');
 const sync = require('../lib/quickfileSettingsSync');
 
-const BASE = process.env.SMOKE_API_BASE || 'https://custodynote.com';
+const BASE = process.env.SMOKE_API_BASE || '';
 const KEY = process.env.SMOKE_LICENCE_KEY || '';
 const MACHINE = process.env.SMOKE_MACHINE_ID || 'integration-test-machine';
 
@@ -45,7 +50,11 @@ function httpPost(url, body) {
 }
 
 describe('QuickFile server integration (custodynote.com)', () => {
-  it('POST /api/settings/quickfile returns JSON auth gate (route deployed)', async () => {
+  it('POST /api/settings/quickfile returns JSON auth gate (route deployed)', async (t) => {
+    if (!BASE) {
+      t.skip('Set SMOKE_API_BASE to run deployed QuickFile integration checks');
+      return;
+    }
     const res = await httpPost(`${BASE}/api/settings/quickfile`, {
       key: 'smoke-invalid-key',
       machineId: MACHINE,
@@ -57,6 +66,10 @@ describe('QuickFile server integration (custodynote.com)', () => {
   });
 
   it('pull + decrypt round-trip when SMOKE_LICENCE_KEY has saved credentials', async (t) => {
+    if (!BASE) {
+      t.skip('Set SMOKE_API_BASE to run deployed QuickFile integration checks');
+      return;
+    }
     if (!KEY) {
       t.skip('Set SMOKE_LICENCE_KEY to verify saved credentials pull from server');
       return;

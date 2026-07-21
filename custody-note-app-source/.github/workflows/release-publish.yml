@@ -1,12 +1,295 @@
-# STUB — not executed by GitHub Actions.
-# Live workflow: /.github/workflows/release-publish.yml (repo root)
-name: "STUB do-not-use Release and deploy (nested)"
+# On push of a version tag (e.g. v1.9.52), build Windows + signed macOS installers,
+# publish to the production updater repo (robertdavidcashman-droid/custody-note-app),
+# then sync the marketing website.
+#
+# NOTE: This copy exists so the app source can be tested in isolation.
+# GitHub Actions only executes workflows from the repo root `/.github/workflows/`.
+#
+# Source of truth: `/.github/workflows/release-publish.yml`
+
+name: Release and deploy
+
 on:
+  push:
+    tags:
+      - 'v*'
   workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.repository }}-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  APP_DIR: custody-note-app-source
+  PUBLISH_GITHUB_REPOSITORY: robertdavidcashman-droid/custody-note-app
+
 jobs:
-  stub:
-    runs-on: ubuntu-latest
+  release-windows:
+    runs-on: windows-latest
+    permissions:
+      contents: write
     steps:
-      - run: |
-          echo "This nested workflow is ignored. Use /.github/workflows/release-publish.yml"
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: custody-note-app-source/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: custody-note-app-source
+
+      - name: Build + upload Windows installer to GitHub
+        working-directory: custody-note-app-source
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PUBLISH_GITHUB_REPOSITORY: robertdavidcashman-droid/custody-note-app
+        run: npx electron-builder --win --publish always
+
+  release-mac:
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Check Mac signing secrets
+        id: mac_secrets
+        env:
+          MAC_CERTIFICATE_P12_BASE64: ${{ secrets.MAC_CERTIFICATE_P12_BASE64 }}
+        run: |
+          if [ -z "${MAC_CERTIFICATE_P12_BASE64}" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "Mac signing secrets not configured on this repo — skipping Mac build (Windows-only release)."
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup Node
+        if: steps.mac_secrets.outputs.configured == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: custody-note-app-source/package-lock.json
+
+      - name: Install dependencies
+        if: steps.mac_secrets.outputs.configured == 'true'
+        run: npm ci
+        working-directory: custody-note-app-source
+
+      - name: Import Apple Developer ID certificate into a temporary keychain
+        if: steps.mac_secrets.outputs.configured == 'true'
+        env:
+          MAC_CERTIFICATE_P12_BASE64: ${{ secrets.MAC_CERTIFICATE_P12_BASE64 }}
+          MAC_CERTIFICATE_P12_PASSWORD: ${{ secrets.MAC_CERTIFICATE_P12_PASSWORD }}
+          MAC_KEYCHAIN_PASSWORD: ${{ secrets.MAC_KEYCHAIN_PASSWORD }}
+        run: |
+          set -euo pipefail
+          CERT_PATH="$RUNNER_TEMP/cn-cert.p12"
+          KEYCHAIN_PATH="$RUNNER_TEMP/cn-build.keychain-db"
+
+          printf '%s' "$MAC_CERTIFICATE_P12_BASE64" | base64 --decode > "$CERT_PATH"
+          test -s "$CERT_PATH"
+
+          security create-keychain -p "$MAC_KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$MAC_KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERT_PATH" -P "$MAC_CERTIFICATE_P12_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security list-keychain -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | xargs)
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$MAC_KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          security find-identity -v -p codesigning "$KEYCHAIN_PATH"
+
+          rm -f "$CERT_PATH"
+
+      - name: Preflight Apple notarization credentials
+        if: steps.mac_secrets.outputs.configured == 'true'
+        working-directory: custody-note-app-source
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: node scripts/preflight-apple-notary.mjs
+
+      - name: Build, sign, notarise + upload macOS assets
+        if: steps.mac_secrets.outputs.configured == 'true'
+        working-directory: custody-note-app-source
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          CN_PUBLISH: always
+          PUBLISH_GITHUB_REPOSITORY: robertdavidcashman-droid/custody-note-app
+        run: npm run build:mac:signed
+
+      - name: Regenerate latest-mac.yml from uploaded Mac assets
+        if: steps.mac_secrets.outputs.configured == 'true'
+        working-directory: custody-note-app-source
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PUBLISH_GITHUB_REPOSITORY: robertdavidcashman-droid/custody-note-app
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          node scripts/repair-github-mac-updater-feed.mjs --tag "v${VERSION}"
+
+  publish-release:
+    runs-on: ubuntu-latest
+    needs: [release-windows, release-mac]
+    if: needs.release-windows.result == 'success'
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Wait for updater assets, then publish
+        working-directory: custody-note-app-source
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PUBLISH_GITHUB_REPOSITORY: robertdavidcashman-droid/custody-note-app
+          MAC_CERTIFICATE_P12_BASE64: ${{ secrets.MAC_CERTIFICATE_P12_BASE64 }}
+        run: |
+          set -e
+          VERSION=$(node -p "require('./package.json').version")
+          TAG="v${VERSION}"
+          RELEASE_REPO="${PUBLISH_GITHUB_REPOSITORY}"
+          REQUIRED=(
+            "Custody-Note-Setup-${VERSION}.exe"
+            "Custody-Note-Setup-${VERSION}.exe.blockmap"
+            "latest.yml"
+          )
+          if [ -n "${MAC_CERTIFICATE_P12_BASE64}" ]; then
+            REQUIRED+=(
+              "Custody-Note-${VERSION}-arm64.dmg"
+              "Custody-Note-${VERSION}-arm64.zip"
+              "Custody-Note-${VERSION}-x64.dmg"
+              "Custody-Note-${VERSION}-x64.zip"
+              "latest-mac.yml"
+            )
+          else
+            echo "Mac secrets absent — publishing Windows-only release for $TAG on $RELEASE_REPO"
+          fi
+          for attempt in $(seq 1 30); do
+            assets=$(gh release view "$TAG" --repo "$RELEASE_REPO" --json assets,isDraft --jq '.assets[].name' 2>/dev/null || echo "")
+            missing=""
+            for need in "${REQUIRED[@]}"; do
+              echo "$assets" | grep -qx "$need" || missing+="$need "
+            done
+            if [ -z "$missing" ]; then
+              echo "Required asset names present — waiting 45s for GitHub uploads to settle…"
+              sleep 45
+              VERIFY_PLATFORM="both"
+              if [ -z "${MAC_CERTIFICATE_P12_BASE64}" ]; then
+                VERIFY_PLATFORM="win"
+              fi
+              verify_ok=false
+              for vattempt in $(seq 1 5); do
+                echo "Verifying updater checksums (platform=$VERIFY_PLATFORM, attempt $vattempt/5)…"
+                if node scripts/verify-github-updater-assets.mjs --tag "$TAG" --platform "$VERIFY_PLATFORM"; then
+                  verify_ok=true
+                  break
+                fi
+                sleep 15
+              done
+              if [ "$verify_ok" != "true" ] && [ -n "${MAC_CERTIFICATE_P12_BASE64}" ]; then
+                echo "Checksum verification failed — attempting Mac updater feed repair…"
+                node scripts/repair-github-mac-updater-feed.mjs --tag "$TAG" || true
+                for vattempt in $(seq 1 12); do
+                  echo "Post-repair verify (attempt $vattempt/12)…"
+                  if node scripts/verify-github-updater-assets.mjs --tag "$TAG" --platform "$VERIFY_PLATFORM"; then
+                    verify_ok=true
+                    break
+                  fi
+                  sleep 15
+                done
+              fi
+              if [ "$verify_ok" != "true" ]; then
+                echo "Checksum verification still failed for $TAG — release stays draft."
+                exit 1
+              fi
+              is_draft=$(gh release view "$TAG" --repo "$RELEASE_REPO" --json isDraft --jq '.isDraft')
+              if [ "$is_draft" = "true" ]; then
+                gh release edit "$TAG" --repo "$RELEASE_REPO" --draft=false --latest
+                echo "Published $TAG on $RELEASE_REPO."
+              else
+                echo "$TAG is already live on $RELEASE_REPO."
+                gh release edit "$TAG" --repo "$RELEASE_REPO" --latest || true
+              fi
+              exit 0
+            fi
+            echo "Waiting on $TAG@$RELEASE_REPO (attempt $attempt): $missing"
+            sleep 10
+          done
+          echo "Timed out waiting for updater assets on $TAG. Still missing: $missing"
           exit 1
+
+  deploy-website:
+    runs-on: ubuntu-latest
+    needs: publish-release
+    continue-on-error: true
+    steps:
+      - name: Resolve website push token
+        id: token
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -n "${GH_PAT}" ]; then
+            echo "token=${GH_PAT}" >> "$GITHUB_OUTPUT"
+            echo "Using GH_PAT for website push."
+          else
+            echo "token=${GITHUB_TOKEN}" >> "$GITHUB_OUTPUT"
+            echo "::warning::GH_PAT missing — trying GITHUB_TOKEN for custody-note-website (may 403 if no cross-repo write)."
+          fi
+
+      - name: Checkout app
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Checkout website
+        uses: actions/checkout@v4
+        with:
+          repository: robertdavidcashman-droid/custody-note-website
+          path: custody-note-website
+          token: ${{ steps.token.outputs.token }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: custody-note-app-source/package-lock.json
+
+      - name: Install app dependencies
+        run: npm ci
+        working-directory: custody-note-app-source
+
+      - name: Configure git for website commit
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Sync website releases.json and push
+        working-directory: custody-note-app-source
+        env:
+          WEBSITE_ROOT: ${{ github.workspace }}/custody-note-website
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+        run: |
+          cd "${{ github.workspace }}/custody-note-website"
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/robertdavidcashman-droid/custody-note-website.git"
+          cd "${{ github.workspace }}/custody-note-app-source"
+          node scripts/sync-website.mjs
