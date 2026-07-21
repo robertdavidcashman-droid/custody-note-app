@@ -1,9 +1,19 @@
 {
   "releases": [
     {
+      "version": "1.9.53",
+      "date": "2026-07-21",
+      "latest": true,
+      "changes": [
+        "Licence: fixed previously-activated licences not being recognised on some machines (legacy licence.dat read + migration)",
+        "Licence: fixed licence admin/forgot-key IPC handlers in headless/test environments",
+        "Reliability: automated test and PDF export stability improvements in headless environments"
+      ]
+    },
+    {
       "version": "1.9.52",
       "date": "2026-07-17",
-      "latest": true,
+      "latest": false,
       "changes": [
         "QuickFile: if an invoice number is already used, automatically find the next free number and send the invoice (with attachments) instead of failing",
         "QuickFile: self-healing invoice numbering — syncs with the QuickFile ledger on startup, Test connection, before each send, and after conflicts or failed sends",
