@@ -68,6 +68,28 @@ writeFileSync(
 );
 console.log(`[sync-website] Synced v${pkg.version} and ${changelog.releases.length} releases to website`);
 
+// Keep marketing site APP_VERSION (and Windows download URL derived from it) in sync.
+const websiteConfigPath = join(WEBSITE_ROOT, 'src', 'lib', 'config.ts');
+if (existsSync(websiteConfigPath)) {
+  let configSrc = readFileSync(websiteConfigPath, 'utf8');
+  if (!/export const APP_VERSION = ["'][^"']*["'];/.test(configSrc)) {
+    console.warn('[sync-website] Could not update APP_VERSION in src/lib/config.ts (pattern not found)');
+  } else {
+    configSrc = configSrc.replace(
+      /export const APP_VERSION = ["'][^"']*["'];/,
+      `export const APP_VERSION = "${pkg.version}";`
+    );
+    if (!/WINDOWS_DOWNLOAD_URL/.test(configSrc)) {
+      configSrc = configSrc.replace(
+        `export const APP_VERSION = "${pkg.version}";`,
+        `export const APP_VERSION = "${pkg.version}";\n\n/** Windows installer — sole publisher is robertdavidcashman-droid. */\nexport const WINDOWS_DOWNLOAD_URL = \`https://github.com/robertdavidcashman-droid/custody-note-app/releases/download/v\${APP_VERSION}/Custody-Note-Setup-\${APP_VERSION}.exe\`;`
+      );
+    }
+    writeFileSync(websiteConfigPath, configSrc, 'utf8');
+    console.log(`[sync-website] Updated website APP_VERSION to ${pkg.version}`);
+  }
+}
+
 // LAA official PDF templates + manifest (desktop app auto-update endpoint)
 const laaSrcDir = join(APP_ROOT, 'data', 'laa-official-forms');
 const laaDestDir = join(WEBSITE_ROOT, 'data', 'laa-official-forms');
