@@ -1,8 +1,44 @@
 /**
  * GitHub release helpers — draft releases are invisible to /releases/tags/{tag}.
+ *
+ * Publish target resolution (first match wins):
+ *   1. PUBLISH_GITHUB_REPOSITORY (CI sets this on droid)
+ *   2. GITHUB_REPOSITORY (default Actions env)
+ *   3. package.json build.publish.owner / .repo
+ *   4. robertdavidcashman-droid/custody-note-app (intended publisher)
  */
-export const RELEASE_OWNER = 'robertcashman-bit';
-export const RELEASE_REPO = 'custody-note-app';
+import { readFileSync } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const APP_ROOT = join(__dirname, '..');
+
+export function resolvePublishRepo() {
+  const fromEnv = String(
+    process.env.PUBLISH_GITHUB_REPOSITORY || process.env.GITHUB_REPOSITORY || ''
+  ).trim();
+  if (fromEnv.includes('/')) {
+    const [owner, repo] = fromEnv.split('/');
+    if (owner && repo) return { owner, repo };
+  }
+
+  try {
+    const pkg = JSON.parse(readFileSync(join(APP_ROOT, 'package.json'), 'utf8'));
+    const publish = pkg && pkg.build && pkg.build.publish;
+    if (publish && publish.owner && publish.repo) {
+      return { owner: String(publish.owner), repo: String(publish.repo) };
+    }
+  } catch (_) {
+    /* ignore */
+  }
+
+  return { owner: 'robertdavidcashman-droid', repo: 'custody-note-app' };
+}
+
+const resolved = resolvePublishRepo();
+export const RELEASE_OWNER = resolved.owner;
+export const RELEASE_REPO = resolved.repo;
 
 export function normaliseReleaseTag(tag) {
   const t = String(tag || '').trim();
@@ -26,7 +62,8 @@ export function releaseApiHeaders(token) {
 export async function fetchReleaseByTag(tag, token) {
   const normalised = normaliseReleaseTag(tag);
   const headers = releaseApiHeaders(token);
-  const base = `https://api.github.com/repos/${RELEASE_OWNER}/${RELEASE_REPO}`;
+  const { owner, repo } = resolvePublishRepo();
+  const base = `https://api.github.com/repos/${owner}/${repo}`;
 
   const tagRes = await fetch(`${base}/releases/tags/${encodeURIComponent(normalised)}`, { headers });
   if (tagRes.ok) return tagRes.json();
