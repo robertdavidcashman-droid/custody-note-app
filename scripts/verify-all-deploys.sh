@@ -43,13 +43,13 @@ while IFS=$'\t' read -r name dir slug branch; do
           [[ -z "$http_code" ]] && http_code="000"
           case "$http_code" in
             200)
-              bad "$name: origin still points at archived bit — retarget to $slug"
+              bad "$name: origin still points at bit — retarget to $slug (droid is sole publisher)"
               ;;
             404)
-              warn "$name: origin still on bit; droid repo $slug not created yet — see DEPLOY_ONCE.md §6"
+              warn "$name: origin still on bit; droid repo $slug not created yet — see DEPLOY_ONCE.md"
               ;;
             *)
-              bad "$name: origin still on bit; could not verify droid repo $slug (HTTP ${http_code}) — retarget once reachable (see DEPLOY_ONCE.md §6)"
+              bad "$name: origin still on bit; could not verify droid repo $slug (HTTP ${http_code}) — retarget once reachable (see DEPLOY_ONCE.md)"
               ;;
           esac
           ;;

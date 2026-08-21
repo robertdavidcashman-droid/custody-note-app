@@ -14,7 +14,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const APP_ROOT = join(__dirname, '..');
 const DIST = join(APP_ROOT, 'dist');
 
-const OWNER = 'robertcashman-bit';
+const OWNER = 'robertdavidcashman-droid';
 const REPO = 'custody-note-app';
 
 function loadToken() {

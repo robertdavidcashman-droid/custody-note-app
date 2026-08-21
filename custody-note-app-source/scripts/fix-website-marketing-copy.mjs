@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Align custodynote.com marketing/legal copy with beta commercial reality.
- * Run against a clone of robertcashman-bit/custody-note-website:
+ * Run against a clone of robertdavidcashman-droid/custody-note-website:
  *   WEBSITE_ROOT=../custody-note-website node scripts/fix-website-marketing-copy.mjs
  *
  * Does not implement payments. Copy-only honesty pass.

@@ -1,7 +1,7 @@
 name: Redesign website hero
 
 # Product-first first-screen redesign for custodynote.com
-# (private sibling repo robertcashman-bit/custody-note-website).
+# (private sibling repo robertdavidcashman-droid/custody-note-website).
 on:
   workflow_dispatch:
   push:
@@ -24,7 +24,7 @@ jobs:
       - name: Checkout website
         uses: actions/checkout@v4
         with:
-          repository: robertcashman-bit/custody-note-website
+          repository: robertdavidcashman-droid/custody-note-website
           path: custody-note-website
           token: ${{ secrets.GH_PAT }}
 

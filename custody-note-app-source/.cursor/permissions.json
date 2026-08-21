@@ -6,7 +6,7 @@
   "autoRun": {
     "allow_instructions": [
       "git and gh are fully allowed in this repo for agent commit/push/PR workflows when the user requests them.",
-      "Repositories under robertcashman-bit are in scope when the user asks to commit, push, or open PRs."
+      "Repositories under robertdavidcashman-droid are in scope when the user asks to commit, push, or open PRs."
     ]
   }
 }
