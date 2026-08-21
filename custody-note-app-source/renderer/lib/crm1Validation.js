@@ -49,6 +49,11 @@
 
   // UK NI number format: 2 letters, 6 digits, 1 letter (spaces optional).
   var NI_RE = /^[A-Za-z]{2}\s*\d{2}\s*\d{2}\s*\d{2}\s*[A-Za-z]$/;
+  var NI_UNKNOWN_SENTINEL = '- unknown -';
+
+  function isNiUnknownSentinel(v) {
+    return String(v || '').trim().toLowerCase() === NI_UNKNOWN_SENTINEL;
+  }
 
   /**
    * Validate a record for CRM1 generation.
@@ -94,11 +99,11 @@
     }
 
     // --- NI / ARC (one identifier expected for means assessment) ---
-    var hasNi = !isBlank(d.niNumber) || !isBlank(d.crm14NiNumber);
+    var hasNi = (!isBlank(d.niNumber) && !isNiUnknownSentinel(d.niNumber)) || !isBlank(d.crm14NiNumber);
     var hasArc = !isBlank(d.arcNumber) || !isBlank(d.crm14ArcNumber);
     if (!hasNi && !hasArc) {
       warn('niNumber', 'NI / ARC number', 'No National Insurance or ARC number \u2014 the means section will be incomplete.');
-    } else if (!isBlank(d.niNumber) && !NI_RE.test(String(d.niNumber).trim())) {
+    } else if (!isBlank(d.niNumber) && !isNiUnknownSentinel(d.niNumber) && !NI_RE.test(String(d.niNumber).trim())) {
       err('niNumber', 'NI number', 'National Insurance number format looks wrong (expected like AB123456C).');
     }
 

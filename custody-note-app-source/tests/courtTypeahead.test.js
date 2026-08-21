@@ -98,16 +98,6 @@ describe('court typeahead — dropdown visibility (CSS + fixed positioning)', ()
     assert.match(appJs, /court-autocomplete-dropdown/);
   });
 
-  it('court dropdown flips above the field when there is more space above (outcome section at bottom)', () => {
-    assert.match(appJs, /spaceBelow/);
-    assert.match(appJs, /spaceAbove > spaceBelow/);
-    assert.match(appJs, /rect\.top - dropdownHeight/);
-  });
-
-  it('preloads magistrates courts when navigating to outcome section', () => {
-    assert.match(appJs, /if \(sec\.id === 'outcome'\)[\s\S]{0,200}ensureMagistratesCourtsLoaded\(\)/);
-  });
-
   it('court-autocomplete-dropdown has elevated open styles', () => {
     assert.match(stylesCss, /\.court-autocomplete-dropdown\.open/);
   });

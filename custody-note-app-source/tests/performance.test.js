@@ -341,12 +341,17 @@ describe('Voluntary form and outcome statuses', () => {
   });
 
   it('QuickFile import maps address into firms', () => {
-    assert.ok(mainJsSource.includes('quickFileExtractAddress'), 'main process should extract QuickFile address data');
     assert.ok(mainJsSource.includes('function quickFileFetchAllClients()'), 'main process should page through QuickFile client results');
     assert.ok(mainJsSource.includes('ReturnCount: pageSize'), 'main process should request a supported QuickFile page size');
-    assert.ok(mainJsSource.includes('client.ClientName || client.CompanyName || client.Name'), 'QuickFile client mapping should support ClientName values');
-    assert.ok(mainJsSource.includes('address: quickFileExtractAddress(client)'), 'QuickFile client payload should include address');
+    assert.ok(mainJsSource.includes("'/1_2/client/get'"), 'main process should enrich clients via Client_Get');
+    assert.ok(mainJsSource.includes('ClientContacts: true'), 'Client_Get should request ClientContacts');
+    assert.ok(mainJsSource.includes('Address: true'), 'Client_Get should request Address');
+    assert.ok(mainJsSource.includes('quickFileFetchAndEnrichClients'), 'import should use search + enrich path');
+    assert.ok(mainJsSource.includes('mergeQuickFileClientDetails'), 'main should merge Client_Get into search rows');
     assert.ok(appJsSource.includes('address: nextAddress'), 'firm import should save QuickFile address');
+    assert.ok(appJsSource.includes('fe-address'), 'firms edit panel should expose address');
+    assert.ok(appJsSource.includes('address: (editRow.querySelector(\'.fe-address\')'), 'firm edit save should persist address');
+    assert.ok(indexHtmlSource.includes('phone, email and address'), 'firms QuickFile hint should mention address');
   });
 
   it('charged outcomes auto-copy offences into empty outcome charge fields', () => {

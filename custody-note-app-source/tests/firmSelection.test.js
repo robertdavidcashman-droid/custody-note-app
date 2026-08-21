@@ -139,3 +139,34 @@ describe('Firm selection — selecting a firm populates contact fields', () => {
     assert.ok(clickSlice.includes('qcSetReferralFromFirm(fi'), 'must call qcSetReferralFromFirm on selection');
   });
 });
+
+describe('Firm selection — typed name not on list prompts add', () => {
+  it('main form no-match offers Add as a new firm and prefills name', () => {
+    assert.match(appJs, /Add ".* as a new firm/);
+    assert.match(appJs, /firms-search-add-action/);
+    const start = appJs.indexOf('function renderFormFirmResults');
+    assert.ok(start > 0);
+    const body = appJs.slice(start, start + 1600);
+    assert.match(body, /showConfirm/);
+    assert.match(body, /firmInps\.afn\.value = q/);
+    assert.match(body, /addRow\.style\.display = 'block'/);
+  });
+
+  it('Quick Capture no-match opens add section with prefilled name', () => {
+    const start = appJs.indexOf('function qcRenderFirmResults');
+    assert.ok(start > 0);
+    const body = appJs.slice(start, start + 1600);
+    assert.match(body, /firms-search-add-action/);
+    assert.match(body, /qc-new-firm-name/);
+    assert.match(body, /showConfirm/);
+  });
+
+  it('Firms page no-match opens add section with prefilled name', () => {
+    const start = appJs.indexOf('function renderFirmsSearchResults');
+    assert.ok(start > 0);
+    const body = appJs.slice(start, start + 1600);
+    assert.match(body, /firms-search-add-action/);
+    assert.match(body, /new-firm-name/);
+    assert.match(body, /showFirmsAddSection|firms-add-section/);
+  });
+});

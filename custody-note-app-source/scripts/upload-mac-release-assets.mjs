@@ -111,7 +111,7 @@ loadEnvFile('.env.local');
 const token = resolveGitHubToken();
 const version = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version;
 const tag = `v${version}`;
-const repo = String(process.env.GITHUB_REPOSITORY || '').trim() || 'robertdavidcashman-droid/custody-note-app';
+const repo = 'robertcashman-bit/custody-note-app';
 const headers = {
   Accept: 'application/vnd.github+json',
   Authorization: `Bearer ${token}`,

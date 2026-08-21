@@ -1,29 +1,8 @@
 /**
  * GitHub release helpers — draft releases are invisible to /releases/tags/{tag}.
- *
- * Production auto-update feed is robertdavidcashman-droid/custody-note-app
- * (sole home after bit cutover). Override with RELEASE_OWNER / RELEASE_REPO or
- * PUBLISH_GITHUB_REPOSITORY when needed.
  */
-function resolveReleaseRepo() {
-  const publishEnv = String(process.env.PUBLISH_GITHUB_REPOSITORY || process.env.RELEASE_GITHUB_REPOSITORY || '').trim();
-  if (publishEnv.includes('/')) {
-    const [owner, repo] = publishEnv.split('/');
-    if (owner && repo) return { owner, repo };
-  }
-  if (process.env.RELEASE_OWNER && process.env.RELEASE_REPO) {
-    return {
-      owner: String(process.env.RELEASE_OWNER).trim(),
-      repo: String(process.env.RELEASE_REPO).trim(),
-    };
-  }
-  /* Default: production updater feed on droid. */
-  return { owner: 'robertdavidcashman-droid', repo: 'custody-note-app' };
-}
-
-const _resolved = resolveReleaseRepo();
-export const RELEASE_OWNER = _resolved.owner;
-export const RELEASE_REPO = _resolved.repo;
+export const RELEASE_OWNER = 'robertcashman-bit';
+export const RELEASE_REPO = 'custody-note-app';
 
 export function normaliseReleaseTag(tag) {
   const t = String(tag || '').trim();

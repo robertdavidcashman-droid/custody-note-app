@@ -139,7 +139,7 @@ describe('Outlook Web compose link', () => {
     assert.ok(u.startsWith('https://outlook.office.com/mail/0/deeplink/compose?'));
   });
 
-  it('includes to, cc, subject and body in query (decoded via URL)', () => {
+  it('includes to, cc, subject in query — body omitted (clipboard paste)', () => {
     const u = buildOutlookWebComposeLink({
       to: 'a@b.c',
       cc: 'c@d.e',
@@ -150,22 +150,22 @@ describe('Outlook Web compose link', () => {
     assert.strictEqual(parsed.searchParams.get('to'), 'a@b.c');
     assert.strictEqual(parsed.searchParams.get('cc'), 'c@d.e');
     assert.strictEqual(parsed.searchParams.get('subject'), 'S');
-    assert.strictEqual(parsed.searchParams.get('body'), 'B');
+    assert.strictEqual(parsed.searchParams.get('body'), null);
   });
 
-  it('preserves line breaks in body (CRLF)', () => {
+  it('does not place body in URL (CRLF body stays on clipboard path)', () => {
     const u = buildOutlookWebComposeLink({ to: 'a@b.c', subject: '', body: 'one\ntwo' });
     const parsed = new URL(u);
-    assert.strictEqual(parsed.searchParams.get('body'), 'one\r\ntwo');
+    assert.strictEqual(parsed.searchParams.get('body'), null);
   });
 
-  it('does not lose apostrophes, ampersands or commas', () => {
+  it('does not lose apostrophes, ampersands or commas in subject', () => {
     const sub = "Re: O'Brien, Smith & Co — urgent";
     const body = "Dear Sir,\nIt's urgent & required.";
     const u = buildOutlookWebComposeLink({ to: 'a@b.c', cc: '', subject: sub, body: body });
     const parsed = new URL(u);
     assert.strictEqual(parsed.searchParams.get('subject'), sub);
-    assert.strictEqual(parsed.searchParams.get('body'), body.replace(/\n/g, '\r\n'));
+    assert.strictEqual(parsed.searchParams.get('body'), null);
   });
 });
 
@@ -262,6 +262,32 @@ describe('openEmailDraft (mock env)', () => {
     var ok = openEmailDraft({ to: 'a@b.c', subject: 's', body: 'b' }, 'outlook-web', { window: win });
     assert.strictEqual(ok, true);
     assert.strictEqual(opened.length, 1);
+  });
+
+  it('outlook-web copies body-only text to clipboard (not To/Subject header blob)', () => {
+    var written = null;
+    var win = {
+      open: function () { return {}; },
+      location: {},
+    };
+    var ok = openEmailDraft(
+      { to: 'o@police.uk', subject: 'Disclosure', body: 'Dear Officer,\nPlease reply.' },
+      'outlook-web',
+      {
+        window: win,
+        navigator: {
+          clipboard: {
+            writeText: function (s) {
+              written = s;
+              return Promise.resolve();
+            },
+          },
+        },
+      }
+    );
+    assert.strictEqual(ok, true);
+    assert.strictEqual(written, 'Dear Officer,\nPlease reply.');
+    assert.ok(!String(written).startsWith('To:'), 'must not paste To:/Subject: headers into Outlook body');
   });
 
   it('outlook-web returns false when window.open returns null (popup blocked)', () => {

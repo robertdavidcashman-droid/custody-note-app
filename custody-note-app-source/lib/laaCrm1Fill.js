@@ -65,7 +65,9 @@ function fmtDateDMY(val) {
 /** UK NI for PDF: strip spaces, uppercase (matches in-app validation AB123456C). */
 function normalizeNiNumberForPdf(s) {
   if (s === undefined || s === null) return '';
-  return String(s).replace(/\s+/g, '').toUpperCase();
+  var t = String(s).trim();
+  if (t.toLowerCase() === '- unknown -') return '';
+  return t.replace(/\s+/g, '').toUpperCase();
 }
 
 /** CRM1 income section: stored gross annual (£) -> weekly. */

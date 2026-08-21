@@ -23,15 +23,14 @@ describe('QuickFile settings ensure (main process)', () => {
     assert.match(main, /\[QuickFile\] startup pull:/);
   });
 
-  it('skips recent-local-cache only when local credentials are complete', () => {
-    assert.match(main, /Incomplete local credentials: always pull from server/);
-    assert.match(main, /if \(localComplete && !force\)/);
+  it('skips recent-local-cache when local syncable settings exist', () => {
+    assert.match(main, /if \(localHasContent && !force\)/);
     assert.match(main, /skipped: 'recent-local-cache'/);
   });
 
   it('falls back to local cache when server pull fails', () => {
-    assert.match(main, /settings pull failed/);
-    assert.match(main, /ok: localComplete, usedLocal: localComplete/);
+    assert.match(main, /\[SettingsSync\] pull failed/);
+    assert.match(main, /ok: localComplete \|\| localHasContent, usedLocal: true/);
   });
 
   it('applies server blob when server updatedAt is newer', () => {

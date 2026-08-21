@@ -156,7 +156,7 @@
               <span style="font-size:2.5rem;line-height:1;">&#128274;</span>
               <div style="flex:1;">
                 <p style="margin:0;font-weight:800;font-size:1.25rem;color:#fff;">Enter your licence key</p>
-                <p style="margin:0.35rem 0 0 0;font-size:0.95rem;color:#bfdbfe;">Paste the key from your email. Get a free trial or buy at <strong>custodynote.com</strong></p>
+                <p style="margin:0.35rem 0 0 0;font-size:0.95rem;color:#bfdbfe;">Paste a licence key if you have one. <strong>Free during beta. No credit card. Paid Pro planned after beta.</strong></p>
               </div>
               <button type="button" id="home-enter-licence-btn" class="btn btn-primary" style="background:#fff;color:#1e40af;font-weight:700;font-size:1rem;padding:0.6rem 1.2rem;">Enter key &rarr;</button>
             </div>
@@ -206,6 +206,20 @@
             </button>
           </div>
 
+          <!-- Product / workflow tips (not legal advice) -->
+          <div id="home-tips-strip" class="home-cloud-backup-banner" style="display:none;margin-bottom:0.75rem;">
+            <div style="display:flex;align-items:flex-start;gap:0.75rem;background:linear-gradient(135deg,#eff6ff,#f8fafc);border:1px solid #93c5fd;border-radius:10px;padding:0.85rem 1rem;">
+              <span style="font-size:1.15rem;line-height:1;" aria-hidden="true">&#128161;</span>
+              <div style="flex:1;min-width:0;">
+                <p id="home-tips-title" style="margin:0;font-weight:600;font-size:0.9rem;color:#1e3a8a;">Tip</p>
+                <p id="home-tips-body" style="margin:0.25rem 0 0 0;font-size:0.8rem;color:#1e40af;line-height:1.4;"></p>
+                <a id="home-tips-link" href="https://custodynote.com" style="display:inline-block;margin-top:0.4rem;font-size:0.78rem;color:#1d4ed8;font-weight:600;">Learn more</a>
+                <p style="margin:0.35rem 0 0;font-size:0.68rem;color:#64748b;">General workflow tip — not legal advice.</p>
+              </div>
+              <button type="button" id="home-tips-dismiss" style="background:none;border:none;cursor:pointer;font-size:1.1rem;color:#1e3a8a;padding:0;line-height:1;" title="Dismiss">&times;</button>
+            </div>
+          </div>
+
           <!-- Update Available Banner (shows when an update is downloading or ready) -->
           <div id="home-update-banner" class="home-cloud-backup-banner" style="display:none;">
             <div style="display:flex;align-items:flex-start;gap:0.75rem;background:linear-gradient(135deg,#d1fae5,#ecfdf5);border:1px solid #10b981;border-radius:10px;padding:0.85rem 1rem;">
@@ -224,7 +238,7 @@
               <span style="font-size:1.3rem;line-height:1;">&#9888;</span>
               <div style="flex:1;">
                 <p style="margin:0;font-weight:600;font-size:0.9rem;color:#92400e;">Cloud backup not active</p>
-                <p id="home-cloud-backup-reason" style="margin:0.25rem 0 0 0;font-size:0.8rem;color:#78350f;">Cloud backup is included with paid subscriptions — your data is currently backed up locally only. <button type="button" id="home-cloud-backup-cta" style="background:none;border:none;padding:0;color:#1e40af;cursor:pointer;font-size:0.8rem;text-decoration:underline;font-weight:600;">Go to Settings &rarr;</button></p>
+                <p id="home-cloud-backup-reason" style="margin:0.25rem 0 0 0;font-size:0.8rem;color:#78350f;">Managed cloud backup is planned for Pro after beta — during beta your data is backed up locally. Free during beta. No credit card. Paid Pro planned after beta. <button type="button" id="home-cloud-backup-cta" style="background:none;border:none;padding:0;color:#1e40af;cursor:pointer;font-size:0.8rem;text-decoration:underline;font-weight:600;">Go to Settings &rarr;</button></p>
               </div>
               <button type="button" id="home-cloud-backup-dismiss" style="background:none;border:none;cursor:pointer;font-size:1.1rem;color:#92400e;padding:0;line-height:1;" title="Dismiss">&times;</button>
             </div>
@@ -538,7 +552,7 @@
                 <button type="button" id="btn-import-qf-clients" class="btn btn-secondary">Import firms from QuickFile</button>
                 <button type="button" id="btn-resync-qf-clients" class="btn btn-secondary">Re-sync existing firms</button>
               </div>
-              <p class="settings-hint" style="margin-top:0.55rem;">QuickFile pulls in firm name, contact, phone and email. Imported details stay editable in the app. Set it up once in Settings, then import from here whenever needed.</p>
+              <p class="settings-hint" style="margin-top:0.55rem;">QuickFile pulls in firm name, contact, phone, email and address. Imported details stay editable in the app. Set it up once in Settings, then import from here whenever needed.</p>
               <p id="qf-import-status" class="settings-hint" style="margin-top:0.35rem;"></p>
               <p id="qf-last-import" class="settings-hint" style="margin-top:0.35rem;">QuickFile has not been imported yet.</p>
             </div>
@@ -881,14 +895,46 @@
 
           <!-- Shown only when on a trial — direct paid key entry -->
           <div id="licence-trial-upgrade" style="display:none;margin-top:1.25rem;padding:1rem 1.1rem;background:linear-gradient(135deg,#eff6ff,#f0f9ff);border:2px solid #3b82f6;border-radius:10px;">
-            <p style="margin:0 0 0.4rem 0;font-weight:700;font-size:1rem;color:#1e40af;">&#128273; Enter your paid licence key</p>
-            <p style="margin:0 0 0.75rem 0;font-size:0.85rem;color:#1e3a8a;">Paste the licence key from your purchase confirmation email. This activates cloud backup and removes the trial notice.</p>
+            <p style="margin:0 0 0.4rem 0;font-weight:700;font-size:1rem;color:#1e40af;">&#128273; Enter a licence key</p>
+            <p style="margin:0 0 0.75rem 0;font-size:0.85rem;color:#1e3a8a;">Free during beta. No credit card. Paid Pro planned after beta. If you already have a licence key, paste it here. Managed cloud backup remains a Pro-planned feature.</p>
             <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">
               <input type="text" id="trial-upgrade-key" class="settings-input settings-input--trial" placeholder="CN-XXXX-XXXX-XXXX-XXXX" autocomplete="off" spellcheck="false" style="flex:1;min-width:220px;max-width:340px;font-size:0.95rem;">
-              <button type="button" id="btn-trial-upgrade-activate" class="btn btn-primary" style="padding:0.55rem 1.2rem;font-size:0.95rem;">Activate</button>
+              <button type="button" id="btn-trial-upgrade-activate" class="btn btn-primary" style="padding:0.55rem 1.2rem;font-size:0.95rem;">Activate key</button>
             </div>
             <p id="trial-upgrade-error" style="display:none;margin:0.5rem 0 0 0;font-size:0.85rem;color:#dc2626;"></p>
-            <p style="margin:0.6rem 0 0 0;font-size:0.8rem;color:#1e3a8a;">Don&rsquo;t have a key? <a href="https://custodynote.com/pricing" target="_blank" rel="noopener" style="color:#1e40af;font-weight:600;">Subscribe at custodynote.com/pricing &rarr;</a></p>
+            <p style="margin:0.6rem 0 0 0;font-size:0.8rem;color:#1e3a8a;">Questions about Pro after beta? <a href="https://custodynote.com/contact" target="_blank" rel="noopener" style="color:#1e40af;font-weight:600;">Contact us &rarr;</a> or read the plan on <a href="https://custodynote.com/pricing" target="_blank" rel="noopener" style="color:#1e40af;font-weight:600;">custodynote.com/pricing</a>.</p>
+          </div>
+
+          <div class="settings-card" id="firm-workspace-card" style="margin-top:1rem;">
+            <h2>Firm workspace</h2>
+            <p class="settings-hint" style="margin:0 0 0.75rem;">Local MVP for multi-user firms: seats, branding footer, and shared templates on this device. Cloud seats and billing remain via <a href="https://custodynote.com/firm" target="_blank" rel="noopener">custodynote.com/firm</a>.</p>
+            <label for="firm-ws-name">Firm name</label>
+            <input type="text" id="firm-ws-name" class="settings-input" placeholder="Your firm name" style="max-width:360px;">
+            <label for="firm-ws-branding" style="margin-top:0.75rem;">Branding footer (optional)</label>
+            <input type="text" id="firm-ws-branding" class="settings-input" placeholder="e.g. Prepared for instructing firm" style="max-width:480px;">
+            <label class="toggle-row" style="margin-top:0.75rem;">
+              <span>Share templates across seats</span>
+              <input type="checkbox" id="firm-ws-share-templates" checked>
+            </label>
+            <button type="button" id="btn-firm-ws-save" class="btn btn-secondary" style="margin-top:0.75rem;">Save firm details</button>
+            <p id="firm-ws-save-msg" class="settings-hint" style="margin:0.35rem 0 0;display:none;" role="status"></p>
+            <h3 style="margin:1.25rem 0 0.5rem;font-size:0.95rem;">Seats <span id="firm-ws-seat-count" class="settings-hint" style="font-weight:400;"></span></h3>
+            <div style="display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center;">
+              <input type="email" id="firm-ws-seat-email" class="settings-input" placeholder="colleague@firm.co.uk" style="min-width:200px;max-width:280px;">
+              <select id="firm-ws-seat-role" class="settings-input" style="max-width:120px;">
+                <option value="member">Member</option>
+                <option value="admin">Admin</option>
+              </select>
+              <button type="button" id="btn-firm-ws-add-seat" class="btn btn-secondary">Add seat</button>
+            </div>
+            <ul id="firm-ws-seats-list" style="margin:0.75rem 0 0;padding-left:1.1rem;font-size:0.85rem;"></ul>
+            <h3 style="margin:1.25rem 0 0.5rem;font-size:0.95rem;">Shared templates</h3>
+            <div style="display:flex;flex-direction:column;gap:0.5rem;max-width:480px;">
+              <input type="text" id="firm-ws-tpl-name" class="settings-input" placeholder="Template name">
+              <textarea id="firm-ws-tpl-body" class="settings-input" rows="3" placeholder="Template body (paste into notes when needed)"></textarea>
+              <button type="button" id="btn-firm-ws-add-tpl" class="btn btn-secondary" style="align-self:flex-start;">Add template</button>
+            </div>
+            <ul id="firm-ws-tpl-list" style="margin:0.75rem 0 0;padding-left:1.1rem;font-size:0.85rem;"></ul>
           </div>
 
           <div id="licence-status-needs-validation" style="display:none;margin-top:1rem;padding:1rem 1.1rem;background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;">
@@ -1025,6 +1071,16 @@
               <button type="button" id="btn-save-import-qf" class="btn btn-primary">Save and import firms now</button>
               <p class="settings-hint" style="margin-top:0.55rem;">Optional: import your QuickFile client directory into <strong>Firms You Work For</strong>.</p>
             </div>
+          </div>
+        </div>
+
+        <div class="settings-card" id="openai-settings-card">
+          <h2>OpenAI (Law / Elements)</h2>
+          <div id="openai-settings-content">
+            <p class="settings-hint">Optional. Paste your own OpenAI API key to fill <strong>The Law / Elements of offence</strong> from the Case Assessment checkbox. Only offence name and statute are sent when you confirm. Billed to your OpenAI account.</p>
+            <label for="setting-openai-apikey">OpenAI API key</label>
+            <input type="password" id="setting-openai-apikey" class="settings-input" placeholder="sk-…" autocomplete="off" spellcheck="false">
+            <p class="settings-hint" style="margin-top:0.5rem;">Saved on this device and synced (encrypted) with your other Custody Note settings to your licence account.</p>
           </div>
         </div>
 
@@ -1165,6 +1221,11 @@
             <span>Dark Mode (for night shifts)</span>
             <input type="checkbox" id="setting-dark-mode">
           </label>
+          <label class="toggle-row" style="margin-top:0.75rem;">
+            <span>PDF footer: &ldquo;Prepared with Custody Note&rdquo;</span>
+            <input type="checkbox" id="setting-pdf-branding-footer" checked>
+          </label>
+          <p class="settings-hint" style="margin:0.25rem 0 0;">Off by default for firm letterheads if you prefer unmarked PDFs. Free installs default this on.</p>
           <label style="margin-top:1rem;">Font Size</label>
           <div class="font-size-row">
             <span class="font-label">A</span>
@@ -1225,14 +1286,23 @@
             <p class="settings-hint" style="margin:0.5rem 0 0;">Use <strong>Full re-sync from cloud</strong> if this computer shows Synced but records from another device are missing. Use <strong>Push all pending now</strong> on the computer that has your records.</p>
             <p id="cross-device-sync-action-status" class="settings-hint" style="margin:0.35rem 0 0;"></p>
           </div>
+          <div id="anywhere-bridge-section" style="margin-bottom:1.5rem;padding-bottom:1rem;border-bottom:1px solid var(--border,#ccc);">
+            <h3 style="margin:0 0 0.5rem 0;font-size:1rem;">Custody Note Anywhere &rarr; Desktop</h3>
+            <p class="settings-hint" style="margin:0 0 0.5rem;">Import drafts exported from the Anywhere companion (JSON bridge or Anywhere backup). Records arrive as editable drafts on this computer. Same Free / Pro licence story — managed cloud sync remains a Pro path.</p>
+            <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">
+              <button type="button" id="btn-anywhere-bridge-import" class="btn btn-secondary">Import Anywhere JSON&hellip;</button>
+              <a href="https://custodynote.com/custodynote-anywhere" target="_blank" rel="noopener" class="settings-hint" style="font-size:0.85rem;">About Anywhere</a>
+            </div>
+            <p id="anywhere-bridge-status" class="settings-hint" style="margin:0.5rem 0 0;" role="status"></p>
+          </div>
           <div id="cloud-backup-section" style="margin-bottom:1.5rem;padding-bottom:1rem;border-bottom:1px solid var(--border, #ccc);">
             <h3 style="margin:0 0 0.5rem 0;font-size:1rem;">Cloud Backup (AWS)</h3>
             <p id="cloud-backup-checking" class="settings-hint" style="margin:0;color:#64748b;">Checking cloud backup status&hellip;</p>
             <div id="cloud-backup-not-subscribed" style="display:none;">
               <div style="background:linear-gradient(135deg,#fef3c7,#fffbeb);border:1px solid #f59e0b;border-radius:8px;padding:1rem;margin-bottom:0.5rem;">
                 <p style="margin:0 0 0.5rem 0;font-weight:600;color:#92400e;">&#9888; Cloud backup not active</p>
-                <p id="cloud-backup-unavailable-reason" style="margin:0 0 0.75rem 0;font-size:0.85rem;color:#78350f;">Cloud backup is included with paid subscriptions. <a href="https://custodynote.com/pricing" target="_blank" rel="noopener" style="color:#1e40af;">Subscribe at custodynote.com</a>, then sign in or enter your licence key under Settings &rsaquo; Licence.</p>
-                <button type="button" id="btn-cloud-backup-subscribe" class="btn btn-primary" style="margin-top:0.25rem;">Verify subscription</button>
+                <p id="cloud-backup-unavailable-reason" style="margin:0 0 0.75rem 0;font-size:0.85rem;color:#78350f;">Managed cloud backup is planned for Pro after beta. Free during beta. No credit card. Paid Pro planned after beta. Your data is backed up locally. If you already have a Pro key, sign in or enter it under Settings &rsaquo; Licence.</p>
+                <button type="button" id="btn-cloud-backup-subscribe" class="btn btn-primary" style="margin-top:0.25rem;">Refresh entitlement</button>
               </div>
             </div>
             <div id="cloud-backup-subscribed" style="display:none;">
@@ -1427,11 +1497,12 @@
           </div>
 
           <div class="share-app-card" style="margin-top:1.25rem;padding:1rem;background:linear-gradient(135deg,#eff6ff,#f0f9ff);border:1px solid #93c5fd;border-radius:10px;">
-            <h3 class="share-app-title" style="margin:0 0 0.25rem 0;font-size:0.95rem;color:#1e40af;">Share Custody Note</h3>
-            <p class="share-app-desc" style="margin:0 0 0.75rem 0;font-size:0.8rem;color:#1e3a8a;">Recommend the app to a colleague — copy the link or open an email.</p>
+            <h3 class="share-app-title" style="margin:0 0 0.25rem 0;font-size:0.95rem;color:#1e40af;">Invite a colleague</h3>
+            <p class="share-app-desc" style="margin:0 0 0.5rem 0;font-size:0.8rem;color:#1e3a8a;">Share Custody Note — free during beta. No credit card. Paid Pro planned after beta. Copy your personal invite link or open an email.</p>
+            <p id="share-referral-url" class="settings-hint" style="margin:0 0 0.75rem 0;font-size:0.78rem;word-break:break-all;color:#1e40af;"></p>
             <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
-              <button type="button" id="share-app-copy-btn" class="btn btn-secondary" style="font-size:0.85rem;">Copy download link</button>
-              <button type="button" id="share-app-email-btn" class="btn btn-secondary" style="font-size:0.85rem;">Email link</button>
+              <button type="button" id="share-app-copy-btn" class="btn btn-secondary" style="font-size:0.85rem;">Copy invite link</button>
+              <button type="button" id="share-app-email-btn" class="btn btn-secondary" style="font-size:0.85rem;">Email invite</button>
             </div>
           </div>
           <p id="check-updates-status" class="settings-hint" style="margin-top:0.5rem;min-height:1.5em;"></p>
@@ -1594,25 +1665,24 @@
           </details>
 
           <details class="help-section">
-            <summary class="help-heading">Licence Activation and Trial</summary>
+            <summary class="help-heading">Licence, Free and Pro</summary>
             <div class="help-content">
-              <p>Custody Note requires a valid licence or trial to run. When you first install the app, you can start a <strong>30-day free trial</strong> to try all features.</p>
-              <h4>Trial</h4>
+              <p><strong>Free during beta. No credit card. Paid Pro planned after beta.</strong> Core police station notes, PDF export, billing fields, local backup and offline use are available while we test. Paid Pro (planned around £9.99/month) is intended for managed cloud backup and advanced tools once payments are wired — checkout is not live yet.</p>
+              <h4>Free during beta</h4>
               <ul>
-                <li>On first launch, if no licence is entered, the app will offer a trial. Click <strong>Start trial</strong> to begin.</li>
-                <li>The trial lasts 30 days and includes all features, including automatic cloud backup to AWS.</li>
-                <li>You will see a reminder as the trial nears expiry. When expired, the app will show the licence overlay until you enter a valid licence key.</li>
+                <li>On first launch the app starts on free beta access — no credit card and no timed trial.</li>
+                <li>Create and edit attendances, export PDFs, and work offline without a subscription.</li>
+                <li>Managed AWS cloud backup is planned for Pro after beta and is not included in free beta access.</li>
               </ul>
-              <h4>Activating a subscription</h4>
+              <h4>Licence keys and Pro (after beta)</h4>
               <ul>
-                <li>After purchasing a subscription at <a href="https://custodynote.com" target="_blank" rel="noopener">custodynote.com</a>, you will receive a licence key by email.</li>
-                <li>Enter your licence key in the activation overlay when prompted (e.g. when trial has expired or when opening the app without a valid licence).</li>
-                <li>The app validates your licence online. You need an internet connection for activation and periodic validation. If you have not opened the app for a while, you have a <strong>60-day offline grace period</strong> before online verification is required — your subscription remains active during this time.</li>
-                <li><strong>Forgot your licence key?</strong> Use <strong>Email my licence key</strong> on the sign-in overlay, or go to <strong>Settings &gt; Account &gt; Licence</strong> (or Settings &gt; Support). Enter the email address you used when purchasing.</li>
-                <li>If you see a "subscription" or "trial" message and you have paid, ensure you entered the exact licence key from your email. Keys are case-sensitive; enter them exactly as shown.</li>
+                <li>When paid Pro opens, purchase details will be on <a href="https://custodynote.com/pricing" target="_blank" rel="noopener">custodynote.com/pricing</a>. Until then, register interest via <a href="https://custodynote.com/contact" target="_blank" rel="noopener">Contact</a>.</li>
+                <li>If you already have a licence key, enter it in Settings → Licence, or sign in with the email on the key.</li>
+                <li>The app validates licence keys online when present. A <strong>60-day offline grace period</strong> applies for paid keys that cannot reach the licence server.</li>
+                <li><strong>Forgot your licence key?</strong> Use <strong>Email my licence key</strong> on the sign-in overlay, or go to <strong>Settings &gt; Account &gt; Licence</strong> (or Settings &gt; Support).</li>
               </ul>
-              <h4>Renewing or changing your subscription</h4>
-              <p>To renew, upgrade, or cancel, log in to your account at custodynote.com or use the link in your subscription confirmation email. The app will automatically recognise an active subscription when it next validates.</p>
+              <h4>After beta</h4>
+              <p>Paid Pro renewals and cancellations will be described on the Pricing page when payments are wired. If a Pro period expires later, core Free features are intended to remain available.</p>
               <h4>Taskbar or desktop shortcut opens an old version?</h4>
               <p>If you already have Custody Note installed, updates download automatically in the app. If the Custody Note icon on your taskbar or desktop launches an older version after you install an update, the shortcut is still pointing at the previous install. <strong>Fix:</strong> Unpin from the taskbar (right‑click the icon → Unpin from taskbar). Then open the <strong>Start Menu</strong>, search for <strong>Custody Note</strong>, right‑click it → <strong>Pin to taskbar</strong>. That pins the current installed version.</p>
             </div>
@@ -1893,8 +1963,8 @@
                 <li><strong>Isolated:</strong> Only your licence key can access your backups. No other subscriber can see your data (SRA-compliant).</li>
                 <li><strong>Restore:</strong> If your computer fails, install Custody Note on a new machine, enter your licence key, and restore from the cloud. You will need your recovery password.</li>
               </ul>
-              <p>To subscribe, go to <strong>Settings &gt; Cloud Backup</strong> or visit <a href="#" data-ext-href="https://custodynote.com/pricing">custodynote.com/pricing</a>.</p>
-              <p style="margin-top:0.75rem;padding:0.75rem;background:#d1fae5;border-radius:6px;border:1px solid #10b981;font-size:0.9rem;"><strong>&#10003; Cloud Backup included:</strong> With an active licence, your database is automatically backed up to AWS (encrypted, UK data centre). Connect to the internet to sync and enable backups.</p>
+              <p>Managed cloud backup is planned for Pro after beta. During beta, use local and optional folder backups under <strong>Settings &gt; Backup</strong>. See <a href="#" data-ext-href="https://custodynote.com/pricing">custodynote.com/pricing</a> for the beta plan.</p>
+              <p style="margin-top:0.75rem;padding:0.75rem;background:#eff6ff;border-radius:6px;border:1px solid #93c5fd;font-size:0.9rem;"><strong>Beta:</strong> Free during beta. No credit card. Paid Pro planned after beta. If you already hold a Pro-capable licence key, cloud backup may activate after entitlement refresh.</p>
             </div>
           </details>
 
@@ -2134,6 +2204,7 @@
   <script src="renderer/lib/quickfileConfigured.js"></script>
   <script src="renderer/lib/crm1Validation.js"></script>
   <script src="renderer/lib/websiteLinks.js"></script>
+  <script src="renderer/product-tips.js"></script>
   <!-- ── Module layer (load order matters) ─────────────────────
        1. toast.js     — UI feedback (no dependencies)
        2. app.js       — state vars + all functions + init()
@@ -2143,6 +2214,8 @@
   <script src="renderer/toast.js"></script>
   <script src="renderer/emailCopy.js"></script>
   <script src="renderer/licence.js"></script>
+  <script src="renderer/freemiumFeatures.js"></script>
+  <script src="renderer/aiLawElements.js"></script>
   <!-- Wheel-style ("rotating counter") date/time picker. Self-contained, attaches a 🕑/📅 button next to every native date/time/datetime-local input. Native typing still works. -->
   <script src="renderer/widgets/wheelDateTimePicker.js"></script>
   <script src="lib/magistratesCourtsSearch.js"></script>
@@ -2229,6 +2302,46 @@
         </div>
       </div>
       <button type="button" id="admin-close-btn" class="btn btn-secondary" style="margin-top:1rem;">Close</button>
+    </div>
+  </div>
+
+  <!-- AI Law / Elements review modal -->
+  <div id="ai-law-draft-modal" class="first-launch-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="ai-law-draft-title">
+    <div class="first-launch-modal" style="max-width:640px;width:94%;">
+      <h2 id="ai-law-draft-title" style="margin:0 0 0.5rem;">AI draft — Law / Elements</h2>
+      <p id="ai-law-draft-meta" class="settings-hint" style="margin:0 0 0.75rem;"></p>
+      <p class="settings-hint" style="margin:0 0 0.5rem;color:var(--warning,#b45309);">Sources required. Unsourced case law is blocked. Verify primary materials before relying on this draft.</p>
+      <textarea id="ai-law-draft-text" class="settings-input" rows="12" style="width:100%;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:0.85rem;" aria-label="Editable AI law draft"></textarea>
+      <div id="ai-law-draft-sources" style="margin-top:0.65rem;padding:0.55rem 0.65rem;border:1px solid var(--border,#e2e8f0);border-radius:8px;background:rgba(15,23,42,0.03);"></div>
+      <div style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-top:0.75rem;">
+        <button type="button" id="ai-law-draft-copy" class="btn btn-secondary">Copy</button>
+        <button type="button" id="ai-law-draft-insert" class="btn btn-primary" disabled>Insert into Law / Elements</button>
+        <button type="button" id="ai-law-draft-close" class="btn btn-secondary">Close</button>
+      </div>
+      <p class="settings-hint" style="margin:0.75rem 0 0;">Insert stays disabled until at least two source URLs are present. Not legal advice. Nothing is saved into the note until you press Insert.</p>
+    </div>
+  </div>
+
+  <!-- Ask AI multi-turn session (UI-only — not printed) -->
+  <div id="ai-ask-modal" class="first-launch-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="ai-ask-title">
+    <div class="first-launch-modal" style="max-width:720px;width:94%;max-height:90vh;display:flex;flex-direction:column;">
+      <h2 id="ai-ask-title" style="margin:0 0 0.35rem;">Ask AI</h2>
+      <p id="ai-ask-accuracy-banner" class="settings-hint" style="margin:0 0 0.75rem;color:var(--warning,#b45309);">Sources required. Unsourced case law is blocked. Web-sourced drafts are for solicitor verification — not legal advice. You control what is sent; do not paste client names or privileged instructions unless you intend to.</p>
+      <div id="ai-ask-thread" style="flex:1;min-height:180px;max-height:40vh;overflow:auto;border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:0.65rem;margin-bottom:0.75rem;background:var(--surface,#fff);"></div>
+      <label for="ai-ask-input" class="settings-hint" style="display:block;margin-bottom:0.25rem;font-weight:600;color:inherit;">Your question</label>
+      <textarea id="ai-ask-input" class="settings-input" rows="3" style="width:100%;margin-bottom:0.5rem;" placeholder="e.g. What are the elements of self-defence?" aria-label="Ask AI question"></textarea>
+      <label class="checkbox-item" style="margin:0 0 0.75rem;font-size:0.85rem;">
+        <input type="checkbox" id="ai-ask-include-offences"> Include offence names/statutes from this note
+      </label>
+      <div style="display:flex;flex-wrap:wrap;gap:0.5rem;">
+        <button type="button" id="ai-ask-send" class="btn btn-primary">Send</button>
+        <button type="button" id="ai-ask-copy-last" class="btn btn-secondary">Copy last answer</button>
+        <button type="button" id="ai-ask-copy-thread" class="btn btn-secondary">Copy thread</button>
+        <button type="button" id="ai-ask-append-law" class="btn btn-secondary" disabled title="Append disabled until sources are present">Append last to Law / Elements</button>
+        <button type="button" id="ai-ask-clear" class="btn btn-secondary">Clear thread</button>
+        <button type="button" id="ai-ask-close" class="btn btn-secondary">Close</button>
+      </div>
+      <p class="settings-hint" style="margin:0.75rem 0 0;">Cmd/Ctrl+Enter to send. Answers are not legal advice. Nothing is written into the note until you Copy or Append.</p>
     </div>
   </div>
 

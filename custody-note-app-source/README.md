@@ -2,6 +2,10 @@
 
 Custody Note is an LAA-compliant desktop app for recording custody notes and police station attendances. Bright, easy-to-use form that flows logically at the station; PDF export; email PDF to yourself; hourly backup; optional signatures and speech recognition.
 
+## Current status
+
+**Production** (v1.9.67). Electron desktop app (Mac + Windows). Related projects: marketing/licence site (`~/custody-note-website`) and the companion PWA (`~/custodynote-anywhere`). Deploy with `npm run deploy`. Pull `origin` before a release — the local clone was behind at the last workspace audit.
+
 ## Run the app
 
 1. Install dependencies (once):
@@ -40,7 +44,7 @@ npm run release minor
 npm run release major
 ```
 
-**Requires:** `GH_TOKEN` or `GITHUB_TOKEN` (GitHub PAT with `repo` scope) for publishing. For `release:current` to also deploy the website, the script runs `npm run deploy` in the sibling folder `custody note - website production` (that deploy needs Vercel configured locally or in CI).
+**Requires:** `GH_TOKEN` or `GITHUB_TOKEN` (GitHub PAT with `repo` scope) for publishing. For `release:current` to also deploy the website, the script runs `npm run deploy` in the sibling folder `../custody-note-website` (that deploy needs Vercel configured locally or in CI).
 
 ### Publish and deploy automatically (one command or CI)
 

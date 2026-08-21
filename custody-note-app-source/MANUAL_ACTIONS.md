@@ -18,7 +18,7 @@ revoke it immediately.**
    (Or, if it is a fine-grained PAT, go to
    <https://github.com/settings/personal-access-tokens> and revoke it.)
 3. Generate a new **fine-grained** PAT scoped to the
-   `robertdavidcashman-droid/custody-note-app` repository only.
+   `robertcashman-bit/custody-note-app` repository only.
    - Permissions: `Contents: Read and write`, `Actions: Read-only`,
      `Metadata: Read-only` (auto-included).
    - Expiration: 90 days. Set a calendar reminder to rotate.
@@ -103,17 +103,18 @@ have included one.
 
 ## 4. Set deployment-mandatory environment variables
 
-The hardening pass removed hardcoded admin email addresses. The licence
-server's `is-admin` check now depends on this variable being set in
-production:
+The licence server's `is-admin` check depends on this variable being set
+in production:
 
 ```
 CUSTODY_ADMIN_EMAILS=admin1@example.com,admin2@example.com
 ```
 
-If this is not set, **no user is treated as admin**. That is the
-intended fail-closed behaviour — set the variable on the production
-server before redeploying.
+If this is not set on the **licence server**, server-side admin APIs stay
+fail-closed. The desktop app additionally keeps a built-in product-owner
+admin list (overridable via the same env var or `licence-config.json`
+`adminEmails`) so admin licences are never treated as revoked locally and
+are always re-checked online on startup.
 
 **Verify:** on the licence server, `echo $CUSTODY_ADMIN_EMAILS` (or the
 PowerShell equivalent) returns the comma-separated list.

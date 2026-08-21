@@ -311,11 +311,14 @@ describe('app.js — view wiring', () => {
   it('streamlined billing UX hides §9 duplicate action buttons', () => {
     const fnIdx = appJs.indexOf('function updateFormBarVisibility');
     assert.ok(fnIdx !== -1);
-    const block = appJs.substring(fnIdx, fnIdx + 1200);
+    const block = appJs.substring(fnIdx, fnIdx + 1400);
     assert.ok(block.includes("finaliseBar.style.display = 'none'"), '§9 finalise bar must stay hidden');
     assert.ok(block.includes("endBillingBtn.style.display = 'none'"), '§9 finish button must stay hidden');
     assert.ok(block.includes("postFinaliseBar.style.display = 'none'"), '§9 post-finalise bar must stay hidden');
-    assert.ok(block.includes("archiveBtn.style.display = 'none'"), '§9 archive must stay hidden');
+    /* Archive Record is shown when finalised/completed so users can archive without the header pill alone. */
+    assert.ok(block.includes('showArchive'), 'form archive visibility must be gated');
+    assert.ok(block.includes("currentRecordStatus === 'finalised'"), 'archive shown for finalised');
+    assert.ok(block.includes("currentRecordStatus === 'completed'"), 'archive shown for completed');
   });
 
   it('header billing button routes archive through executePrimaryRecordAction', () => {

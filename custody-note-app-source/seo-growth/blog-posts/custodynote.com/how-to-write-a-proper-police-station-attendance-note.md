@@ -54,4 +54,4 @@ Ready to take the next step? Visit [custodynote.com](https://custodynote.com) or
 
 ## Structured notes with Custody Note
 
-Custody Note is desktop software for criminal defence professionals — offline-first attendance notes with LAA-oriented fields, PDF export, and consistent structure. [Start a 30-day free trial](https://custodynote.com/trial).
+Custody Note is desktop software for criminal defence professionals — offline-first attendance notes with LAA-oriented fields, PDF export, and consistent structure. [Download free](https://custodynote.com/download).

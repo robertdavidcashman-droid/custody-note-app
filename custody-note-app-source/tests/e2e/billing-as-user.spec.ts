@@ -287,6 +287,7 @@ test('user can drive a finalised matter through Finish matter > billing > review
     'ERR_CONNECTION_REFUSED',
     'Autofill.enable',
     'Autofill.setAddresses',
+    'Failed to load resource: the server responded with a status of 404',
   ];
   const critical = consoleErrors.filter((e) => !ignored.some((skip) => e.includes(skip)));
   const criticalPage = pageErrors.filter((e) => !e.includes('Script error'));

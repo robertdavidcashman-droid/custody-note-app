@@ -98,8 +98,16 @@ revisit when we ship a native crypto module for any other reason.
 | GitHub releases | Nothing user-specific (version check + signed binary download) | Auto-update | No |
 | AWS S3 (per-firm) | Encrypted backup ciphertext (AES-256-GCM client-side) | Disaster recovery | No (server only sees ciphertext) |
 
-We do **not** send anything to: OpenAI, Anthropic, Google, Microsoft Graph,
-analytics platforms, crash reporting platforms, or any other third party.
+We do **not** send case content to third parties by default. Opt-in OpenAI Law /
+Elements fill sends offence name/statute only after confirmation, using the
+user's own API key, with OpenAI web search for grounding. Opt-in Ask AI sends
+the questions you type (plus session follow-ups, and optionally offence
+names/statutes) after confirmation — nothing else from the note is auto-attached.
+Both features require Sources in the response; unsourced legal answers are
+rejected by the app before display for Insert/Append. Licence settings sync
+uploads an encrypted preferences blob (ciphertext only) to the Custody Note
+account. We do not send anything to Anthropic, Google, Microsoft Graph,
+analytics platforms, or advertising networks.
 
 ---
 
@@ -130,7 +138,7 @@ See `LOGGING_STANDARD.md` for what to log and where. Hard rules:
 
 The only supported distribution channel is the signed Windows installer
 published as a GitHub Release at
-`https://github.com/robertdavidcashman-droid/custody-note-app/releases/latest`.
+`https://github.com/robertcashman-bit/custody-note-app/releases/latest`.
 The marketing site `https://custodynote.com` links to that release.
 There is no web/PWA build: the app is Electron-only, and any in-browser
 build was removed in May 2026 (along with the Vercel project, the
@@ -172,7 +180,7 @@ feed (see `package.json` `build.publish.provider: "github"` and
   third-party penetration testing is recommended before deployment with
   real client data at scale.**
 - The auto-updater trusts GitHub's release signing. A compromise of the
-  `robertdavidcashman-droid/custody-note-app` GitHub account would let an attacker
+  `robertcashman-bit/custody-note-app` GitHub account would let an attacker
   ship a malicious update. Treat the GitHub account itself as a critical
   asset (MFA hardware-key, PAT scope minimisation, regular access review).
 

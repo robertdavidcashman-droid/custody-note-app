@@ -7,7 +7,6 @@
 const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
-const os = require('os');
 
 const PROJECT_DIR = path.join(__dirname, '..');
 const ELECTRON_CLI = path.join(PROJECT_DIR, 'node_modules', 'electron', 'cli.js');
@@ -20,17 +19,10 @@ function main() {
   }
 
   console.log('Starting Custody Note stress test...');
-  const testUserData = fs.mkdtempSync(path.join(os.tmpdir(), 'cn-smoke-'));
-  const child = spawn(process.execPath, [ELECTRON_CLI, PROJECT_DIR, '--disable-gpu', '--disable-dev-shm-usage'], {
+  const child = spawn(process.execPath, [ELECTRON_CLI, PROJECT_DIR], {
     cwd: PROJECT_DIR,
     stdio: ['ignore', 'pipe', 'pipe'],
-    env: {
-      ...process.env,
-      NODE_ENV: 'test',
-      ELECTRON_RUN_AS_TEST: '1',
-      CUSTODYNOTE_TEST_USERDATA: testUserData,
-      CUSTODYNOTE_E2E_SKIP_LICENCE_GATE: '1',
-    },
+    env: { ...process.env, ELECTRON_RUN_AS_TEST: '1' },
   });
 
   child.stdout.on('data', (d) => process.stdout.write(d));

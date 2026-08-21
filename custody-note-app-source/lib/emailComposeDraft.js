@@ -45,7 +45,7 @@ function buildOutlookWebComposeLink(draft) {
     cc: d.cc,
     subject: d.subject,
     body: d.body,
-  });
+  }, { includeBody: false });
 }
 
 function savePendingEmailDraft(draft, storage) {
@@ -122,6 +122,16 @@ function openEmailDraft(draft, mode, env) {
 
   try {
     if (m === 'outlook-web') {
+      if (d.body) {
+        try {
+          var clipEnv = env || {};
+          var nav = clipEnv.navigator || (typeof navigator !== 'undefined' ? navigator : null);
+          /* Body only — To/Subject are in the subject-only compose URL. */
+          if (nav && nav.clipboard && nav.clipboard.writeText) {
+            nav.clipboard.writeText(String(d.body || '')).catch(function () {});
+          }
+        } catch (_) {}
+      }
       var opened = win.open(link, '_blank', 'noopener,noreferrer');
       if (!opened) {
         console.error('openEmailDraft: browser blocked popup (window.open returned null)');

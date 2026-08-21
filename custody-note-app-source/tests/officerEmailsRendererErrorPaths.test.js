@@ -72,6 +72,21 @@ describe('officerEmailsPanel — silent failure path instrumentation (source)', 
   it('catches saveDraft rejection itself before opening Outlook', () => {
     assert.ok(/saveDraft rejected before Outlook open/.test(PANEL_SRC));
   });
+
+  it('toasts that body was copied for paste after Outlook open', () => {
+    assert.ok(
+      PANEL_SRC.includes('Message body copied to clipboard'),
+      'success toast must tell the user the body is on the clipboard'
+    );
+    assert.ok(
+      PANEL_SRC.includes('paste into the body'),
+      'success toast must instruct paste into Outlook body'
+    );
+    assert.ok(
+      !PANEL_SRC.includes('full email was copied to your clipboard'),
+      'must not claim full To/Subject/body blob was copied (breaks Outlook paste)'
+    );
+  });
 });
 
 describe('officerEmailsStandalone — silent failure path instrumentation (source)', () => {
@@ -97,6 +112,11 @@ describe('officerEmailsStandalone — silent failure path instrumentation (sourc
   it('catches showChoice / showConfirm rejections', () => {
     assert.ok(/showChoice rejected/.test(STANDALONE_SRC));
     assert.ok(/showConfirm rejected/.test(STANDALONE_SRC));
+  });
+
+  it('toasts that body was copied for paste after Outlook open', () => {
+    assert.ok(STANDALONE_SRC.includes('Message body copied to clipboard'));
+    assert.ok(!STANDALONE_SRC.includes('full email was copied to your clipboard'));
   });
 });
 

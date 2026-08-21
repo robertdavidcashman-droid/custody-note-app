@@ -1,0 +1,34 @@
+{
+  "folders": [
+    {
+      "name": "Police Station Agent",
+      "path": "../policestationagent"
+    },
+    {
+      "name": "Police Station Rep UK",
+      "path": "../Policestationrepuk"
+    },
+    {
+      "name": "Custody Note website",
+      "path": "../custody-note-website"
+    },
+    {
+      "name": "PSR Train",
+      "path": "../pstrain-rebuild"
+    },
+    {
+      "name": "Custody Note app",
+      "path": "."
+    },
+    {
+      "name": "Custody Note Anywhere",
+      "path": "../custodynote-anywhere"
+    }
+  ],
+  "settings": {
+    "files.exclude": {
+      "**/node_modules": true,
+      "**/.next": true
+    }
+  }
+}

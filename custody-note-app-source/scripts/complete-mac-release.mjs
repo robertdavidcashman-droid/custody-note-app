@@ -94,7 +94,7 @@ async function publishReleaseIfReady(version, token, opts = {}) {
   }
 
   if (release.draft) {
-    const r = await fetch(`https://api.github.com/repos/robertdavidcashman-droid/custody-note-app/releases/${release.id}`, {
+    const r = await fetch(`https://api.github.com/repos/robertcashman-bit/custody-note-app/releases/${release.id}`, {
       method: 'PATCH',
       headers: { ...headers, 'Content-Type': 'application/json' },
       body: JSON.stringify({ draft: false, make_latest: true }),

@@ -1,0 +1,124 @@
+name: Redesign website hero
+
+# Product-first first-screen redesign for custodynote.com
+# (private sibling repo robertcashman-bit/custody-note-website).
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - cursor/hero-product-first-screen-88b9
+    paths:
+      - scripts/redesign-website-hero.mjs
+      - .github/workflows/redesign-website-hero.yml
+
+permissions:
+  contents: read
+
+jobs:
+  redesign-hero:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout app
+        uses: actions/checkout@v4
+
+      - name: Checkout website
+        uses: actions/checkout@v4
+        with:
+          repository: robertcashman-bit/custody-note-website
+          path: custody-note-website
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Snapshot homepage sources (pre)
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/hero-pre
+          cp custody-note-website/app/page.tsx /tmp/hero-pre/page.tsx
+          cp custody-note-website/lib/product-copy.ts /tmp/hero-pre/product-copy.ts
+          cp custody-note-website/components/ProductScreenshot.tsx /tmp/hero-pre/ProductScreenshot.tsx
+          cp custody-note-website/components/GlobalPromoBanner.tsx /tmp/hero-pre/GlobalPromoBanner.tsx
+          cp custody-note-website/components/FloatingTrialCta.tsx /tmp/hero-pre/FloatingTrialCta.tsx
+          cp custody-note-website/components/Header.tsx /tmp/hero-pre/Header.tsx
+
+      - name: Apply hero redesign script
+        env:
+          WEBSITE_ROOT: ${{ github.workspace }}/custody-note-website
+        run: node scripts/redesign-website-hero.mjs
+
+      - name: Upload redesigned sources
+        uses: actions/upload-artifact@v4
+        with:
+          name: website-hero-redesign
+          path: |
+            custody-note-website/app/page.tsx
+            custody-note-website/lib/product-copy.ts
+            custody-note-website/components/ProductScreenshot.tsx
+            custody-note-website/components/GlobalPromoBanner.tsx
+            custody-note-website/components/FloatingTrialCta.tsx
+            custody-note-website/components/Header.tsx
+            custody-note-website/components/HeaderMobileMenu.tsx
+
+      - name: Commit and push website branch
+        working-directory: custody-note-website
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          set -euo pipefail
+          git config user.name "Cursor Agent"
+          git config user.email "cursoragent@cursor.com"
+          BRANCH="cursor/hero-product-first-screen-88b9"
+          git checkout -B "$BRANCH"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No website file changes to commit"
+            exit 0
+          fi
+          git commit -m "$(cat <<'EOF'
+          feat(marketing): product-first first-screen hero (Clio / LEAP pattern)
+
+          - App UI owns ~half+ of the fold (full-bleed-right framed hero-main-ui)
+          - Short headline + one beta promise line; drop version badge and long bullets
+          - Two CTAs only: Download free + Watch demo
+          - Slim announcement (no Download); floating CTA delayed past the fold
+          EOF
+          )"
+          git push -u origin "$BRANCH" --force
+
+      - name: Open or update website PR
+        working-directory: custody-note-website
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          set -euo pipefail
+          BRANCH="cursor/hero-product-first-screen-88b9"
+          BODY="$(cat <<'EOF'
+          ## Summary
+          Real first-screen redesign for custodynote.com — product UI owns the fold (Clio / LEAP pattern), not a tidy trim of the old layout.
+
+          ### First screen (1280×800, no scroll)
+          - **Dominant visual:** existing filled \`hero-main-ui\` dashboard (Custody / Voluntary tiles), full-bleed-right framed window
+          - **Copy:** short headline + one beta promise line
+          - **CTAs:** Download free + Watch demo only
+          - **Removed from fold:** version badge (\`v1.9.x\`), long paragraph, three checkmark bullets
+          - **Announcement:** slim messaging only (no Download button)
+          - **Floating CTA:** delayed past ~1 viewport; no lightning pill on the hero
+
+          ### Constraints
+          - Free during beta / no credit card / paid Pro planned after beta — kept, not clutter
+          - Defence Legal Services Ltd (not a law firm)
+          - No invented testimonials, logos, download counts, or security claims
+          - Desktop app unchanged
+
+          Companion: custody-note-app \`cursor/hero-product-first-screen-88b9\`.
+
+          **Deploy:** merging this PR into \`master\` triggers Vercel production deploy for custodynote.com.
+          EOF
+          )"
+          if gh pr view "$BRANCH" --json url >/dev/null 2>&1; then
+            echo "Website PR already exists for $BRANCH"
+            gh pr edit "$BRANCH" --title "feat(marketing): product-first first-screen hero" --body "$BODY"
+            gh pr view "$BRANCH" --json url,title,number -q '"#\(.number) \(.title) \(.url)"'
+            exit 0
+          fi
+          gh pr create --base master --head "$BRANCH" \
+            --title "feat(marketing): product-first first-screen hero" \
+            --body "$BODY"

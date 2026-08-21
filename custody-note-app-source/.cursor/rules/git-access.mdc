@@ -1,0 +1,15 @@
+---
+description: Git and GitHub CLI are permanently allowed for agent shells (robertcashman-bit)
+alwaysApply: true
+---
+
+# Git access
+
+Cursor agent shells are allowed to run `git` and `gh` without asking for permission (`~/.cursor/cli-config.json` and `.cursor/cli.json`).
+
+When the user asks to commit or push to **robertcashman-bit** (or any sibling repo):
+
+1. Use normal `git` / `gh` commands in the Shell tool.
+2. Do not claim you lack git access.
+3. Still follow safety rules: only commit when asked; never force-push to master/main; never skip hooks unless asked.
+

@@ -308,7 +308,7 @@
           var openedMsg = 'Opened in browser - complete send in Outlook';
           if (res.truncated) {
             openedMsg =
-              'Opened in browser. The message was long, so the full email was copied to your clipboard before opening Outlook — paste into the body if needed.';
+              'Opened in Outlook Web. Message body copied to clipboard — paste into the body (Ctrl+V / Cmd+V).';
           }
           showToast(openedMsg, 'success', res.truncated ? 9000 : 5000);
         } else {
@@ -386,7 +386,7 @@
       var msg = 'Outlook compose link copied to clipboard.';
       if (truncated) {
         msg +=
-          ' The link is shortened for Windows URL limits; use Open in Outlook Web to copy the full message to the clipboard automatically.';
+          ' The link is subject-only for privacy; use Open in Outlook Web to copy the message body to the clipboard automatically.';
       }
       if (typeof showToast === 'function') showToast(msg, 'success', truncated ? 9000 : 4000);
     }

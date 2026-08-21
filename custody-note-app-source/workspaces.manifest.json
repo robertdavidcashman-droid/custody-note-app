@@ -1,0 +1,52 @@
+{
+  "repos": [
+    {
+      "name": "PoliceStationAgent",
+      "dir": "one",
+      "homeDir": "policestationagent",
+      "github": "robertcashman-bit/policestationagent",
+      "branch": "master",
+      "vercel": "web44ai"
+    },
+    {
+      "name": "PoliceStationRepUK",
+      "dir": "Policestationrepuk",
+      "homeDir": "Policestationrepuk",
+      "github": "robertcashman-bit/Policestationrepuk",
+      "branch": "master",
+      "vercel": "policestationrepuk-new"
+    },
+    {
+      "name": "CustodyNoteWebsite",
+      "dir": "custody-note-website",
+      "homeDir": "custody-note-website",
+      "github": "robertcashman-bit/custody-note-website",
+      "branch": "master",
+      "vercel": "custody-note-website"
+    },
+    {
+      "name": "PSRUKTrain",
+      "dir": "pstrain-rebuild",
+      "homeDir": "pstrain-rebuild",
+      "github": "robertcashman-bit/pstrain-rebuild",
+      "branch": "master",
+      "vercel": "pstrain-rebuild"
+    },
+    {
+      "name": "CustodyNoteApp",
+      "dir": ".",
+      "homeDir": "custody-note-app",
+      "github": "robertcashman-bit/custody-note-app",
+      "branch": "master",
+      "vercel": null
+    },
+    {
+      "name": "CustodyNoteAnywhere",
+      "dir": "custodynote-anywhere",
+      "homeDir": "custodynote-anywhere",
+      "github": "robertcashman-bit/custodynote-anywhere",
+      "branch": "master",
+      "vercel": "custodynote-anywhere"
+    }
+  ]
+}

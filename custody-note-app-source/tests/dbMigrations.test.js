@@ -169,4 +169,48 @@ describe('dbMigrations runner', () => {
 
     db.close();
   });
+
+  it('sets Tonbridge (BG039) mileage_from_base to 46 without touching other Tonbridge-scheme rows', async () => {
+    const SQL = await initSqlJs();
+    const db = new SQL.Database();
+    runMigrations(db);
+
+    db.run(
+      "INSERT INTO police_stations (name, code, scheme, region, scheme_code, kind, mileage_from_base) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      ['Tonbridge', 'BG039', 'West Kent (Tonbridge)', 'Sussex / Kent / Surrey', '7007', 'station', null]
+    );
+    db.run(
+      "INSERT INTO police_stations (name, code, scheme, region, scheme_code, kind, mileage_from_base) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      ['West Kent (Tonbridge) (non-police venue)', 'BG907', 'West Kent (Tonbridge)', 'Sussex / Kent / Surrey', '7007', 'venue', null]
+    );
+    db.run(
+      "INSERT INTO police_stations (name, code, scheme, region, scheme_code, kind, mileage_from_base) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      ['Maidstone', 'BG001', 'Mid Kent', 'Sussex / Kent / Surrey', '7001', 'station', 12]
+    );
+
+    // Simulate a DB that already had v1 applied before v2 shipped: stamp only v1, then re-run.
+    db.run('DELETE FROM schema_version');
+    db.run(
+      "INSERT INTO schema_version (version, name, applied_at) VALUES (1, 'baseline-schema', ?)",
+      [new Date().toISOString()]
+    );
+
+    const result = runMigrations(db);
+    assert.deepStrictEqual(result.applied, [2]);
+    assert.strictEqual(
+      Number(scalar(db, "SELECT mileage_from_base FROM police_stations WHERE code = 'BG039'")),
+      46
+    );
+    assert.strictEqual(
+      scalar(db, "SELECT mileage_from_base FROM police_stations WHERE code = 'BG907'"),
+      null,
+      'non-police venue must not inherit Tonbridge mileage'
+    );
+    assert.strictEqual(
+      Number(scalar(db, "SELECT mileage_from_base FROM police_stations WHERE name = 'Maidstone'")),
+      12
+    );
+
+    db.close();
+  });
 });

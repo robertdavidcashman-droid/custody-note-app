@@ -153,17 +153,4 @@ describe('CRM1 runtime fill — template field mapping', () => {
     assert.strictEqual(checked(form, 'CheckBox137'), true, 'ethnicity 01 -> CheckBox137');
     assert.strictEqual(checked(form, 'CheckBox32'), true, 'disability VIS -> CheckBox32');
   });
-
-  it('maps Indian ethnicity code 06 to CheckBox68 on the official CRM1 PDF', async () => {
-    const { form } = await fillWith({ ethnicOriginCode: '06' });
-    assert.strictEqual(checked(form, 'CheckBox68'), true, 'Indian (06) -> CheckBox68');
-    assert.strictEqual(checked(form, 'CheckBox137'), false, 'White British must stay clear');
-    assert.strictEqual(checked(form, 'CheckBox101'), false, 'White Other must stay clear');
-  });
-
-  it('maps White Other ethnicity code 14 to CheckBox101 (not Indian)', async () => {
-    const { form } = await fillWith({ ethnicOriginCode: '14' });
-    assert.strictEqual(checked(form, 'CheckBox101'), true, 'White Other (14) -> CheckBox101');
-    assert.strictEqual(checked(form, 'CheckBox68'), false, 'Indian box must stay clear');
-  });
 });

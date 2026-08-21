@@ -5,12 +5,13 @@ const assert = require('node:assert');
 const {
   buildOutlookWebComposeUrl,
   buildFullComposePlainTextForClipboard,
+  buildBodyPlainTextForClipboard,
   truncateOutlookComposeForShellOpen,
   OUTLOOK_WEB_COMPOSE_BASE,
 } = require('../lib/outlookWebCompose');
 
 describe('outlookWebCompose.buildOutlookWebComposeUrl', () => {
-  it('builds outlook.office.com deeplink with encoded query', () => {
+  it('builds outlook.office.com deeplink with encoded query (subject-only by default)', () => {
     const u = buildOutlookWebComposeUrl({
       to: 'o@police.uk',
       subject: 'Subj',
@@ -20,6 +21,15 @@ describe('outlookWebCompose.buildOutlookWebComposeUrl', () => {
     const parsed = new URL(u);
     assert.strictEqual(parsed.searchParams.get('to'), 'o@police.uk');
     assert.strictEqual(parsed.searchParams.get('subject'), 'Subj');
+    assert.strictEqual(parsed.searchParams.get('body'), null, 'body must not appear in URL by default');
+  });
+
+  it('includes body only when includeBody opt-in is set', () => {
+    const u = buildOutlookWebComposeUrl(
+      { to: 'o@police.uk', subject: 'Subj', body: 'Body' },
+      { includeBody: true }
+    );
+    const parsed = new URL(u);
     assert.strictEqual(parsed.searchParams.get('body'), 'Body');
   });
 
@@ -34,18 +44,17 @@ describe('outlookWebCompose.buildOutlookWebComposeUrl', () => {
     assert.strictEqual(parsed.searchParams.get('cc'), 'c@d.e');
   });
 
-  it('normalizes body newlines to CRLF in encoded output', () => {
+  it('does not place body newlines in URL by default', () => {
     const u = buildOutlookWebComposeUrl({ to: 'a@b.c', subject: '', body: 'one\ntwo' });
-    assert.ok(u.includes('one%0D%0Atwo') || u.includes('one%0d%0atwo'), u);
+    assert.ok(!u.includes('body='), u);
   });
 
-  it('encodes ampersands apostrophes quotes and DSCC-style text', () => {
+  it('encodes ampersands apostrophes quotes in subject', () => {
     const sub = "Re: O'Brien & \"Partner\" / DSCC/2026-001";
-    const body = "Line with & <tags> and 50% discount\nSecond line.";
-    const u = buildOutlookWebComposeUrl({ to: 'a@b.c', subject: sub, body });
+    const u = buildOutlookWebComposeUrl({ to: 'a@b.c', subject: sub, body: 'secret body' });
     const parsed = new URL(u);
     assert.strictEqual(parsed.searchParams.get('subject'), sub);
-    assert.strictEqual(parsed.searchParams.get('body'), body.replace(/\n/g, '\r\n'));
+    assert.strictEqual(parsed.searchParams.get('body'), null);
   });
 
   it('trims leading and trailing spaces on to', () => {
@@ -66,18 +75,54 @@ describe('outlookWebCompose.buildFullComposePlainTextForClipboard', () => {
   });
 });
 
+describe('outlookWebCompose.buildBodyPlainTextForClipboard', () => {
+  it('returns body only (no To/Subject headers)', () => {
+    const t = buildBodyPlainTextForClipboard({
+      to: 'a@b.c',
+      subject: 'S',
+      body: 'Dear Officer,\nPlease send disclosure.',
+    });
+    assert.strictEqual(t, 'Dear Officer,\nPlease send disclosure.');
+    assert.ok(!t.startsWith('To:'), 'must not include To header');
+    assert.ok(!t.includes('Subject:'), 'must not include Subject header');
+  });
+
+  it('accepts a raw body string', () => {
+    assert.strictEqual(buildBodyPlainTextForClipboard('Line one\nLine two'), 'Line one\nLine two');
+  });
+});
+
 describe('outlookWebCompose.truncateOutlookComposeForShellOpen', () => {
-  it('does not truncate when under max length', () => {
+  it('never places body in URL; bodyPlainTextForClipboard is body-only for paste', () => {
+    const body = 'Dear Officer,\n\nPlease send initial disclosure by reply to this email.\n\nMany thanks.\n\nRobert';
     const r = truncateOutlookComposeForShellOpen(
-      { to: 'a@b.c', subject: 'S', body: 'short' },
+      { to: 'a@b.c', subject: 'S', body },
       { maxUrlLength: 50_000 }
     );
-    assert.strictEqual(r.truncated, false);
-    assert.ok(r.url.includes('body='));
+    assert.strictEqual(r.truncated, true);
+    assert.ok(!r.url.includes('body='), r.url);
+    assert.strictEqual(r.bodyUsedInUrl, '');
+    assert.strictEqual(
+      r.bodyPlainTextForClipboard,
+      body,
+      'Open-Outlook clipboard must be the template body only (paste into Outlook body field)'
+    );
+    assert.ok(!r.bodyPlainTextForClipboard.startsWith('To:'), 'regression: To:/Subject: header blob breaks Outlook paste');
+    assert.ok(r.fullPlainTextForClipboard.includes(body), 'full draft text still available for copy-whole-draft');
     assert.strictEqual(r.urlLength, r.url.length);
   });
 
-  it('truncates long body and preserves fullPlainTextForClipboard', () => {
+  it('truncated=false when no body', () => {
+    const r = truncateOutlookComposeForShellOpen(
+      { to: 'a@b.c', subject: 'S', body: '' },
+      { maxUrlLength: 50_000 }
+    );
+    assert.strictEqual(r.truncated, false);
+    assert.ok(!r.url.includes('body='));
+    assert.strictEqual(r.bodyPlainTextForClipboard, '');
+  });
+
+  it('long body stays off URL; body clipboard preserves full text', () => {
     const body = 'X'.repeat(25_000);
     const r = truncateOutlookComposeForShellOpen(
       { to: 'officer@met.police.uk', subject: 'Custody note', body },
@@ -85,13 +130,11 @@ describe('outlookWebCompose.truncateOutlookComposeForShellOpen', () => {
     );
     assert.strictEqual(r.truncated, true);
     assert.ok(r.url.length <= 4000, `url length ${r.url.length}`);
-    assert.ok(r.fullPlainTextForClipboard.includes(body), 'clipboard text must include full body');
-    const parsed = new URL(r.url);
-    const bodyInUrl = parsed.searchParams.get('body');
-    assert.ok(bodyInUrl.length < body.length, 'URL body should be shorter than original');
+    assert.ok(!r.url.includes('body='));
+    assert.strictEqual(r.bodyPlainTextForClipboard, body, 'clipboard text must be the full body only');
   });
 
-  it('expands with many ampersands still truncates safely', () => {
+  it('expands with many ampersands still keeps body off URL', () => {
     const body = 'MARK\n' + '&'.repeat(8000);
     const r = truncateOutlookComposeForShellOpen(
       { to: 'o@police.uk', subject: 'S', body },
@@ -99,6 +142,8 @@ describe('outlookWebCompose.truncateOutlookComposeForShellOpen', () => {
     );
     assert.strictEqual(r.truncated, true);
     assert.ok(r.url.length <= 3500);
-    assert.ok(r.fullPlainTextForClipboard.includes('MARK'));
+    assert.ok(!r.url.includes('body='));
+    assert.strictEqual(r.bodyPlainTextForClipboard, body);
+    assert.ok(r.bodyPlainTextForClipboard.includes('MARK'));
   });
 });

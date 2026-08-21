@@ -1,25 +1,171 @@
 {
   "releases": [
     {
-      "version": "1.9.53",
-      "date": "2026-07-21",
+      "version": "1.9.69",
+      "date": "2026-08-21",
       "latest": true,
       "changes": [
-        "Licence: fixed previously-activated licences not being recognised on some machines (legacy licence.dat read + migration)",
-        "Licence: fixed licence admin/forgot-key IPC handlers in headless/test environments",
-        "Reliability: automated test and PDF export stability improvements in headless environments"
+        "Officer Emails now copy the email body only so paste into Outlook includes the template body"
       ]
     },
     {
-      "version": "1.9.52",
-      "date": "2026-07-17",
+      "version": "1.9.68",
+      "date": "2026-08-12",
       "latest": false,
       "changes": [
-        "QuickFile: if an invoice number is already used, automatically find the next free number and send the invoice (with attachments) instead of failing",
-        "QuickFile: self-healing invoice numbering — syncs with the QuickFile ledger on startup, Test connection, before each send, and after conflicts or failed sends",
-        "QuickFile: final fallback lets QuickFile auto-assign the next number if local retries are exhausted",
-        "Billing: clearer recovery message when invoice-number sync still cannot complete",
-        "Release: CI publishes to the production updater feed (robertcashman-bit/custody-note-app) via GH_PAT; Windows-only when Mac signing secrets are absent"
+        "Admin licences are never revoked in the app and are always re-checked online on startup",
+        "Fixes a false “licence has been revoked” screen after installing the latest version when signed in as admin",
+        "A cached revoked stamp is confirmed with the licence server before locking the app; Free/trial keys are not stamped revoked by a failed server check"
+      ]
+    },
+    {
+      "version": "1.9.67",
+      "date": "2026-08-02",
+      "latest": false,
+      "changes": [
+        "AI answers (Ask AI and Law / Elements fill) now use web search and must include Sources — unsourced or unverified case-law style claims are blocked",
+        "Insert and Append stay disabled until at least two source URLs are present; Sources are shown in the review UI",
+        "Accuracy rules baked in: no hallucinations, if in doubt do not quote, solicitor must still verify primary materials"
+      ]
+    },
+    {
+      "version": "1.9.66",
+      "date": "2026-08-02",
+      "latest": false,
+      "changes": [
+        "Case Assessment: Ask AI — tick to open a multi-turn Q&A session for any legal question (follow-ups stay open until you close); Copy or Append to Law / Elements only when you choose",
+        "Law / Elements AI fill: draft stays in the review modal until you press Insert; clear notice when the field already has saved text",
+        "Ask AI and Law fill checkboxes are never printed on the PDF"
+      ]
+    },
+    {
+      "version": "1.9.65",
+      "date": "2026-08-02",
+      "latest": false,
+      "changes": [
+        "Case Assessment: optional AI fill for Law / Elements of offence (actus reus, mens rea, defences, sentencing) using your own OpenAI API key — review before insert; checkbox never appears on the PDF",
+        "Settings: store your OpenAI API key (synced with other Custody Note settings across devices when licensed)",
+        "Removed the previous Pro AI summary feature",
+        "Settings sync: larger cloud blob so credentials and preferences stay in sync across installs"
+      ]
+    },
+    {
+      "version": "1.9.64",
+      "date": "2026-08-02",
+      "latest": false,
+      "changes": [
+        "Records list: Archive button on finalised matters; Archived and Deleted filters show the right records with Unarchive and Restore",
+        "Open record: Archive Record button appears once the note is finalised or completed",
+        "Unarchive is recorded in the audit log"
+      ]
+    },
+    {
+      "version": "1.9.63",
+      "date": "2026-08-02",
+      "latest": false,
+      "changes": [
+        "Consultation: tick “unknown NI no.” under National Insurance to fill the NI box with “- unknown -”",
+        "Number of suspects defaults to 1 on new custody, voluntary, and telephone forms",
+        "Station mileage: Tonbridge (BG039) set to 46 miles from base",
+        "Outcome Decision: red disclaimer reminding users to double-check results from custody staff"
+      ]
+    },
+    {
+      "version": "1.9.62",
+      "date": "2026-08-01",
+      "latest": false,
+      "changes": [
+        "QuickFile: firm import now pulls full client details (address and primary contact) via Client_Get, not just the search list",
+        "Firms: address field is editable after QuickFile import or re-sync"
+      ]
+    },
+    {
+      "version": "1.9.61",
+      "date": "2026-07-22",
+      "latest": false,
+      "changes": [
+        "Beta: Custody Note is free during public beta while we test with real police station work — no credit card to start",
+        "Copy: Free forever wording replaced with Free during beta across tips, licence banners, and share invites",
+        "Pro: paid plans remain planned after beta (cloud backup and advanced tools)"
+      ]
+    },
+    {
+      "version": "1.9.60",
+      "date": "2026-07-22",
+      "latest": false,
+      "changes": [
+        "Pro AI: opt-in local attendance and interview summary drafts (Pro only) — review and edit before insert; nothing sent to a cloud AI provider yet",
+        "Firm workspace: local seats, branding footer, and shared templates in Settings → Licence",
+        "Anywhere bridge: import JSON from Custody Note Anywhere in Settings → Backup (cn-anywhere-bridge v1)",
+        "Privacy: documented opt-in Pro AI local drafts"
+      ]
+    },
+    {
+      "version": "1.9.59",
+      "date": "2026-07-22",
+      "latest": false,
+      "changes": [
+        "Settings: Free / Pro licence badges and Upgrade to Pro panel for Free installs",
+        "Settings: Pro AI summaries “Coming soon” card (opt-in drafts will never send without your action)",
+        "Settings: personal invite link (/r/:code) for sharing Free Custody Note",
+        "Reliability: e2e no longer fails when the tips feed is briefly unavailable mid-deploy"
+      ]
+    },
+    {
+      "version": "1.9.58",
+      "date": "2026-07-22",
+      "latest": false,
+      "changes": [
+        "Home Tips strip: rotating workflow tips (not legal advice), dismissible",
+        "PDF/Word: optional “Prepared with Custody Note” footer — toggle in Settings → Appearance",
+        "After finalise: one-time soft invite to share Free Custody Note with a colleague"
+      ]
+    },
+    {
+      "version": "1.9.57",
+      "date": "2026-07-22",
+      "latest": false,
+      "changes": [
+        "Free forever: first launch no longer starts a timed trial — core notes, PDF, billing and local backup stay available without a subscription",
+        "Pro (£9.99/mo): managed cloud backup and advanced tools; expired Pro falls back to Free core instead of blocking new records",
+        "Onboarding: explore-first Free banner (dismissible); help and share copy updated for Free/Pro"
+      ]
+    },
+    {
+      "version": "1.9.56",
+      "date": "2026-07-22",
+      "latest": false,
+      "changes": [
+        "QuickFile billing: fixed client create so CompanyName is sent in the correct ClientDetails fields (invalid Email/ClientType no longer break Send Bill for new firms)"
+      ]
+    },
+    {
+      "version": "1.9.55",
+      "date": "2026-07-22",
+      "latest": false,
+      "changes": [
+        "Windows auto-update: clear sticky GitHub update-feed cache on Check for updates so a new release is not missed after publish"
+      ]
+    },
+    {
+      "version": "1.9.54",
+      "date": "2026-07-22",
+      "latest": false,
+      "changes": [
+        "QuickFile: new instructing firms are created or matched in QuickFile automatically when you save them (if credentials are configured)",
+        "Billing: fixed false “select the instructing firm” error when a firm was already selected on the record",
+        "LAA Declaration: “Client signature not needed” tick with optional reason — clears missing-signature warnings when marked",
+        "Firms: typing a name that is not on the list prompts you to add it and opens the add-firm form with the name filled in"
+      ]
+    },
+    {
+      "version": "1.9.53",
+      "date": "2026-07-21",
+      "latest": false,
+      "changes": [
+        "Licence: fixed previously-activated licences not being recognised on some machines (legacy licence.dat read + migration)",
+        "Licence: fixed licence admin/forgot-key IPC handlers when encrypted admin store init fails",
+        "Reliability: cloud backup status emit and test hermetic API URL safeguards"
       ]
     },
     {
@@ -173,7 +319,7 @@
         "Security: cross-device sync now encrypts attendance records with AES-256-GCM before upload — server stores ciphertext only",
         "Sync pull decrypts envelopes locally using your device encryption key; legacy plaintext sync records remain readable until re-synced",
         "PDF: Defence summary and section 8 now show outcome code, next date, next venue, interview position, and headline advice (derived from court date, client decision, and advice fields)",
-        "PDF: LAA Declaration (section 11) always prints — Privacy Notice, Applicant\u2019s Declaration, and CRM3 fields; no longer skipped when signatures are empty",
+        "PDF: LAA Declaration (section 11) always prints — Privacy Notice, Applicant’s Declaration, and CRM3 fields; no longer skipped when signatures are empty",
         "PDF: CRM14 section includes fraud warning and rep/partner declaration blocks; improved spacing on Defence summary and LAA blocks"
       ]
     },

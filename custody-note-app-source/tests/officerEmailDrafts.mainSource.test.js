@@ -37,4 +37,32 @@ describe('main process — officer email Outlook safety', () => {
     assert.ok(block.includes("async (_, draftId)"), 'handler should accept only a draft id from the renderer');
     assert.ok(block.includes('truncateOutlookComposeForShellOpen'), 'main process should build/truncate the URL from draft fields');
   });
+
+  it('copies body-only text to clipboard before opening Outlook (not To/Subject header blob)', () => {
+    const start = mainSrc.indexOf("ipcMain.handle('officer-email-drafts-open-outlook'");
+    const end = mainSrc.indexOf("ipcMain.handle('officer-email-drafts-open-one-off-outlook'", start);
+    const block = mainSrc.slice(start, end);
+    assert.ok(
+      block.includes('clipboard.writeText(bodyPlainTextForClipboard)'),
+      'open-outlook must write bodyPlainTextForClipboard so paste into Outlook includes the template body'
+    );
+    assert.ok(
+      !block.includes('clipboard.writeText(fullPlainTextForClipboard)'),
+      'must not write To:/Subject: full-draft blob (Outlook paste often leaves body empty)'
+    );
+  });
+
+  it('one-off open also writes body-only clipboard text', () => {
+    const start = mainSrc.indexOf("ipcMain.handle('officer-email-drafts-open-one-off-outlook'");
+    const end = mainSrc.indexOf("ipcMain.handle('officer-email-drafts-copy'", start);
+    const block = mainSrc.slice(start, end);
+    assert.ok(
+      block.includes('clipboard.writeText(composed.bodyPlainTextForClipboard)'),
+      'one-off open must write bodyPlainTextForClipboard'
+    );
+    assert.ok(
+      !block.includes('clipboard.writeText(composed.fullPlainTextForClipboard)'),
+      'one-off must not write full-draft To:/Subject: blob'
+    );
+  });
 });
