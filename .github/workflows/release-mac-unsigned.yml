@@ -1,0 +1,117 @@
+# Emergency UNSIGNED macOS installers for an existing GitHub Release.
+# Use when Apple signing/notarization secrets are missing or rejected (401).
+# Gatekeeper: users right-click → Open (same as Robert's existing unsigned Mac flow).
+#
+# Triggers:
+#   - push of tag unsigned-mac-v* (e.g. unsigned-mac-v1.9.69)
+#   - workflow_dispatch with tag input (e.g. v1.9.69)
+#
+# Does NOT rebuild Windows. Does NOT touch website deploy.
+
+name: Release macOS unsigned
+
+on:
+  push:
+    tags:
+      - 'unsigned-mac-v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing release tag to attach Mac assets to (e.g. v1.9.69)'
+        required: true
+        default: 'v1.9.69'
+
+concurrency:
+  group: release-mac-unsigned-${{ github.repository }}-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  PUBLISH_GITHUB_REPOSITORY: robertdavidcashman-droid/custody-note-app
+
+jobs:
+  release-mac-unsigned:
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Resolve release tag
+        id: meta
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ inputs.tag }}"
+          else
+            # unsigned-mac-v1.9.69 → v1.9.69
+            RAW="${GITHUB_REF_NAME}"
+            TAG="v${RAW#unsigned-mac-v}"
+            case "$TAG" in
+              v*) ;;
+              *) TAG="v${TAG}" ;;
+            esac
+          fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "Building UNSIGNED Mac assets for ${TAG}"
+
+      - name: Checkout release tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.meta.outputs.tag }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: custody-note-app-source/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: custody-note-app-source
+
+      - name: Verify package version matches tag
+        working-directory: custody-note-app-source
+        run: |
+          set -euo pipefail
+          VERSION=$(node -p "require('./package.json').version")
+          TAG="${{ steps.meta.outputs.tag }}"
+          EXPECTED="${TAG#v}"
+          if [ "$VERSION" != "$EXPECTED" ]; then
+            echo "::error::package.json version ${VERSION} != tag ${TAG}"
+            exit 1
+          fi
+          echo "Version OK: ${VERSION}"
+
+      - name: Build UNSIGNED macOS arm64+x64 (dmg + zip)
+        working-directory: custody-note-app-source
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: |
+          set -euo pipefail
+          # Explicit unsigned: no Apple identity, no hardened runtime, no notarize.
+          npm run build:mac:dev
+
+      - name: Upload Mac assets to existing GitHub Release
+        working-directory: custody-note-app-source
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: robertdavidcashman-droid/custody-note-app
+          PUBLISH_GITHUB_REPOSITORY: robertdavidcashman-droid/custody-note-app
+        run: |
+          set -euo pipefail
+          VERSION=$(node -p "require('./package.json').version")
+          TAG="v${VERSION}"
+          ls -la dist/ | head -50
+          test -f "dist/Custody-Note-${VERSION}-arm64.dmg"
+          test -f "dist/Custody-Note-${VERSION}-x64.dmg"
+          test -f "dist/Custody-Note-${VERSION}-arm64.zip"
+          test -f "dist/Custody-Note-${VERSION}-x64.zip"
+          if [ ! -f dist/latest-mac.yml ]; then
+            echo "::error::dist/latest-mac.yml missing after unsigned build"
+            exit 1
+          fi
+          node scripts/upload-mac-release-assets.mjs
+          # Ensure release stays published + latest (do not draft)
+          gh release edit "$TAG" --repo "$PUBLISH_GITHUB_REPOSITORY" --draft=false --latest || true
+          echo "=== Assets on ${TAG} ==="
+          gh release view "$TAG" --repo "$PUBLISH_GITHUB_REPOSITORY" --json assets --jq '.assets[].name'
