@@ -85,10 +85,19 @@ jobs:
         working-directory: custody-note-app-source
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          # Present so electron-builder does not abort in CI; publish is forced off below.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           # Explicit unsigned: no Apple identity, no hardened runtime, no notarize.
-          npm run build:mac:dev
+          # --publish never: upload via dedicated step (release is already published).
+          npm run verify:release
+          npm run build:icns
+          npx electron-builder --mac \
+            -c.mac.identity=null \
+            -c.mac.hardenedRuntime=false \
+            --publish never
+          npm run verify:built-asar
 
       - name: Upload Mac assets to existing GitHub Release
         working-directory: custody-note-app-source
@@ -111,6 +120,8 @@ jobs:
             exit 1
           fi
           node scripts/upload-mac-release-assets.mjs
+          # Repair updater feed checksums if needed
+          node scripts/repair-github-mac-updater-feed.mjs --tag "$TAG" || true
           # Ensure release stays published + latest (do not draft)
           gh release edit "$TAG" --repo "$PUBLISH_GITHUB_REPOSITORY" --draft=false --latest || true
           echo "=== Assets on ${TAG} ==="
