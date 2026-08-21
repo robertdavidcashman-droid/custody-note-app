@@ -90,6 +90,30 @@ if (existsSync(websiteConfigPath)) {
   }
 }
 
+// Point the download CTA at the droid Windows installer (site is Windows-only).
+const downloadPagePath = join(WEBSITE_ROOT, 'src', 'app', 'download', 'page.tsx');
+if (existsSync(downloadPagePath)) {
+  let page = readFileSync(downloadPagePath, 'utf8');
+  let changed = false;
+  if (!/WINDOWS_DOWNLOAD_URL/.test(page)) {
+    if (/import \{ APP_VERSION \} from "@\/lib\/config";/.test(page)) {
+      page = page.replace(
+        'import { APP_VERSION } from "@/lib/config";',
+        'import { APP_VERSION, WINDOWS_DOWNLOAD_URL } from "@/lib/config";'
+      );
+      changed = true;
+    }
+  }
+  if (/href=["']#["']/.test(page) && /Download for Windows/.test(page)) {
+    page = page.replace(/href=["']#["']/, 'href={WINDOWS_DOWNLOAD_URL}');
+    changed = true;
+  }
+  if (changed) {
+    writeFileSync(downloadPagePath, page, 'utf8');
+    console.log('[sync-website] Pointed download page at droid Windows installer URL');
+  }
+}
+
 // LAA official PDF templates + manifest (desktop app auto-update endpoint)
 const laaSrcDir = join(APP_ROOT, 'data', 'laa-official-forms');
 const laaDestDir = join(WEBSITE_ROOT, 'data', 'laa-official-forms');
