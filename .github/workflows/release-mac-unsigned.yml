@@ -104,25 +104,30 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_REPOSITORY: robertdavidcashman-droid/custody-note-app
           PUBLISH_GITHUB_REPOSITORY: robertdavidcashman-droid/custody-note-app
         run: |
           set -euo pipefail
           VERSION=$(node -p "require('./package.json').version")
           TAG="v${VERSION}"
+          REPO="$PUBLISH_GITHUB_REPOSITORY"
           ls -la dist/ | head -50
-          test -f "dist/Custody-Note-${VERSION}-arm64.dmg"
-          test -f "dist/Custody-Note-${VERSION}-x64.dmg"
-          test -f "dist/Custody-Note-${VERSION}-arm64.zip"
-          test -f "dist/Custody-Note-${VERSION}-x64.zip"
-          if [ ! -f dist/latest-mac.yml ]; then
-            echo "::error::dist/latest-mac.yml missing after unsigned build"
-            exit 1
-          fi
-          node scripts/upload-mac-release-assets.mjs
-          # Repair updater feed checksums if needed
-          node scripts/repair-github-mac-updater-feed.mjs --tag "$TAG" || true
-          # Ensure release stays published + latest (do not draft)
-          gh release edit "$TAG" --repo "$PUBLISH_GITHUB_REPOSITORY" --draft=false --latest || true
-          echo "=== Assets on ${TAG} ==="
-          gh release view "$TAG" --repo "$PUBLISH_GITHUB_REPOSITORY" --json assets --jq '.assets[].name'
+          REQUIRED=(
+            "dist/Custody-Note-${VERSION}-arm64.dmg"
+            "dist/Custody-Note-${VERSION}-arm64.dmg.blockmap"
+            "dist/Custody-Note-${VERSION}-arm64.zip"
+            "dist/Custody-Note-${VERSION}-arm64.zip.blockmap"
+            "dist/Custody-Note-${VERSION}-x64.dmg"
+            "dist/Custody-Note-${VERSION}-x64.dmg.blockmap"
+            "dist/Custody-Note-${VERSION}-x64.zip"
+            "dist/Custody-Note-${VERSION}-x64.zip.blockmap"
+            "dist/latest-mac.yml"
+          )
+          for f in "${REQUIRED[@]}"; do
+            test -f "$f" || { echo "::error::missing $f"; exit 1; }
+          done
+          # IMPORTANT: do NOT use scripts/upload-mac-release-assets.mjs from older
+          # release tags — some tags hardcode robertcashman-bit. Upload with gh to droid.
+          gh release upload "$TAG" "${REQUIRED[@]}" --repo "$REPO" --clobber
+          gh release edit "$TAG" --repo "$REPO" --draft=false --latest || true
+          echo "=== Assets on ${TAG} @ ${REPO} ==="
+          gh release view "$TAG" --repo "$REPO" --json assets --jq '.assets[].name'
