@@ -1,0 +1,241 @@
+# Probe Mac signing secrets, optionally rebuild signed Mac for an existing tag,
+# and push the custody-note-website 1.9.69 download cutover via GH_PAT.
+#
+# Runs on push to this workflow's branch so cloud agents can trigger it without
+# workflow_dispatch permissions. Never prints secret values.
+
+name: Deploy 1.9.69 site and Mac probe
+
+on:
+  push:
+    branches:
+      - 'cursor/deploy-1.9.69-site-mac-7f07'
+    paths:
+      - '.github/workflows/deploy-1.9.69-site-mac.yml'
+      - 'custody-note-app-source/scripts/sync-website.mjs'
+      - 'custody-note-app-source/package.json'
+      - 'custody-note-app-source/changelog.json'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing release tag'
+        required: true
+        default: 'v1.9.69'
+      build_signed_mac:
+        description: 'If Mac secrets present, build signed+notarised Mac and upload'
+        type: boolean
+        default: true
+
+concurrency:
+  group: deploy-1-9-69-site-mac
+  cancel-in-progress: false
+
+env:
+  APP_DIR: custody-note-app-source
+  PUBLISH_GITHUB_REPOSITORY: robertdavidcashman-droid/custody-note-app
+  RELEASE_TAG: ${{ inputs.tag || 'v1.9.69' }}
+
+jobs:
+  probe-secrets:
+    runs-on: ubuntu-latest
+    outputs:
+      mac_cert: ${{ steps.probe.outputs.mac_cert }}
+      apple_id: ${{ steps.probe.outputs.apple_id }}
+      apple_pass: ${{ steps.probe.outputs.apple_pass }}
+      apple_team: ${{ steps.probe.outputs.apple_team }}
+      gh_pat: ${{ steps.probe.outputs.gh_pat }}
+      vercel_token: ${{ steps.probe.outputs.vercel_token }}
+      can_sign_mac: ${{ steps.probe.outputs.can_sign_mac }}
+    steps:
+      - name: Probe secret presence (names only)
+        id: probe
+        env:
+          MAC_CERTIFICATE_P12_BASE64: ${{ secrets.MAC_CERTIFICATE_P12_BASE64 }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          GH_PAT: ${{ secrets.GH_PAT }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set_bool() {
+            local name="$1"
+            local val="$2"
+            if [ -n "$val" ]; then
+              echo "${name}=present" >> "$GITHUB_OUTPUT"
+              echo "$name=present"
+            else
+              echo "${name}=absent" >> "$GITHUB_OUTPUT"
+              echo "$name=absent"
+            fi
+          }
+          set_bool mac_cert "${MAC_CERTIFICATE_P12_BASE64}"
+          set_bool apple_id "${APPLE_ID}"
+          set_bool apple_pass "${APPLE_APP_SPECIFIC_PASSWORD}"
+          set_bool apple_team "${APPLE_TEAM_ID}"
+          set_bool gh_pat "${GH_PAT}"
+          set_bool vercel_token "${VERCEL_TOKEN}"
+          if [ -n "${MAC_CERTIFICATE_P12_BASE64}" ] && [ -n "${APPLE_ID}" ] && [ -n "${APPLE_APP_SPECIFIC_PASSWORD}" ] && [ -n "${APPLE_TEAM_ID}" ]; then
+            echo "can_sign_mac=true" >> "$GITHUB_OUTPUT"
+            echo "can_sign_mac=true"
+          else
+            echo "can_sign_mac=false" >> "$GITHUB_OUTPUT"
+            echo "can_sign_mac=false"
+          fi
+
+  sync-website:
+    runs-on: ubuntu-latest
+    needs: probe-secrets
+    permissions:
+      contents: read
+    steps:
+      - name: Resolve website push token
+        id: token
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -n "${GH_PAT}" ]; then
+            echo "token=${GH_PAT}" >> "$GITHUB_OUTPUT"
+            echo "Using GH_PAT for website push."
+          else
+            echo "token=${GITHUB_TOKEN}" >> "$GITHUB_OUTPUT"
+            echo "::warning::GH_PAT missing — trying GITHUB_TOKEN (likely 403 for cross-repo write)."
+          fi
+
+      - name: Checkout app (this branch)
+        uses: actions/checkout@v4
+
+      - name: Checkout website
+        id: website_checkout
+        continue-on-error: true
+        uses: actions/checkout@v4
+        with:
+          repository: robertdavidcashman-droid/custody-note-website
+          path: custody-note-website
+          token: ${{ steps.token.outputs.token }}
+
+      - name: Fail clearly if website checkout failed
+        if: steps.website_checkout.outcome != 'success'
+        run: |
+          echo "::error::Website checkout failed (GH_PAT Bad credentials or missing write access). Live custodynote.com cannot be updated from CI until GH_PAT is refreshed."
+          exit 1
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: custody-note-app-source/package-lock.json
+
+      - name: Install app dependencies
+        run: npm ci
+        working-directory: custody-note-app-source
+
+      - name: Apply local website 1.9.69 download cutover files
+        run: |
+          set -euo pipefail
+          WEB="$GITHUB_WORKSPACE/custody-note-website"
+          # Prefer committed bundle if present, else rely on sync-website + files already in website checkout after we push them separately.
+          if [ -d "$GITHUB_WORKSPACE/custody-note-app-source/deploy-bundles/website-v1.9.69" ]; then
+            mkdir -p "$WEB/data" "$WEB/src/lib" "$WEB/src/app/download" "$WEB/src/app/api/stats/download"
+            cp -v "$GITHUB_WORKSPACE/custody-note-app-source/deploy-bundles/website-v1.9.69/src/lib/config.ts" "$WEB/src/lib/config.ts"
+            cp -v "$GITHUB_WORKSPACE/custody-note-app-source/deploy-bundles/website-v1.9.69/src/app/download/page.tsx" "$WEB/src/app/download/page.tsx"
+            cp -v "$GITHUB_WORKSPACE/custody-note-app-source/deploy-bundles/website-v1.9.69/src/app/api/stats/download/route.ts" "$WEB/src/app/api/stats/download/route.ts"
+            cp -v "$GITHUB_WORKSPACE/custody-note-app-source/deploy-bundles/website-v1.9.69/data/releases.json" "$WEB/data/releases.json" || true
+          fi
+
+      - name: Configure git for website commit
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Sync website releases.json / download URLs and push
+        working-directory: custody-note-app-source
+        env:
+          WEBSITE_ROOT: ${{ github.workspace }}/custody-note-website
+          WEBSITE_GIT_BRANCH: master
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+        run: |
+          cd "${{ github.workspace }}/custody-note-website"
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/robertdavidcashman-droid/custody-note-website.git"
+          cd "${{ github.workspace }}/custody-note-app-source"
+          node scripts/sync-website.mjs
+
+  release-mac-signed:
+    runs-on: macos-latest
+    needs: probe-secrets
+    if: needs.probe-secrets.outputs.can_sign_mac == 'true' && (github.event_name != 'workflow_dispatch' || inputs.build_signed_mac)
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: custody-note-app-source/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: custody-note-app-source
+
+      - name: Import Apple Developer ID certificate into a temporary keychain
+        env:
+          MAC_CERTIFICATE_P12_BASE64: ${{ secrets.MAC_CERTIFICATE_P12_BASE64 }}
+          MAC_CERTIFICATE_P12_PASSWORD: ${{ secrets.MAC_CERTIFICATE_P12_PASSWORD }}
+          MAC_KEYCHAIN_PASSWORD: ${{ secrets.MAC_KEYCHAIN_PASSWORD }}
+        run: |
+          set -euo pipefail
+          CERT_PATH="$RUNNER_TEMP/cn-cert.p12"
+          KEYCHAIN_PATH="$RUNNER_TEMP/cn-build.keychain-db"
+          printf '%s' "$MAC_CERTIFICATE_P12_BASE64" | base64 --decode > "$CERT_PATH"
+          test -s "$CERT_PATH"
+          KC_PASS="${MAC_KEYCHAIN_PASSWORD:-cn-ci-keychain}"
+          security create-keychain -p "$KC_PASS" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KC_PASS" "$KEYCHAIN_PATH"
+          security import "$CERT_PATH" -P "${MAC_CERTIFICATE_P12_PASSWORD}" \
+            -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security list-keychain -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | xargs)
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "$KC_PASS" "$KEYCHAIN_PATH"
+          security find-identity -v -p codesigning "$KEYCHAIN_PATH"
+          rm -f "$CERT_PATH"
+
+      - name: Preflight Apple notarization credentials
+        working-directory: custody-note-app-source
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: node scripts/preflight-apple-notary.mjs
+
+      - name: Build, sign, notarise + upload macOS assets
+        working-directory: custody-note-app-source
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          CN_PUBLISH: always
+          PUBLISH_GITHUB_REPOSITORY: robertdavidcashman-droid/custody-note-app
+        run: npm run build:mac:signed
+
+      - name: Regenerate latest-mac.yml from uploaded Mac assets
+        working-directory: custody-note-app-source
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PUBLISH_GITHUB_REPOSITORY: robertdavidcashman-droid/custody-note-app
+        run: node scripts/repair-github-mac-updater-feed.mjs --tag "${{ env.RELEASE_TAG }}"
+
+      - name: Ensure release stays latest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release edit "${{ env.RELEASE_TAG }}" --repo "$PUBLISH_GITHUB_REPOSITORY" --latest || true
+          gh release view "${{ env.RELEASE_TAG }}" --repo "$PUBLISH_GITHUB_REPOSITORY" --json assets --jq '.assets[].name'

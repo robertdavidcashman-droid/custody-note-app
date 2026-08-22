@@ -1,8 +1,8 @@
 {
   "name": "custody-note",
-  "version": "1.9.53",
-  "lastUpdated": "2026-07-21",
-  "buildTime": "2026-07-21T10:31:00.000Z",
+  "version": "1.9.69",
+  "lastUpdated": "2026-08-21",
+  "buildTime": "2026-08-21T16:51:37.804Z",
   "description": "Custody Note – LAA-compliant custody note app",
   "main": "main.js",
   "scripts": {
@@ -40,6 +40,9 @@
     "audit:app": "node --test tests/deepAudit.test.js && node -c main.js && node -c preload.js",
     "prepare-trial": "node scripts/prepare-trial.js",
     "capture-screenshots": "node scripts/capture-screenshots.js",
+    "capture:marketing-demo": "node scripts/capture-marketing-demo-screens.mjs",
+    "strengthen:website-display": "node scripts/strengthen-website-product-display.mjs",
+    "redesign:website-hero": "node scripts/redesign-website-hero.mjs",
     "security:audit": "node scripts/security-audit.mjs",
     "security:scan": "node scripts/security-audit.mjs",
     "build:icns": "node scripts/build-icns.mjs",
@@ -166,7 +169,9 @@
       "!scripts/sync-website.mjs",
       "!scripts/capture-screenshots.js",
       "!scripts/prepare-trial.js",
-      "!scripts/inspect-db-electron.cjs"
+      "!scripts/inspect-db-electron.cjs",
+      "!website-product-shots",
+      "!website-product-shots/**"
     ],
     "publish": {
       "provider": "github",
