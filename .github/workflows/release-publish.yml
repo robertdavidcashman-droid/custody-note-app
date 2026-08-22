@@ -250,10 +250,18 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if [ -n "${GH_PAT}" ]; then
-            echo "token=${GH_PAT}" >> "$GITHUB_OUTPUT"
+            {
+              echo "token<<EOF"
+              echo "${GH_PAT}"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
             echo "Using GH_PAT for website push."
           else
-            echo "token=${GITHUB_TOKEN}" >> "$GITHUB_OUTPUT"
+            {
+              echo "token<<EOF"
+              echo "${GITHUB_TOKEN}"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
             echo "::warning::GH_PAT missing — trying GITHUB_TOKEN for custody-note-website (may 403 if no cross-repo write)."
           fi
 

@@ -95,10 +95,18 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if [ -n "${GH_PAT}" ]; then
-            echo "token=${GH_PAT}" >> "$GITHUB_OUTPUT"
+            {
+              echo "token<<EOF"
+              echo "${GH_PAT}"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
             echo "Using GH_PAT for website push."
           else
-            echo "token=${GITHUB_TOKEN}" >> "$GITHUB_OUTPUT"
+            {
+              echo "token<<EOF"
+              echo "${GITHUB_TOKEN}"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
             echo "::warning::GH_PAT missing — trying GITHUB_TOKEN (likely 403 for cross-repo write)."
           fi
 
@@ -115,7 +123,7 @@ jobs:
           token: ${{ steps.token.outputs.token }}
 
       - name: Fail clearly if website checkout failed
-        if: steps.website_checkout.outcome != 'success'
+        if: steps.website_checkout.conclusion == 'failure'
         run: |
           echo "::error::Website checkout failed (GH_PAT Bad credentials or missing write access). Live custodynote.com cannot be updated from CI until GH_PAT is refreshed."
           exit 1
