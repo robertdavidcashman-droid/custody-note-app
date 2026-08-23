@@ -1,0 +1,84 @@
+# One-shot: open the leftovers PR using secrets.GH_PAT (agent token cannot create PRs).
+# Safe to leave; no-ops if the PR already exists. Dispatch manually or via workflow_dispatch.
+name: Open leftovers PR
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - cursor/custody-note-desktop-leftovers-3d80
+
+permissions:
+  contents: read
+
+jobs:
+  open-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create or reuse PR
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "::error::Add Actions secret GH_PAT (classic PAT, repo scope) then re-run."
+            exit 1
+          fi
+          EXISTING=$(gh pr list --repo robertdavidcashman-droid/custody-note-app \
+            --head cursor/custody-note-desktop-leftovers-3d80 --base main --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then
+            echo "PR #$EXISTING already exists"
+            gh pr view "$EXISTING" --repo robertdavidcashman-droid/custody-note-app --json url --jq .url
+            exit 0
+          fi
+          BODY=$(cat <<'EOF'
+          ## Summary
+
+          Completes Robert Cashman’s Custody Note desktop leftovers on the **canonical** `robertdavidcashman-droid/custody-note-app` repo (includes landing the unmerged droid sole-publisher / 1.9.69 sync branch content).
+
+          ### P0 — Outlook officer-email body
+          - Root cause after bit 1.9.70: OWA `body=` often opens compose empty. Clipboard paste is not acceptable.
+          - **Fix:** Open Outlook prefers an `X-Unsent` `.eml` draft (HTML + quoted-printable) for any non-empty body. Copy-link still uses OWA `body=` when the URL fits.
+          - Panel passes **live** `collectFields()` into `openOutlookDraft(id, liveFields)`.
+          - Regression tests prove current box text is passed through (unit + UI A–F + e2e capture).
+
+          ### P0 — Port bit PR #7
+          - Session-lock blanker fail-closed; `flushDbSync` on OS lock; Backups mkdir; Mac Cmd shortcuts; stop syncing OpenAI/QuickFile/DSCC secrets.
+
+          ### P1 — Updater → droid
+          - Publish/updater/`sync-website` point at `robertdavidcashman-droid/custody-note-app`.
+
+          ### P1 — QuickFile invoice self-heal (draft PR #5)
+          - **Already on main.** Close draft PR #5 as obsolete.
+
+          ### P2 — nested-clone .gitignore (draft PR #1)
+          - Root `.gitignore` already covers this. Close draft PR #1 as obsolete.
+
+          ## Mac notarization — NOT done
+          Droid Actions secrets are incomplete (typically only `APPLE_APP_SPECIFIC_PASSWORD` + `GH_PAT`). Still required before claiming notarization:
+          - `MAC_CERTIFICATE_P12_BASE64`
+          - `MAC_CERTIFICATE_P12_PASSWORD`
+          - `MAC_KEYCHAIN_PASSWORD`
+          - `APPLE_ID`
+          - `APPLE_TEAM_ID`
+
+          ## Tests
+          - `npm run test:unit` — 1764 pass, 0 fail, 2 skipped
+
+          ## Version
+          - **v1.9.71**
+          EOF
+          )
+          # strip leading spaces from heredoc indent
+          BODY=$(printf '%s\n' "$BODY" | sed 's/^          //')
+          gh pr create --repo robertdavidcashman-droid/custody-note-app \
+            --base main \
+            --head cursor/custody-note-desktop-leftovers-3d80 \
+            --title "fix(desktop): v1.9.71 Outlook body + P0 lock/backups (droid sole publisher)" \
+            --body "$BODY" \
+            --draft
+          # Close obsolete drafts when possible
+          gh pr close 5 --repo robertdavidcashman-droid/custody-note-app \
+            --comment "Obsolete: QuickFile invoice self-heal already on main." || true
+          gh pr close 1 --repo robertdavidcashman-droid/custody-note-app \
+            --comment "Obsolete: root .gitignore already excludes nested clones." || true
