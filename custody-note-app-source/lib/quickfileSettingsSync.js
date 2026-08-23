@@ -14,17 +14,13 @@ const SALT_PREFIX = 'cn-qf-settings-salt:';
 
 /**
  * Keys synced across the user's Custody Note installs (same licence).
- * Do not add machine paths, watermarks, or per-device counters here.
+ * Do not add machine paths, watermarks, per-device counters, privileged
+ * secrets, or client-adjacent free text here. Licence-key holders must not
+ * be able to recover API keys / PINs / scratchpad via settings sync.
  */
 const SYNCABLE_SETTINGS_KEYS = [
-  /* Integrations / secrets */
-  'quickfileAccountNumber',
-  'quickfileApiKey',
-  'quickfileAppId',
-  'openaiApiKey',
-  /* Identity / work defaults */
+  /* Identity / work defaults (non-secret) */
   'email',
-  'dsccPin',
   'feeEarnerNameDefault',
   'feeEarnerSigMode',
   'feeEarnerSigMaster',
@@ -62,12 +58,24 @@ const SYNCABLE_SETTINGS_KEYS = [
   'idleTimeoutMinutes',
   'suggestionsForumUrl',
   'contextPanelCollapsed',
-  'scratchpadText',
   'recentStations',
   'referralCode',
   /* Content packs */
   'customTemplatesJson',
   'firmWorkspaceJson',
+];
+
+/**
+ * Privileged / client-adjacent keys that must stay machine-local.
+ * Kept explicit so tests and reviewers can see what we refuse to sync.
+ */
+const NEVER_SYNC_SETTINGS_KEYS = [
+  'openaiApiKey',
+  'quickfileAccountNumber',
+  'quickfileApiKey',
+  'quickfileAppId',
+  'dsccPin',
+  'scratchpadText',
 ];
 
 /** Explicit exclude list (documentation / guards). */
@@ -96,7 +104,7 @@ const MACHINE_LOCAL_SETTINGS_KEYS = [
   'cloudBackupHomeBannerDismissed',
   'sidebarWidth',
   'contextPanelWidth',
-];
+].concat(NEVER_SYNC_SETTINGS_KEYS);
 
 function deriveKey(licenceKey) {
   const normalized = String(licenceKey || '').trim().toUpperCase();
@@ -204,6 +212,7 @@ function hasAnySyncableContent(settings) {
 module.exports = {
   SYNCABLE_SETTINGS_KEYS: SYNCABLE_SETTINGS_KEYS,
   MACHINE_LOCAL_SETTINGS_KEYS: MACHINE_LOCAL_SETTINGS_KEYS,
+  NEVER_SYNC_SETTINGS_KEYS: NEVER_SYNC_SETTINGS_KEYS,
   pickSyncableSettings: pickSyncableSettings,
   isSyncableSettingsKey: isSyncableSettingsKey,
   hasAnySyncableContent: hasAnySyncableContent,

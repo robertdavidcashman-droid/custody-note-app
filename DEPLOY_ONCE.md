@@ -61,7 +61,16 @@ Mac CI skips when the P12 secret is missing. **Do not claim Mac is shipping from
 | `APPLE_TEAM_ID` | 10-character Team ID |
 | `APPLE_APP_SPECIFIC_PASSWORD` | App-specific password (`xxxx-xxxx-xxxx-xxxx`) |
 
-`APPLE_APP_SPECIFIC_PASSWORD` alone is not enough. Until the full set is present, Release and deploy publishes **Windows only** on droid. Historical Mac **1.9.68** remains on bit — leave that repo unarchived.
+`APPLE_APP_SPECIFIC_PASSWORD` alone is not enough. **Current droid Actions secrets are incomplete** (typically only `APPLE_APP_SPECIFIC_PASSWORD` + `GH_PAT` are present). Until **all** of the following exist on `robertdavidcashman-droid/custody-note-app`, do **not** claim Mac notarization is done:
+
+- `MAC_CERTIFICATE_P12_BASE64`
+- `MAC_CERTIFICATE_P12_PASSWORD`
+- `MAC_KEYCHAIN_PASSWORD`
+- `APPLE_ID`
+- `APPLE_TEAM_ID`
+- (plus `APPLE_APP_SPECIFIC_PASSWORD` already noted above)
+
+Until the full set is present, Release and deploy publishes **Windows only** on droid. Historical Mac **1.9.68** remains on bit — leave that repo unarchived.
 
 After secrets are uploaded, run **Actions → Release macOS only** for the target tag (or rely on the next full Release and deploy).
 

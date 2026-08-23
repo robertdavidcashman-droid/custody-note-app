@@ -139,7 +139,7 @@ describe('Outlook Web compose link', () => {
     assert.ok(u.startsWith('https://outlook.office.com/mail/0/deeplink/compose?'));
   });
 
-  it('includes to, cc, subject in query — body omitted (clipboard paste)', () => {
+  it('includes to, cc, subject and body in query when URL fits', () => {
     const u = buildOutlookWebComposeLink({
       to: 'a@b.c',
       cc: 'c@d.e',
@@ -150,22 +150,22 @@ describe('Outlook Web compose link', () => {
     assert.strictEqual(parsed.searchParams.get('to'), 'a@b.c');
     assert.strictEqual(parsed.searchParams.get('cc'), 'c@d.e');
     assert.strictEqual(parsed.searchParams.get('subject'), 'S');
-    assert.strictEqual(parsed.searchParams.get('body'), null);
+    assert.strictEqual(parsed.searchParams.get('body'), 'B');
   });
 
-  it('does not place body in URL (CRLF body stays on clipboard path)', () => {
+  it('places multiline body in URL (CRLF) when it fits', () => {
     const u = buildOutlookWebComposeLink({ to: 'a@b.c', subject: '', body: 'one\ntwo' });
     const parsed = new URL(u);
-    assert.strictEqual(parsed.searchParams.get('body'), null);
+    assert.strictEqual(parsed.searchParams.get('body'), 'one\r\ntwo');
   });
 
-  it('does not lose apostrophes, ampersands or commas in subject', () => {
+  it('does not lose apostrophes, ampersands or commas in subject or body', () => {
     const sub = "Re: O'Brien, Smith & Co — urgent";
     const body = "Dear Sir,\nIt's urgent & required.";
     const u = buildOutlookWebComposeLink({ to: 'a@b.c', cc: '', subject: sub, body: body });
     const parsed = new URL(u);
     assert.strictEqual(parsed.searchParams.get('subject'), sub);
-    assert.strictEqual(parsed.searchParams.get('body'), null);
+    assert.strictEqual(parsed.searchParams.get('body'), body.replace(/\n/g, '\r\n'));
   });
 });
 
@@ -264,14 +264,16 @@ describe('openEmailDraft (mock env)', () => {
     assert.strictEqual(opened.length, 1);
   });
 
-  it('outlook-web copies body-only text to clipboard (not To/Subject header blob)', () => {
+  it('outlook-web places short body in compose URL (no clipboard paste required)', () => {
     var written = null;
+    var opened = [];
     var win = {
-      open: function () { return {}; },
+      open: function (u) { opened.push(u); return {}; },
       location: {},
     };
+    var body = 'Dear Officer,\nPlease reply.';
     var ok = openEmailDraft(
-      { to: 'o@police.uk', subject: 'Disclosure', body: 'Dear Officer,\nPlease reply.' },
+      { to: 'o@police.uk', subject: 'Disclosure', body: body },
       'outlook-web',
       {
         window: win,
@@ -286,8 +288,9 @@ describe('openEmailDraft (mock env)', () => {
       }
     );
     assert.strictEqual(ok, true);
-    assert.strictEqual(written, 'Dear Officer,\nPlease reply.');
-    assert.ok(!String(written).startsWith('To:'), 'must not paste To:/Subject: headers into Outlook body');
+    assert.strictEqual(written, null, 'short body must be in the URL, not clipboard-primary');
+    assert.strictEqual(opened.length, 1);
+    assert.strictEqual(new URL(opened[0]).searchParams.get('body'), body.replace(/\n/g, '\r\n'));
   });
 
   it('outlook-web returns false when window.open returns null (popup blocked)', () => {

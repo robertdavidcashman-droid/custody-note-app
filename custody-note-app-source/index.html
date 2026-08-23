@@ -619,15 +619,15 @@
           <div class="sections-index-content" style="max-width:420px;">
             <h3>Keyboard Shortcuts</h3>
             <table class="kb-table">
-              <tr><td><kbd>Ctrl</kbd>+<kbd>N</kbd></td><td>New attendance (Quick Capture)</td></tr>
-              <tr><td><kbd>Ctrl</kbd>+<kbd>Enter</kbd></td><td>Finalise current record</td></tr>
-              <tr><td><kbd>Ctrl</kbd>+<kbd>F</kbd></td><td>Focus search (in list)</td></tr>
+              <tr><td><kbd data-shortcut-mod>Ctrl</kbd>+<kbd>N</kbd></td><td>New attendance (Quick Capture)</td></tr>
+              <tr><td><kbd data-shortcut-mod>Ctrl</kbd>+<kbd>Enter</kbd></td><td>Finalise current record</td></tr>
+              <tr><td><kbd data-shortcut-mod>Ctrl</kbd>+<kbd>F</kbd></td><td>Focus search (in list)</td></tr>
               <tr><td><kbd>/</kbd></td><td>Quick search (in list)</td></tr>
               <tr><td><kbd>↑</kbd> / <kbd>↓</kbd></td><td>Navigate list items</td></tr>
               <tr><td><kbd>Enter</kbd></td><td>Open selected record (in list)</td></tr>
-              <tr><td><kbd>Ctrl</kbd>+<kbd>→</kbd></td><td>Next section</td></tr>
-              <tr><td><kbd>Ctrl</kbd>+<kbd>←</kbd></td><td>Previous section</td></tr>
-              <tr><td><kbd>Ctrl</kbd>+<kbd>S</kbd></td><td>Save &amp; exit</td></tr>
+              <tr><td><kbd data-shortcut-mod>Ctrl</kbd>+<kbd>→</kbd></td><td>Next section</td></tr>
+              <tr><td><kbd data-shortcut-mod>Ctrl</kbd>+<kbd>←</kbd></td><td>Previous section</td></tr>
+              <tr><td><kbd data-shortcut-mod>Ctrl</kbd>+<kbd>S</kbd></td><td>Save</td></tr>
               <tr><td><kbd>Esc</kbd></td><td>Clear search / close popup</td></tr>
             </table>
             <button type="button" id="kb-help-close" class="btn btn-secondary" style="margin-top:0.75rem;width:100%;">Close</button>
@@ -707,7 +707,7 @@
           <button type="button" id="form-prev" class="bottom-btn prev-btn" title="Previous section (Ctrl+&#8592;)">&#9664; Prev</button>
           <div id="section-progress-bar" class="section-progress-bar" style="display:none;"></div>
           <button type="button" id="form-sections-btn" class="bottom-btn sections-btn" title="Jump to section"><span id="form-section-indicator">Section 1/9</span></button>
-          <button type="button" id="form-save-exit" class="bottom-btn save-btn" title="Save and exit (Ctrl+S)" style="display:none;">Save</button>
+          <button type="button" id="form-save-exit" class="bottom-btn save-btn" title="Save &amp; exit" style="display:none;">Save</button>
           <button type="button" id="bottom-bar-finish-pill" class="bottom-btn finish-pill" style="display:none;" title="Finalise or finish this matter" aria-hidden="true"></button>
           <button type="button" id="form-next" class="bottom-btn next-btn" title="Next section (Ctrl+&#8594;)">Next &#9654;</button>
         </div>
@@ -1815,9 +1815,9 @@
               </ul>
               <h4>Keyboard Shortcuts</h4>
               <table class="help-kb-table">
-                <tr><td><kbd>Ctrl</kbd> + <kbd>&rarr;</kbd></td><td>Next section</td></tr>
-                <tr><td><kbd>Ctrl</kbd> + <kbd>&larr;</kbd></td><td>Previous section</td></tr>
-                <tr><td><kbd>Ctrl</kbd> + <kbd>S</kbd></td><td>Save and exit</td></tr>
+                <tr><td><kbd data-shortcut-mod>Ctrl</kbd> + <kbd>&rarr;</kbd></td><td>Next section</td></tr>
+                <tr><td><kbd data-shortcut-mod>Ctrl</kbd> + <kbd>&larr;</kbd></td><td>Previous section</td></tr>
+                <tr><td><kbd data-shortcut-mod>Ctrl</kbd> + <kbd>S</kbd></td><td>Save (does not exit)</td></tr>
                 <tr><td><kbd>Esc</kbd></td><td>Close popup / go back</td></tr>
               </table>
             </div>
@@ -1959,9 +1959,10 @@
               <p><strong>Cloud Backup</strong> is an optional add-on that automatically uploads your encrypted database to a secure UK data centre (AWS London).</p>
               <ul>
                 <li><strong>Incorruptible:</strong> Backups are protected by AWS Object Lock &mdash; once uploaded, nobody (not even us) can delete or modify them. Ever.</li>
-                <li><strong>Encrypted:</strong> Your data is encrypted on your computer before upload. We cannot read your backups.</li>
-                <li><strong>Isolated:</strong> Only your licence key can access your backups. No other subscriber can see your data (SRA-compliant).</li>
-                <li><strong>Restore:</strong> If your computer fails, install Custody Note on a new machine, enter your licence key, and restore from the cloud. You will need your recovery password.</li>
+                <li><strong>Encrypted:</strong> Your database is encrypted on your computer with AES-256-GCM before upload. Custody Note staff cannot open the ciphertext without the wrapping material used for recovery.</li>
+                <li><strong>Key recovery (honest):</strong> Cross-device sync can store a copy of your database master key wrapped with your <em>licence key</em> (not a zero-knowledge recovery-password vault). Anyone with your licence key and cloud recovery access can unwrap that key. Set a strong recovery password for local restore, and treat your licence key as sensitive.</li>
+                <li><strong>Isolated:</strong> Cloud object storage is scoped per licence. No other subscriber can see your backup objects.</li>
+                <li><strong>Restore:</strong> If your computer fails, install Custody Note on a new machine, enter your licence key, and restore from the cloud. You will typically need your recovery password for local decrypt flows.</li>
               </ul>
               <p>Managed cloud backup is planned for Pro after beta. During beta, use local and optional folder backups under <strong>Settings &gt; Backup</strong>. See <a href="#" data-ext-href="https://custodynote.com/pricing">custodynote.com/pricing</a> for the beta plan.</p>
               <p style="margin-top:0.75rem;padding:0.75rem;background:#eff6ff;border-radius:6px;border:1px solid #93c5fd;font-size:0.9rem;"><strong>Beta:</strong> Free during beta. No credit card. Paid Pro planned after beta. If you already hold a Pro-capable licence key, cloud backup may activate after entitlement refresh.</p>
@@ -2225,6 +2226,7 @@
   <script src="lib/laaDeclarationPdf.js"></script>
   <script src="lib/clientSignatureAttachment.js"></script>
   <script src="lib/officerEmailTemplateOptions.js"></script>
+  <script src="lib/sessionBlankerPolicy.js"></script>
   <script src="app.js"></script>
   <script src="renderer/views/officerEmailsPanel.js"></script>
   <script src="renderer/views/officerEmailsStandalone.js"></script>

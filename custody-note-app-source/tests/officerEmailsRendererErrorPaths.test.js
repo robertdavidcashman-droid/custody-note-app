@@ -34,7 +34,7 @@ const STANDALONE_SRC = fs.readFileSync(path.join(ROOT, 'renderer/views/officerEm
 describe('officerEmailsPanel — silent failure path instrumentation (source)', () => {
   it('wraps openOutlookDraft promise with a .catch so IPC rejections surface', () => {
     assert.ok(
-      /openOutlookDraft\(selectedDraftId\)[\s\S]{0,2000}\.catch\(/.test(PANEL_SRC),
+      /openOutlookDraft\(selectedDraftId(?:,\s*collectFields\(\))?\)[\s\S]{0,2000}\.catch\(/.test(PANEL_SRC),
       'openOutlookDraft must be followed by a .catch handler'
     );
   });
@@ -73,18 +73,19 @@ describe('officerEmailsPanel — silent failure path instrumentation (source)', 
     assert.ok(/saveDraft rejected before Outlook open/.test(PANEL_SRC));
   });
 
-  it('toasts that body was copied for paste after Outlook open', () => {
+  it('toasts that the message was opened in Outlook with the body included', () => {
     assert.ok(
-      PANEL_SRC.includes('Message body copied to clipboard'),
-      'success toast must tell the user the body is on the clipboard'
+      PANEL_SRC.includes('Opened in Outlook Web with your message')
+        || PANEL_SRC.includes('Opened Outlook draft with your message'),
+      'success toast must confirm the message body was placed in Outlook'
     );
     assert.ok(
-      PANEL_SRC.includes('paste into the body'),
-      'success toast must instruct paste into Outlook body'
+      !PANEL_SRC.includes('Message body copied to clipboard'),
+      'must not use clipboard-paste toast as the primary Open Outlook UX'
     );
     assert.ok(
-      !PANEL_SRC.includes('full email was copied to your clipboard'),
-      'must not claim full To/Subject/body blob was copied (breaks Outlook paste)'
+      !PANEL_SRC.includes('paste into the body'),
+      'must not instruct users to paste the body as the primary path'
     );
   });
 });
@@ -114,23 +115,28 @@ describe('officerEmailsStandalone — silent failure path instrumentation (sourc
     assert.ok(/showConfirm rejected/.test(STANDALONE_SRC));
   });
 
-  it('toasts that body was copied for paste after Outlook open', () => {
-    assert.ok(STANDALONE_SRC.includes('Message body copied to clipboard'));
-    assert.ok(!STANDALONE_SRC.includes('full email was copied to your clipboard'));
+  it('toasts that the message was opened in Outlook with the body included', () => {
+    assert.ok(
+      STANDALONE_SRC.includes('Opened in Outlook Web with your message')
+        || STANDALONE_SRC.includes('Opened Outlook draft with your message')
+    );
+    assert.ok(!STANDALONE_SRC.includes('Message body copied to clipboard'));
   });
 });
 
 describe('main.js — officer Outlook handlers log the URL hand-off', () => {
   const main = fs.readFileSync(path.join(ROOT, 'main.js'), 'utf8');
 
-  it('panel handler logs invoking openExternalUrl and the resolved method', () => {
-    assert.ok(main.includes("[officer-email-drafts-open-outlook] invoking openExternalUrl"));
-    assert.ok(main.includes("[officer-email-drafts-open-outlook] openExternalUrl resolved"));
+  it('shared helper logs openExternalUrl / .eml hand-off with the caller logTag', () => {
+    assert.ok(main.includes('async function _openOfficerEmailInOutlook'));
+    assert.ok(main.includes("'] invoking openExternalUrl'"));
+    assert.ok(main.includes("'] openExternalUrl resolved'"));
+    assert.ok(main.includes("'] opening .eml draft'"));
   });
 
-  it('one-off handler logs invoking openExternalUrl and the resolved method', () => {
-    assert.ok(main.includes("[officer-email-drafts-open-one-off-outlook] invoking openExternalUrl"));
-    assert.ok(main.includes("[officer-email-drafts-open-one-off-outlook] openExternalUrl resolved"));
+  it('panel and one-off handlers call the shared helper with distinct log tags', () => {
+    assert.ok(main.includes("_openOfficerEmailInOutlook(toT, subT, bodyT, 'officer-email-drafts-open-outlook')"));
+    assert.ok(main.includes("_openOfficerEmailInOutlook(toT, subT, bodyT, 'officer-email-drafts-open-one-off-outlook')"));
   });
 
   it('panel handler returns openMethod in the IPC response so renderer can toast', () => {

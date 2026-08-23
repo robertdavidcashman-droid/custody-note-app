@@ -1,6 +1,6 @@
 'use strict';
 
-const { buildOutlookWebComposeUrl } = require('./outlookWebCompose');
+const { prepareOutlookComposeForOpen } = require('./outlookWebCompose');
 
 /**
  * Pending email draft + mailto / Outlook Web compose URL helpers.
@@ -40,12 +40,14 @@ function buildMailtoLink(draft) {
 
 function buildOutlookWebComposeLink(draft) {
   var d = normalizeDraft(draft);
-  return buildOutlookWebComposeUrl({
+  /* Renderer / copy-link path: put body in OWA when it fits. Electron Open
+     Outlook uses main-process .eml (preferEmlForBody default). */
+  return prepareOutlookComposeForOpen({
     to: d.to,
     cc: d.cc,
     subject: d.subject,
     body: d.body,
-  }, { includeBody: false });
+  }, { preferEmlForBody: false }).url;
 }
 
 function savePendingEmailDraft(draft, storage) {
@@ -122,11 +124,19 @@ function openEmailDraft(draft, mode, env) {
 
   try {
     if (m === 'outlook-web') {
-      if (d.body) {
+      var prepared = prepareOutlookComposeForOpen({
+        to: d.to,
+        cc: d.cc,
+        subject: d.subject,
+        body: d.body,
+      }, { preferEmlForBody: false });
+      link = prepared.url;
+      /* Body already in URL when method is outlook-web. Clipboard only as a
+         last-resort aid when the body does not fit in the OWA URL. */
+      if (d.body && prepared.method !== 'outlook-web') {
         try {
           var clipEnv = env || {};
           var nav = clipEnv.navigator || (typeof navigator !== 'undefined' ? navigator : null);
-          /* Body only — To/Subject are in the subject-only compose URL. */
           if (nav && nav.clipboard && nav.clipboard.writeText) {
             nav.clipboard.writeText(String(d.body || '')).catch(function () {});
           }

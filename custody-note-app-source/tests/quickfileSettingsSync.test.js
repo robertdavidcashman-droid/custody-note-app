@@ -2,8 +2,6 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert');
-const fs = require('fs');
-const path = require('path');
 const sync = require('../lib/quickfileSettingsSync');
 
 describe('quickfileSettingsSync (full user settings)', () => {
@@ -13,6 +11,8 @@ describe('quickfileSettingsSync (full user settings)', () => {
     quickfileApiKey: 'secret-api-key',
     quickfileAppId: 'app-id-99',
     openaiApiKey: 'sk-test-openai',
+    dsccPin: '9999',
+    scratchpadText: 'client note — do not sync',
     email: 'me@example.com',
     darkMode: 'true',
     feeEarnerNameDefault: 'Rob',
@@ -22,11 +22,24 @@ describe('quickfileSettingsSync (full user settings)', () => {
     const blob = sync.encryptQuickFileSettings(key, settings);
     assert.ok(typeof blob === 'string' && blob.length > 20);
     const out = sync.decryptQuickFileSettings(key, blob);
-    assert.equal(out.quickfileApiKey, 'secret-api-key');
-    assert.equal(out.openaiApiKey, 'sk-test-openai');
     assert.equal(out.email, 'me@example.com');
     assert.equal(out.darkMode, 'true');
+    assert.equal(out.feeEarnerNameDefault, 'Rob');
     assert.equal(out.backupFolder, undefined);
+  });
+
+  it('does not sync privileged secrets or scratchpad text', () => {
+    const picked = sync.pickSyncableSettings(settings);
+    assert.equal(picked.openaiApiKey, undefined);
+    assert.equal(picked.quickfileApiKey, undefined);
+    assert.equal(picked.quickfileAccountNumber, undefined);
+    assert.equal(picked.quickfileAppId, undefined);
+    assert.equal(picked.dsccPin, undefined);
+    assert.equal(picked.scratchpadText, undefined);
+    for (const k of sync.NEVER_SYNC_SETTINGS_KEYS) {
+      assert.ok(sync.MACHINE_LOCAL_SETTINGS_KEYS.includes(k), k + ' must be machine-local');
+      assert.ok(!sync.SYNCABLE_SETTINGS_KEYS.includes(k), k + ' must not be syncable');
+    }
   });
 
   it('excludes machine-local keys from pickSyncableSettings', () => {
@@ -46,7 +59,7 @@ describe('quickfileSettingsSync (full user settings)', () => {
     assert.equal(out, null);
   });
 
-  it('push posts encrypted blob', async () => {
+  it('push posts encrypted blob without secrets', async () => {
     let posted = null;
     const httpPost = function (url, body) {
       posted = { url: url, body: body };
@@ -62,17 +75,23 @@ describe('quickfileSettingsSync (full user settings)', () => {
     assert.equal(result.ok, true);
     assert.ok(posted.url.endsWith('/api/settings/quickfile'));
     const dec = sync.decryptQuickFileSettings(key, posted.body.blob);
-    assert.equal(dec.openaiApiKey, 'sk-test-openai');
     assert.equal(dec.email, 'me@example.com');
+    assert.equal(dec.openaiApiKey, undefined);
+    assert.equal(dec.quickfileApiKey, undefined);
+    assert.equal(dec.dsccPin, undefined);
+    assert.equal(dec.scratchpadText, undefined);
   });
 
   it('hasAnySyncableContent detects empty vs populated', () => {
     assert.equal(sync.hasAnySyncableContent({}), false);
     assert.equal(sync.hasAnySyncableContent({ email: 'x@y.z' }), true);
+    assert.equal(sync.hasAnySyncableContent({ openaiApiKey: 'sk-x' }), false);
   });
 });
 
 describe('main.js user settings sync wiring', () => {
+  const fs = require('fs');
+  const path = require('path');
   const main = fs.readFileSync(path.join(__dirname, '..', 'main.js'), 'utf8');
 
   it('defines ensure/push/schedule sync helpers', () => {

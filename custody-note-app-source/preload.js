@@ -60,6 +60,8 @@ const custodyEmailComposeDraft = (function buildEmailComposeDraft() {
   }
 
   /* Must mirror lib/outlookWebCompose.js (see tests/preloadOutlookWebComposeParity.test.js). */
+  var OUTLOOK_WEB_COMPOSE_URL_MAX_SAFE_LENGTH = 1800;
+
   function normalizeBodyToCrlf(body) {
     return String(body == null ? '' : body)
       .replace(/\r\n/g, '\n')
@@ -85,14 +87,55 @@ const custodyEmailComposeDraft = (function buildEmailComposeDraft() {
       : 'https://outlook.office.com/mail/0/deeplink/compose';
   }
 
+  function prepareOutlookComposeForOpen(fields, optionsOrMax) {
+    var f = fields || {};
+    var maxLen = OUTLOOK_WEB_COMPOSE_URL_MAX_SAFE_LENGTH;
+    var preferEmlForBody = true;
+    if (typeof optionsOrMax === 'number' && optionsOrMax > 0) maxLen = optionsOrMax;
+    else if (optionsOrMax && typeof optionsOrMax === 'object') {
+      if (typeof optionsOrMax.maxUrlLength === 'number' && optionsOrMax.maxUrlLength > 0) {
+        maxLen = optionsOrMax.maxUrlLength;
+      }
+      if (optionsOrMax.preferEmlForBody === false) preferEmlForBody = false;
+    }
+    var toS = String(f.to != null ? f.to : '').trim();
+    var ccS = String(f.cc != null ? f.cc : '');
+    var subS = String(f.subject != null ? f.subject : '');
+    var rawBody = String(f.body != null ? f.body : '');
+    var hasBody = Boolean(rawBody.trim());
+    var urlWithBody = buildOutlookWebComposeUrl(
+      { to: toS, cc: ccS, subject: subS, body: rawBody },
+      { includeBody: true }
+    );
+    var subjectOnlyUrl = buildOutlookWebComposeUrl(
+      { to: toS, cc: ccS, subject: subS, body: '' },
+      { includeBody: false }
+    );
+    if (hasBody && preferEmlForBody) {
+      return {
+        method: 'outlook-desktop-eml',
+        url: subjectOnlyUrl,
+        bodyPlacedInCompose: true,
+      };
+    }
+    if (!hasBody || urlWithBody.length <= maxLen) {
+      return { method: 'outlook-web', url: urlWithBody, bodyPlacedInCompose: hasBody };
+    }
+    return {
+      method: 'outlook-desktop-eml',
+      url: subjectOnlyUrl,
+      bodyPlacedInCompose: true,
+    };
+  }
+
   function buildOutlookWebComposeLink(draft) {
     var d = normalizeDraft(draft);
-    return buildOutlookWebComposeUrl({
+    return prepareOutlookComposeForOpen({
       to: d.to,
       cc: d.cc,
       subject: d.subject,
       body: d.body,
-    }, { includeBody: false });
+    }).url;
   }
 
   function savePendingEmailDraft(draft, storage) {
@@ -157,11 +200,17 @@ const custodyEmailComposeDraft = (function buildEmailComposeDraft() {
 
     try {
       if (m === 'outlook-web') {
-        if (d.body) {
+        var prepared = prepareOutlookComposeForOpen({
+          to: d.to,
+          cc: d.cc,
+          subject: d.subject,
+          body: d.body,
+        });
+        link = prepared.url;
+        if (d.body && prepared.method !== 'outlook-web') {
           try {
             var clipEnv = env || {};
             var nav = clipEnv.navigator || (typeof navigator !== 'undefined' ? navigator : null);
-            /* Body only — To/Subject are in the subject-only compose URL. */
             if (nav && nav.clipboard && nav.clipboard.writeText) {
               nav.clipboard.writeText(String(d.body || '')).catch(function () {});
             }
@@ -257,7 +306,7 @@ contextBridge.exposeInMainWorld('api', {
     deleteDraft: (id) => ipcRenderer.invoke('officer-email-drafts-delete', id),
     markOpenedInOutlook: (id) => ipcRenderer.invoke('officer-email-drafts-mark-opened', id),
     markSentManually: (id) => ipcRenderer.invoke('officer-email-drafts-mark-sent-manually', id),
-    openOutlookDraft: (id) => ipcRenderer.invoke('officer-email-drafts-open-outlook', id),
+    openOutlookDraft: (id, liveFields) => ipcRenderer.invoke('officer-email-drafts-open-outlook', id, liveFields || null),
     openOneOffOutlook: (fields) => ipcRenderer.invoke('officer-email-drafts-open-one-off-outlook', fields),
     getComposeUrl: (payload) => ipcRenderer.invoke('officer-email-drafts-compose-url', payload),
     copyText: (text) => ipcRenderer.invoke('officer-email-drafts-copy', text),

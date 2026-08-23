@@ -210,8 +210,8 @@ describe('Performance — compact bottom bar', () => {
       'sections button should not have long "Sections" label');
     assert.ok(indexHtmlSource.includes('title="Jump to section"'),
       'sections button should have a tooltip');
-    assert.ok(indexHtmlSource.includes('title="Save and exit (Ctrl+S)"'),
-      'save button should show keyboard shortcut in tooltip');
+    assert.ok(indexHtmlSource.includes('title="Save &amp; exit"'),
+      'save-exit button should keep Save & exit tooltip without claiming Ctrl+S exits');
   });
 });
 

@@ -36,8 +36,8 @@ describe('security hardening regressions', () => {
       'body in URL must be opt-in only'
     );
     assert.ok(
-      src.includes('truncated: hasBody') || src.includes('truncated: hasBody,'),
-      'truncated flag must reflect body-on-clipboard semantics'
+      src.includes('preferEmlForBody') && src.includes('outlook-desktop-eml'),
+      'Open path must prefer .eml so confidential bodies are not URL-primary'
     );
   });
 

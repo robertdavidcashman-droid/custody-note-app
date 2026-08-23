@@ -501,7 +501,7 @@
     function doOpen() {
       var promise;
       try {
-        promise = window.api.officerEmails.openOutlookDraft(selectedDraftId);
+        promise = window.api.officerEmails.openOutlookDraft(selectedDraftId, collectFields());
       } catch (syncErr) {
         try { console.error('[officerEmailsPanel] openOutlookDraft threw synchronously', syncErr); } catch (_) {}
         reportFatal('openOutlookDraft sync throw', (syncErr && syncErr.message) || String(syncErr));
@@ -522,12 +522,10 @@
           return;
         }
         if (typeof showToast === 'function') {
-          var openedMsg = 'Opened in browser — complete send in Outlook';
-          if (res.truncated) {
-            openedMsg =
-              'Opened in Outlook Web. Message body copied to clipboard — paste into the body (Ctrl+V / Cmd+V).';
-          }
-          showToast(openedMsg, 'success', res.truncated ? 9000 : 5000);
+          var openedMsg = res.method === 'outlook-desktop-eml'
+            ? 'Opened Outlook draft with your message — review and send'
+            : 'Opened in Outlook Web with your message — review and send';
+          showToast(openedMsg, 'success', 5000);
         } else {
           try { console.warn('[officerEmailsPanel] openOutlookDraft ok but showToast undefined'); } catch (_) {}
         }
@@ -620,11 +618,13 @@
       if (typeof showToast === 'function') showToast('Copy Outlook link is not available.', 'error');
       return;
     }
-    function onCopied(truncated) {
+    function onCopied(truncated, method) {
       var msg = 'Outlook compose link copied to clipboard.';
-      if (truncated) {
+      if (method === 'outlook-desktop-eml' || truncated) {
         msg +=
-          ' The link is subject-only for privacy; use Open in Outlook Web to copy the message body to the clipboard automatically.';
+          ' This link is recipient/subject only because the message is long — use Open Outlook to open a full draft with the body.';
+      } else {
+        msg += ' The link includes your message body.';
       }
       if (typeof showToast === 'function') showToast(msg, 'success', truncated ? 9000 : 4000);
     }
@@ -639,20 +639,21 @@
         }
         var url = res.url != null ? String(res.url) : '';
         var truncated = !!res.truncated;
+        var method = res.method || '';
         if (navigator.clipboard && navigator.clipboard.writeText) {
           navigator.clipboard.writeText(url).then(function () {
-            onCopied(truncated);
+            onCopied(truncated, method);
           }).catch(function () {
             if (window.api.officerEmails.copyText) {
               window.api.officerEmails.copyText(url).then(function (r) {
-                if (r && r.ok) onCopied(truncated);
+                if (r && r.ok) onCopied(truncated, method);
                 else if (typeof showToast === 'function') showToast('Could not copy link.', 'error');
               });
             }
           });
         } else if (window.api.officerEmails.copyText) {
           window.api.officerEmails.copyText(url).then(function (r) {
-            if (r && r.ok) onCopied(truncated);
+            if (r && r.ok) onCopied(truncated, method);
             else if (typeof showToast === 'function') showToast('Could not copy link.', 'error');
           });
         }

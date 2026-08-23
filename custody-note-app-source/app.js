@@ -5866,7 +5866,14 @@ var REQUIRED_FIELD_KEYS = [
 
       var idleEl = document.getElementById('setting-idle-timeout');
       if (idleEl) {
-        idleEl.value = s.idleTimeoutMinutes || '0';
+        // Match runtime default in session-lock (_IDLE_DEFAULT_MINUTES = 10):
+        // unset/empty means 10 minutes, not Disabled. Explicit "0" stays Disabled.
+        var idleRaw = s.idleTimeoutMinutes;
+        if (idleRaw === undefined || idleRaw === null || idleRaw === '') {
+          idleEl.value = '10';
+        } else {
+          idleEl.value = String(idleRaw);
+        }
         if (!idleEl._idleListenerAttached) {
           idleEl._idleListenerAttached = true;
           idleEl.addEventListener('change', function() {
@@ -15729,13 +15736,30 @@ pdfAuditFooterHtml(d, settings) +
   }
 
   function initKeyboardShortcuts() {
+    /* Accept Ctrl (Windows/Linux) or Meta/Cmd (macOS) for the same shortcuts. */
+    function modPressed(e) { return !!(e && (e.ctrlKey || e.metaKey)); }
+    var shortcutModLabel = (/Mac|iPhone|iPad|iPod/i.test(navigator.platform || '') ||
+      /Mac OS X/i.test(navigator.userAgent || '')) ? 'Cmd' : 'Ctrl';
+    try {
+      document.querySelectorAll('[data-shortcut-mod]').forEach(function(el) {
+        el.textContent = shortcutModLabel;
+      });
+      var saveExitTitle = document.getElementById('form-save-exit');
+      if (saveExitTitle) {
+        saveExitTitle.title = 'Save & exit';
+      }
+      var formPrev = document.getElementById('form-prev');
+      if (formPrev) formPrev.title = 'Previous section (' + shortcutModLabel + '+←)';
+      var formNext = document.getElementById('form-next');
+      if (formNext) formNext.title = 'Next section (' + shortcutModLabel + '+→)';
+    } catch (_) {}
     document.addEventListener('keydown', (e) => {
       if (e.altKey && e.key === 'ArrowLeft') {
         e.preventDefault();
         goBack();
         return;
       }
-      if (e.ctrlKey && e.shiftKey && e.key === 'D') {
+      if (modPressed(e) && e.shiftKey && e.key === 'D') {
         e.preventDefault();
         var ov = document.getElementById('sync-diagnostics-overlay');
         if (ov && ov.style.display === 'none') {
@@ -15745,19 +15769,19 @@ pdfAuditFooterHtml(d, settings) +
           ov.style.display = 'none';
         }
       }
-      if (e.ctrlKey && e.shiftKey && e.key === 'P') {
+      if (modPressed(e) && e.shiftKey && e.key === 'P') {
         e.preventDefault();
         togglePerformancePanel();
         return;
       }
-      /* NEW: Ctrl+N = New record (from any view) */
-      if (e.ctrlKey && e.key === 'n') {
+      /* Cmd/Ctrl+N = New record (from any view) */
+      if (modPressed(e) && e.key === 'n') {
         e.preventDefault();
         showView('quickcapture');
         return;
       }
-      /* NEW: Ctrl+F = Focus search in list view */
-      if (e.ctrlKey && e.key === 'f') {
+      /* Cmd/Ctrl+F = Focus search in list view */
+      if (modPressed(e) && e.key === 'f') {
         const listView = document.getElementById('view-list');
         if (listView && listView.classList.contains('active')) {
           e.preventDefault();
@@ -15769,7 +15793,7 @@ pdfAuditFooterHtml(d, settings) +
         }
         return;
       }
-      /* NEW: / = Quick focus search in list */
+      /* / = Quick focus search in list */
       if (e.key === '/' && !e.ctrlKey && !e.altKey && !e.metaKey) {
         const listView = document.getElementById('view-list');
         const activeEl = document.activeElement;
@@ -15811,7 +15835,7 @@ pdfAuditFooterHtml(d, settings) +
       });
     });
     document.addEventListener('keydown', (e) => {
-      if (e.ctrlKey && e.shiftKey && e.key === 'B') {
+      if (modPressed(e) && e.shiftKey && e.key === 'B') {
         e.preventDefault();
         window.api.backupNow().then(function(p) { showToast('Backup saved: ' + p, 'success'); }).catch(function(err) { showToast('Failed: ' + (err && err.message), 'error'); });
         return;
@@ -15819,8 +15843,8 @@ pdfAuditFooterHtml(d, settings) +
       const formViewActive = document.getElementById('view-form')?.classList.contains('active');
       if (!formViewActive) return;
 
-      /* NEW: Ctrl+Enter = Finalise record */
-      if (e.ctrlKey && e.key === 'Enter') {
+      /* Cmd/Ctrl+Enter = Finalise record */
+      if (modPressed(e) && e.key === 'Enter') {
         e.preventDefault();
         if (currentAttendanceId && !isNoteLockedForEditing()) {
           // H8 — saveForm expects a string status; passing boolean `true` was
@@ -15836,15 +15860,16 @@ pdfAuditFooterHtml(d, settings) +
         return;
       }
 
-      if (e.ctrlKey && e.key === 's') {
+      /* Cmd/Ctrl+S = quiet save (does not exit — matches custody-desk safety) */
+      if (modPressed(e) && e.key === 's') {
         e.preventDefault();
         quietSave();
       }
-      if (e.ctrlKey && e.key === 'ArrowRight') {
+      if (modPressed(e) && e.key === 'ArrowRight') {
         e.preventDefault();
         showSection(currentSectionIdx + 1);
       }
-      if (e.ctrlKey && e.key === 'ArrowLeft') {
+      if (modPressed(e) && e.key === 'ArrowLeft') {
         e.preventDefault();
         showSection(currentSectionIdx - 1);
       }
@@ -19275,7 +19300,7 @@ pdfAuditFooterHtml(d, settings) +
           window.api.setSettings({ [key]: val }).then(function () {
             showSettingsSavedToast();
             /* Main process also debounces cloud push for syncable keys. */
-            if (window.api.quickfileSettingsPush && (key === 'openaiApiKey' || key.indexOf('quickfile') === 0 || key === 'email' || key === 'dsccPin' || key === 'officePostcode' || key === 'feeEarnerNameDefault')) {
+            if (window.api.quickfileSettingsPush && (key === 'email' || key === 'officePostcode' || key === 'feeEarnerNameDefault')) {
               window.api.quickfileSettingsPush().catch(function () {});
             }
           }).catch(function(e) { console.error('[setSettings]', e); });
@@ -20117,10 +20142,102 @@ pdfAuditFooterHtml(d, settings) +
     } catch (_) {}
   }
 
+  function _gatherCredentialFreeBlankerState() {
+    var formView = document.getElementById('view-form');
+    var listView = document.getElementById('view-list');
+    var homeView = document.getElementById('view-home');
+    var qcView = document.getElementById('view-quickcapture');
+    var ctx = document.getElementById('form-context-bar');
+    var homeActive = document.getElementById('home-active-matters');
+    var homeRecent = document.getElementById('home-recent-list');
+    var homeFocusMeta = document.getElementById('home-focus-meta');
+    var listHasRows = false;
+    if (listView && listView.classList.contains('active')) {
+      /* Rows are plain li[data-id] with .list-item-text children — not .list-item. */
+      listHasRows = !!(listView.querySelector('#attendance-list li[data-id]'));
+    }
+    var qcHasClientData = false;
+    if (qcView && qcView.classList.contains('active')) {
+      var qcIds = ['qc-forename', 'qc-surname', 'qc-offence', 'qc-dscc'];
+      for (var qi = 0; qi < qcIds.length; qi++) {
+        var qcEl = document.getElementById(qcIds[qi]);
+        if (qcEl && String(qcEl.value || '').trim()) {
+          qcHasClientData = true;
+          break;
+        }
+      }
+    }
+    var homeHasActive = false;
+    var homeHasRecent = false;
+    var homeFocusHasClient = false;
+    if (homeView && homeView.classList.contains('active')) {
+      if (homeActive) homeHasActive = !!homeActive.querySelector('.home-active-item');
+      if (homeRecent) homeHasRecent = !!homeRecent.querySelector('.home-recent-item');
+      if (homeFocusMeta) {
+        var focusText = String(homeFocusMeta.textContent || '').trim();
+        /* Placeholder copy is safe; any other meta text may include a client name. */
+        homeFocusHasClient = !!(focusText
+          && focusText !== 'Checking your most recent record.'
+          && focusText !== 'No active draft needs attention right now.');
+      }
+    }
+    var meaningful = false;
+    try {
+      if (typeof hasMeaningfulData === 'function' && typeof formData !== 'undefined') {
+        meaningful = !!hasMeaningfulData(formData);
+      } else if (typeof formData !== 'undefined' && formData) {
+        var d = formData;
+        meaningful = !!(
+          (d.surname && String(d.surname).trim()) ||
+          (d.forename && String(d.forename).trim()) ||
+          (d.ufn && String(d.ufn).trim()) ||
+          (d.custodyNumber && String(d.custodyNumber).trim()) ||
+          (d.dsccRef && String(d.dsccRef).trim()) ||
+          (d.offenceSummary && String(d.offenceSummary).trim())
+        );
+      }
+    } catch (_) {}
+    return {
+      formViewActive: !!(formView && formView.classList.contains('active')),
+      hasOpenAttendance: !!(typeof currentAttendanceId !== 'undefined' && currentAttendanceId),
+      hasMeaningfulFormData: meaningful,
+      formContextBarHasText: !!(ctx && (ctx.textContent || '').trim()),
+      listViewActive: !!(listView && listView.classList.contains('active')),
+      listHasRows: listHasRows,
+      quickCaptureViewActive: !!(qcView && qcView.classList.contains('active')),
+      quickCaptureHasClientData: qcHasClientData,
+      homeViewActive: !!(homeView && homeView.classList.contains('active')),
+      homeHasActiveMatters: homeHasActive,
+      homeHasRecentCases: homeHasRecent,
+      homeFocusHasClientText: homeFocusHasClient,
+    };
+  }
+
   function _showCredentialFreeBlanker(reason) {
     try {
       var existing = document.getElementById('cn-credentialfree-blanker');
       if (existing) return;
+      var policy = (typeof window !== 'undefined' && window.SessionBlankerPolicy)
+        ? window.SessionBlankerPolicy
+        : null;
+      var allowDismiss = true;
+      try {
+        var state = _gatherCredentialFreeBlankerState();
+        if (policy && typeof policy.mayDismissCredentialFreeBlanker === 'function') {
+          allowDismiss = policy.mayDismissCredentialFreeBlanker(state);
+        } else if (state.formViewActive && (state.hasOpenAttendance || state.hasMeaningfulFormData || state.formContextBarHasText)) {
+          allowDismiss = false;
+        } else if (state.listViewActive && state.listHasRows) {
+          allowDismiss = false;
+        } else if (state.quickCaptureViewActive && state.quickCaptureHasClientData) {
+          allowDismiss = false;
+        } else if (state.homeViewActive && (state.homeHasActiveMatters || state.homeHasRecentCases || state.homeFocusHasClientText)) {
+          allowDismiss = false;
+        }
+      } catch (_) {
+        /* Fail closed: if we cannot prove the screen is empty, block dismiss. */
+        allowDismiss = false;
+      }
       var div = document.createElement('div');
       div.id = 'cn-credentialfree-blanker';
       div.setAttribute('role', 'alertdialog');
@@ -20129,17 +20246,26 @@ pdfAuditFooterHtml(d, settings) +
         'position:fixed;inset:0;z-index:2147483647;background:#0f172a;color:#f8fafc;'
         + 'display:flex;align-items:center;justify-content:center;flex-direction:column;'
         + 'font-family:Segoe UI,Arial,sans-serif;padding:2rem;text-align:center;';
-      div.innerHTML =
+      var bodyHtml =
         '<h2 style="margin:0 0 1rem;font-size:1.5rem;">Session locked</h2>'
         + '<p style="max-width:36rem;line-height:1.5;">'
         + 'CustodyNote was locked because the operating system reported a '
         + (reason ? '<code>' + reason.replace(/[<>&]/g, '') + '</code>' : 'lock event')
         + '. To unlock, set a recovery password or admin password in Settings &gt; Security '
-        + 'and re-open the app.</p>'
-        + '<button type="button" id="cn-credentialfree-dismiss" '
-        + 'style="margin-top:1.5rem;padding:0.5rem 1.25rem;border:1px solid #475569;'
-        + 'background:#1e293b;color:#f8fafc;border-radius:6px;cursor:pointer;">'
-        + 'Dismiss (no real client data)</button>';
+        + 'and re-open the app.</p>';
+      if (allowDismiss) {
+        bodyHtml +=
+          '<button type="button" id="cn-credentialfree-dismiss" '
+          + 'style="margin-top:1.5rem;padding:0.5rem 1.25rem;border:1px solid #475569;'
+          + 'background:#1e293b;color:#f8fafc;border-radius:6px;cursor:pointer;">'
+          + 'Dismiss (no real client data)</button>';
+      } else {
+        bodyHtml +=
+          '<p style="max-width:36rem;margin-top:1.25rem;line-height:1.5;color:#cbd5e1;">'
+          + 'Client or case data may be on screen, so this lock cannot be dismissed. '
+          + 'Set a recovery or admin password in Settings &gt; Security, then unlock properly.</p>';
+      }
+      div.innerHTML = bodyHtml;
       document.body.appendChild(div);
       var btn = document.getElementById('cn-credentialfree-dismiss');
       if (btn) btn.addEventListener('click', function() {

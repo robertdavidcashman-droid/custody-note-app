@@ -33,7 +33,10 @@ describe('Officer Emails standalone view', () => {
   it('opens one-off Outlook compose without requiring a custody note draft', () => {
     assert.ok(main.includes("'officer-email-drafts-open-one-off-outlook'"));
     assert.ok(main.includes('normaliseOfficerEmailDraft(fields || {})'));
-    assert.ok(main.includes('truncateOutlookComposeForShellOpen'));
+    assert.ok(
+      main.includes('prepareOutlookComposeForOpen') || main.includes('_openOfficerEmailInOutlook'),
+      'one-off open must prepare compose with body in Outlook'
+    );
   });
 
   it('includes attendance time field in standalone form', () => {

@@ -1,9 +1,29 @@
 {
   "releases": [
     {
+      "version": "1.9.71",
+      "date": "2026-08-23",
+      "latest": true,
+      "changes": [
+        "Open Outlook places the current email-box body into compose via an Outlook draft (.eml) — no more empty compose / clipboard paste",
+        "Officer Emails pass live textarea fields into Open Outlook so edited text is never lost to a stale draft save",
+        "Session lock blanker fail-closed when client/case data is visible; DB flush on OS lock; Backups folder auto-created so scheduled backups run",
+        "Mac Cmd+shortcuts work (Ctrl unchanged on Windows); OpenAI/QuickFile/DSCC secrets no longer sync across devices",
+        "Sole publisher / updater feed: robertdavidcashman-droid/custody-note-app"
+      ]
+    },
+    {
+      "version": "1.9.70",
+      "date": "2026-08-22",
+      "latest": false,
+      "changes": [
+        "Ported from bit: OWA body=/ .eml Outlook compose attempt (superseded by 1.9.71 .eml-first Open path)"
+      ]
+    },
+    {
       "version": "1.9.69",
       "date": "2026-08-21",
-      "latest": true,
+      "latest": false,
       "changes": [
         "Officer Emails now copy the email body only so paste into Outlook includes the template body"
       ]

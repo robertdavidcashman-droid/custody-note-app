@@ -47,9 +47,9 @@
     }
   }, 9000);
 
-  // 6. Admin panel toggle: Ctrl+Shift+A
+  // 6. Admin panel toggle: Ctrl/Cmd+Shift+A
   document.addEventListener('keydown', function (e) {
-    if (e.ctrlKey && e.shiftKey && e.key === 'A') {
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'A') {
       e.preventDefault();
       var panel = document.getElementById('admin-licence-panel');
       if (panel) {

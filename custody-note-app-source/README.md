@@ -4,7 +4,7 @@ Custody Note is an LAA-compliant desktop app for recording custody notes and pol
 
 ## Current status
 
-**Production** (v1.9.67). Electron desktop app (Mac + Windows). Related projects: marketing/licence site (`~/custody-note-website`) and the companion PWA (`~/custodynote-anywhere`). Deploy with `npm run deploy`. Pull `origin` before a release — the local clone was behind at the last workspace audit.
+**Production** (v1.9.71; sole publisher robertdavidcashman-droid). Electron desktop app (Mac + Windows). Related projects: marketing/licence site (`~/custody-note-website`) and the companion PWA (`~/custodynote-anywhere`). Deploy with `npm run deploy`. Pull `origin` before a release — the local clone was behind at the last workspace audit.
 
 ## Run the app
 
