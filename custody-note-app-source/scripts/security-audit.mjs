@@ -9,7 +9,7 @@
 //   0  clean
 //   1  audit failed
 //   2  secret scan failed
-//   3  both failed
+//   4  security regression static checks failed
 //
 // Run via `npm run security:audit`.
 import { execFileSync } from 'node:child_process';
@@ -138,6 +138,61 @@ for (const f of ['.gitignore', '.cursorignore', '.vercelignore']) {
   } else {
     console.warn(`  ${f}: MISSING (warning only)`);
   }
+}
+
+console.log('\n━━━ security regression checks (static) ━━━');
+let regressionFails = 0;
+function failRegression(msg) {
+  console.error('  FAIL:', msg);
+  regressionFails++;
+}
+
+const mainJs = readFileSync(join(ROOT, 'main.js'), 'utf8');
+if (!/CAPTURE_SCREENSHOTS/.test(mainJs) || !/app\.isPackaged/.test(mainJs) || !/CUSTODYNOTE_ENABLE_MARKETING_CAPTURE/.test(mainJs)) {
+  failRegression('main.js marketing capturePage must be gated in packaged builds (CAPTURE_SCREENSHOTS + app.isPackaged + CUSTODYNOTE_ENABLE_MARKETING_CAPTURE)');
+} else {
+  console.log('  capturePage packaged guard: OK');
+}
+
+const owa = readFileSync(join(ROOT, 'lib/outlookWebCompose.js'), 'utf8');
+if (!/includeBody\s*===\s*true/.test(owa)) {
+  failRegression('lib/outlookWebCompose.js must require includeBody===true to place body in URL');
+} else {
+  console.log('  outlook compose subject-only default: OK');
+}
+
+for (const rel of ['main/openaiClient.js', 'main/openaiAsk.js', 'main/openaiLawElements.js']) {
+  const src = readFileSync(join(ROOT, rel), 'utf8');
+  if (/console\.(log|info)\([^)]*inputMessages/i.test(src) || /console\.(log|info)\([^)]*prompt/i.test(src)) {
+    failRegression(rel + ' must not console.log prompts or inputMessages');
+  }
+}
+if (!readFileSync(join(ROOT, 'main/openaiClient.js'), 'utf8').includes('safeLog')) {
+  failRegression('main/openaiClient.js must use lib/safeLog for debug metadata');
+} else {
+  console.log('  openai prompt logging guard: OK');
+}
+
+if (!/contextIsolation:\s*true/.test(mainJs) || !/sandbox:\s*true/.test(mainJs)) {
+  failRegression('main.js BrowserWindow must set contextIsolation:true and sandbox:true');
+} else {
+  console.log('  electron window hardening flags: OK');
+}
+
+const envExample = existsSync(join(ROOT, '.env.example'))
+  ? readFileSync(join(ROOT, '.env.example'), 'utf8')
+  : '';
+if (envExample && /\bghp_[A-Za-z0-9]{20,}\b/.test(envExample)) {
+  failRegression('.env.example contains a real-looking GitHub token');
+} else {
+  console.log('  .env.example placeholders: OK');
+}
+
+if (regressionFails > 0) {
+  console.error(`  ${regressionFails} regression check(s) failed`);
+  exitCode |= 4;
+} else {
+  console.log('  OK');
 }
 
 if (exitCode === 0) {

@@ -60,6 +60,10 @@ describe('safeLog.redact', () => {
       forename: 'Alice',
       surname: 'Smith',
       advice: 'do not answer questions',
+      clientName: 'Smith, Alice',
+      policeStationName: 'Paddington',
+      offence1Details: 'Theft',
+      question: 'What is the defence?',
       keepMe: 'visible',
     });
     assert.strictEqual(out.password, '<redacted:password>');
@@ -67,6 +71,10 @@ describe('safeLog.redact', () => {
     assert.strictEqual(out.forename, '<redacted:forename>');
     assert.strictEqual(out.surname, '<redacted:surname>');
     assert.strictEqual(out.advice, '<redacted:advice>');
+    assert.strictEqual(out.clientName, '<redacted:clientName>');
+    assert.strictEqual(out.policeStationName, '<redacted:policeStationName>');
+    assert.strictEqual(out.offence1Details, '<redacted:offence1Details>');
+    assert.strictEqual(out.question, '<redacted:question>');
     assert.strictEqual(out.keepMe, 'visible');
   });
 

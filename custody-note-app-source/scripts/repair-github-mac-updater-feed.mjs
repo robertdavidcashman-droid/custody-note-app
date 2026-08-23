@@ -16,7 +16,9 @@ const APP_ROOT = join(__dirname, '..');
 import { fetchReleaseByTag, RELEASE_OWNER, RELEASE_REPO } from './github-release-api.mjs';
 
 function repoSlug() {
-  const env = String(process.env.GITHUB_REPOSITORY || '').trim();
+  const env = String(
+    process.env.PUBLISH_GITHUB_REPOSITORY || process.env.GITHUB_REPOSITORY || ''
+  ).trim();
   if (env && env.includes('/')) return env;
   return `${RELEASE_OWNER}/${RELEASE_REPO}`;
 }

@@ -983,7 +983,7 @@ canonical_url: ${siteUrl}/blog/${slug}
     "psrtrain.com":
       "\n## Next training steps\n\nStructured training builds on real station experience. Pair courses with supervised attendances and portfolio reflection for accreditation readiness.\n",
     "custodynote.com":
-      "\n## Structured notes with Custody Note\n\nCustody Note is desktop software for criminal defence professionals — offline-first attendance notes with LAA-oriented fields, PDF export, and consistent structure. [Start a 30-day free trial](https://custodynote.com/trial).\n",
+      "\n## Structured notes with Custody Note\n\nCustody Note is desktop software for criminal defence professionals — offline-first attendance notes with LAA-oriented fields, PDF export, and consistent structure. In beta — free while we test; Pro planned after beta (~£9.99/month). [Download Custody Note](https://custodynote.com/download).\n",
   };
   md += extras[post.site] || "";
 

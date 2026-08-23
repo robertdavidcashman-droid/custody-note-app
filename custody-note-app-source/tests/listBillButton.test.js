@@ -54,14 +54,17 @@ describe('list Bill button wiring', () => {
     assert.doesNotMatch(listJsSource, /function refreshList\(\)/);
   });
 
-  it('app.js refreshList renders Bill button with data-action bill', () => {
+  it('app.js list actions render Bill button with data-action bill', () => {
+    const actionsBody = extractFunction(appJsSource, '_renderListItemActionsHtml');
+    assert.ok(actionsBody, '_renderListItemActionsHtml must exist in app.js');
+    assert.match(actionsBody, /_renderListBillButtonHtml/);
+    assert.match(actionsBody, /data-action="bill"/);
+    assert.match(actionsBody, /bill-btn/);
+    assert.match(actionsBody, /isListBillEnabled/);
+    assert.match(actionsBody, /amend-btn/);
     const refreshBody = extractFunction(appJsSource, 'refreshList');
     assert.ok(refreshBody, 'refreshList must exist in app.js');
-    assert.match(refreshBody, /_renderListBillButtonHtml/);
-    assert.match(refreshBody, /data-action="bill"/);
-    assert.match(refreshBody, /bill-btn/);
-    assert.match(refreshBody, /isListBillEnabled/);
-    assert.match(refreshBody, /amend-btn/);
+    assert.match(refreshBody, /_renderListItemActionsHtml/);
   });
 
   it('app.js exposes refreshList and billAttendanceFromList globally', () => {

@@ -618,9 +618,19 @@ function _wfHandleCreateInvoice(meta, opts) {
 
   var extraAttachments = _wfGetSelectedDocAttachments();
 
+  /* Re-resolve firm from live form data so a selected firmId is never rejected
+   * just because meta.firmName was stale/empty when the billing step opened. */
+  var liveData = (typeof getFormData === 'function') ? getFormData() : (window.formData || {});
+  var resolvedFirm = (typeof _wfResolveFirmDisplayName === 'function')
+    ? _wfResolveFirmDisplayName(liveData)
+    : ((meta && meta.firmName) || (liveData && liveData.firmName) || '');
+  if (resolvedFirm && liveData && !(liveData.firmName || '').trim()) {
+    liveData.firmName = resolvedFirm;
+  }
+
   var mergedOpts = {
     clientName: meta.clientName,
-    firmName: meta.firmName,
+    firmName: resolvedFirm || meta.firmName,
     stationName: meta.stationName,
     attendanceDate: meta.attendanceDate,
     attendanceFee: fee,
@@ -664,7 +674,13 @@ async function _wfHandleCreateInvoiceImpl(recordId, opts) {
     allowDuplicate = true;
   }
 
-  if (!opts.firmName) {
+  if (!(opts.firmName || '').trim()) {
+    var liveForGuard = (typeof getFormData === 'function') ? getFormData() : (window.formData || {});
+    if (typeof _wfResolveFirmDisplayName === 'function') {
+      opts.firmName = _wfResolveFirmDisplayName(liveForGuard) || '';
+    }
+  }
+  if (!(opts.firmName || '').trim()) {
     showToast('Select the instructing firm on the record before creating an invoice.', 'error', 6500);
     return;
   }

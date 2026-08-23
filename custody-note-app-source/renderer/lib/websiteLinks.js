@@ -24,7 +24,11 @@
       return appendWebsiteUtm(BASE + '/download', { campaign: 'share', content: 'copy-link' });
     },
     trial: function () {
-      return appendWebsiteUtm(BASE + '/trial', { campaign: 'upgrade', content: 'in-app' });
+      return appendWebsiteUtm(BASE + '/download', { campaign: 'share', content: 'in-app' });
+    },
+    referral: function (code) {
+      var path = code ? '/r/' + encodeURIComponent(String(code)) : '/download';
+      return appendWebsiteUtm(BASE + path, { campaign: 'referral', content: 'invite' });
     },
     pricing: function () {
       return appendWebsiteUtm(BASE + '/pricing', { campaign: 'upgrade', content: 'in-app' });

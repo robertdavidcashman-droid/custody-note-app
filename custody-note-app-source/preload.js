@@ -60,6 +60,8 @@ const custodyEmailComposeDraft = (function buildEmailComposeDraft() {
   }
 
   /* Must mirror lib/outlookWebCompose.js (see tests/preloadOutlookWebComposeParity.test.js). */
+  var OUTLOOK_WEB_COMPOSE_URL_MAX_SAFE_LENGTH = 1800;
+
   function normalizeBodyToCrlf(body) {
     return String(body == null ? '' : body)
       .replace(/\r\n/g, '\n')
@@ -67,8 +69,10 @@ const custodyEmailComposeDraft = (function buildEmailComposeDraft() {
       .replace(/\n/g, '\r\n');
   }
 
-  function buildOutlookWebComposeUrl(fields) {
+  function buildOutlookWebComposeUrl(fields, options) {
     var f = fields || {};
+    var opts = options || {};
+    var includeBody = opts.includeBody === true;
     var toS = String(f.to != null ? f.to : '').trim();
     var ccS = String(f.cc != null ? f.cc : '');
     var subS = String(f.subject != null ? f.subject : '');
@@ -77,20 +81,61 @@ const custodyEmailComposeDraft = (function buildEmailComposeDraft() {
     if (toS) parts.push('to=' + encodeURIComponent(toS));
     if (String(ccS).trim()) parts.push('cc=' + encodeURIComponent(ccS));
     if (subS) parts.push('subject=' + encodeURIComponent(subS));
-    if (bodS) parts.push('body=' + encodeURIComponent(bodS));
+    if (includeBody && bodS) parts.push('body=' + encodeURIComponent(bodS));
     return parts.length
       ? 'https://outlook.office.com/mail/0/deeplink/compose?' + parts.join('&')
       : 'https://outlook.office.com/mail/0/deeplink/compose';
   }
 
+  function prepareOutlookComposeForOpen(fields, optionsOrMax) {
+    var f = fields || {};
+    var maxLen = OUTLOOK_WEB_COMPOSE_URL_MAX_SAFE_LENGTH;
+    var preferEmlForBody = true;
+    if (typeof optionsOrMax === 'number' && optionsOrMax > 0) maxLen = optionsOrMax;
+    else if (optionsOrMax && typeof optionsOrMax === 'object') {
+      if (typeof optionsOrMax.maxUrlLength === 'number' && optionsOrMax.maxUrlLength > 0) {
+        maxLen = optionsOrMax.maxUrlLength;
+      }
+      if (optionsOrMax.preferEmlForBody === false) preferEmlForBody = false;
+    }
+    var toS = String(f.to != null ? f.to : '').trim();
+    var ccS = String(f.cc != null ? f.cc : '');
+    var subS = String(f.subject != null ? f.subject : '');
+    var rawBody = String(f.body != null ? f.body : '');
+    var hasBody = Boolean(rawBody.trim());
+    var urlWithBody = buildOutlookWebComposeUrl(
+      { to: toS, cc: ccS, subject: subS, body: rawBody },
+      { includeBody: true }
+    );
+    var subjectOnlyUrl = buildOutlookWebComposeUrl(
+      { to: toS, cc: ccS, subject: subS, body: '' },
+      { includeBody: false }
+    );
+    if (hasBody && preferEmlForBody) {
+      return {
+        method: 'outlook-desktop-eml',
+        url: subjectOnlyUrl,
+        bodyPlacedInCompose: true,
+      };
+    }
+    if (!hasBody || urlWithBody.length <= maxLen) {
+      return { method: 'outlook-web', url: urlWithBody, bodyPlacedInCompose: hasBody };
+    }
+    return {
+      method: 'outlook-desktop-eml',
+      url: subjectOnlyUrl,
+      bodyPlacedInCompose: true,
+    };
+  }
+
   function buildOutlookWebComposeLink(draft) {
     var d = normalizeDraft(draft);
-    return buildOutlookWebComposeUrl({
+    return prepareOutlookComposeForOpen({
       to: d.to,
       cc: d.cc,
       subject: d.subject,
       body: d.body,
-    });
+    }, { preferEmlForBody: false }).url;
   }
 
   function savePendingEmailDraft(draft, storage) {
@@ -155,6 +200,22 @@ const custodyEmailComposeDraft = (function buildEmailComposeDraft() {
 
     try {
       if (m === 'outlook-web') {
+        var prepared = prepareOutlookComposeForOpen({
+          to: d.to,
+          cc: d.cc,
+          subject: d.subject,
+          body: d.body,
+        }, { preferEmlForBody: false });
+        link = prepared.url;
+        if (d.body && prepared.method !== 'outlook-web') {
+          try {
+            var clipEnv = env || {};
+            var nav = clipEnv.navigator || (typeof navigator !== 'undefined' ? navigator : null);
+            if (nav && nav.clipboard && nav.clipboard.writeText) {
+              nav.clipboard.writeText(String(d.body || '')).catch(function () {});
+            }
+          } catch (_) {}
+        }
         var opened = win.open(link, '_blank', 'noopener,noreferrer');
         if (!opened) {
           console.error('openEmailDraft: browser blocked popup (window.open returned null)');
@@ -245,7 +306,7 @@ contextBridge.exposeInMainWorld('api', {
     deleteDraft: (id) => ipcRenderer.invoke('officer-email-drafts-delete', id),
     markOpenedInOutlook: (id) => ipcRenderer.invoke('officer-email-drafts-mark-opened', id),
     markSentManually: (id) => ipcRenderer.invoke('officer-email-drafts-mark-sent-manually', id),
-    openOutlookDraft: (id) => ipcRenderer.invoke('officer-email-drafts-open-outlook', id),
+    openOutlookDraft: (id, liveFields) => ipcRenderer.invoke('officer-email-drafts-open-outlook', id, liveFields || null),
     openOneOffOutlook: (fields) => ipcRenderer.invoke('officer-email-drafts-open-one-off-outlook', fields),
     getComposeUrl: (payload) => ipcRenderer.invoke('officer-email-drafts-compose-url', payload),
     copyText: (text) => ipcRenderer.invoke('officer-email-drafts-copy', text),
@@ -280,13 +341,13 @@ contextBridge.exposeInMainWorld('api', {
   exportDocx: (options) => ipcRenderer.invoke('export-docx', options),
   printPdfFile: (filePath) => ipcRenderer.invoke('print-pdf-file', filePath),
   quickfileFetchClients: () => ipcRenderer.invoke('quickfile-fetch-clients'),
+  quickfileEnsureClient: (params) => ipcRenderer.invoke('quickfile-ensure-client', params || {}),
   quickfileTestConnection: () => ipcRenderer.invoke('quickfile-test-connection'),
   quickfileSettingsStatus: () => ipcRenderer.invoke('quickfile-settings-status'),
   quickfileConnectionState: () => ipcRenderer.invoke('quickfile-connection-state'),
   quickfileSettingsPush: () => ipcRenderer.invoke('quickfile-settings-push'),
   quickfileSettingsEnsure: () => ipcRenderer.invoke('quickfile-settings-ensure'),
   quickfileSuggestNextInvoiceNumber: () => ipcRenderer.invoke('quickfile-suggest-next-invoice-number'),
-  quickfileHealInvoiceNumber: () => ipcRenderer.invoke('quickfile-heal-invoice-number'),
   quickfileCreateInvoice: (params) => ipcRenderer.invoke('quickfile-create-invoice', params),
   /* Postcode lookup */
   postcodeLookup: (postcode) => ipcRenderer.invoke('postcode-lookup', postcode),
@@ -377,6 +438,17 @@ contextBridge.exposeInMainWorld('api', {
   getAutoUpdateState: () => ipcRenderer.invoke('get-auto-update-state'),
   appUpdateResetLoop: () => ipcRenderer.invoke('app-update-reset-loop'),
   appUpdateDiagnosticInstall: () => ipcRenderer.invoke('app-update-diagnostic-install'),
+  /* Opt-in OpenAI law fill / firm workspace / Anywhere bridge */
+  aiFillLawElements: (params) => ipcRenderer.invoke('ai:fill-law-elements', params || {}),
+  aiAskQuestion: (params) => ipcRenderer.invoke('ai:ask-question', params || {}),
+  firmWorkspaceGet: () => ipcRenderer.invoke('firm-workspace:get'),
+  firmWorkspaceSave: (payload) => ipcRenderer.invoke('firm-workspace:save', payload || {}),
+  firmWorkspaceAddSeat: (params) => ipcRenderer.invoke('firm-workspace:add-seat', params || {}),
+  firmWorkspaceRemoveSeat: (params) => ipcRenderer.invoke('firm-workspace:remove-seat', params || {}),
+  firmWorkspaceAddTemplate: (params) => ipcRenderer.invoke('firm-workspace:add-template', params || {}),
+  firmWorkspaceRemoveTemplate: (params) => ipcRenderer.invoke('firm-workspace:remove-template', params || {}),
+  anywhereBridgeImport: (params) => ipcRenderer.invoke('anywhere-bridge:import', params || {}),
+  anywhereBridgeChooseAndImport: () => ipcRenderer.invoke('anywhere-bridge:choose-and-import'),
 });
 
 contextBridge.exposeInMainWorld('custodyNoteBuildInfo', {

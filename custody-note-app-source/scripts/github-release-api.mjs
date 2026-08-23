@@ -1,29 +1,44 @@
 /**
  * GitHub release helpers — draft releases are invisible to /releases/tags/{tag}.
  *
- * Production auto-update feed is robertdavidcashman-droid/custody-note-app
- * (sole home after bit cutover). Override with RELEASE_OWNER / RELEASE_REPO or
- * PUBLISH_GITHUB_REPOSITORY when needed.
+ * Publish target resolution (first match wins):
+ *   1. PUBLISH_GITHUB_REPOSITORY (CI sets this on droid)
+ *   2. GITHUB_REPOSITORY (default Actions env)
+ *   3. package.json build.publish.owner / .repo
+ *   4. robertdavidcashman-droid/custody-note-app (intended publisher)
  */
-function resolveReleaseRepo() {
-  const publishEnv = String(process.env.PUBLISH_GITHUB_REPOSITORY || process.env.RELEASE_GITHUB_REPOSITORY || '').trim();
-  if (publishEnv.includes('/')) {
-    const [owner, repo] = publishEnv.split('/');
+import { readFileSync } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const APP_ROOT = join(__dirname, '..');
+
+export function resolvePublishRepo() {
+  const fromEnv = String(
+    process.env.PUBLISH_GITHUB_REPOSITORY || process.env.GITHUB_REPOSITORY || ''
+  ).trim();
+  if (fromEnv.includes('/')) {
+    const [owner, repo] = fromEnv.split('/');
     if (owner && repo) return { owner, repo };
   }
-  if (process.env.RELEASE_OWNER && process.env.RELEASE_REPO) {
-    return {
-      owner: String(process.env.RELEASE_OWNER).trim(),
-      repo: String(process.env.RELEASE_REPO).trim(),
-    };
+
+  try {
+    const pkg = JSON.parse(readFileSync(join(APP_ROOT, 'package.json'), 'utf8'));
+    const publish = pkg && pkg.build && pkg.build.publish;
+    if (publish && publish.owner && publish.repo) {
+      return { owner: String(publish.owner), repo: String(publish.repo) };
+    }
+  } catch (_) {
+    /* ignore */
   }
-  /* Default: production updater feed on droid. */
+
   return { owner: 'robertdavidcashman-droid', repo: 'custody-note-app' };
 }
 
-const _resolved = resolveReleaseRepo();
-export const RELEASE_OWNER = _resolved.owner;
-export const RELEASE_REPO = _resolved.repo;
+const resolved = resolvePublishRepo();
+export const RELEASE_OWNER = resolved.owner;
+export const RELEASE_REPO = resolved.repo;
 
 export function normaliseReleaseTag(tag) {
   const t = String(tag || '').trim();
@@ -47,7 +62,8 @@ export function releaseApiHeaders(token) {
 export async function fetchReleaseByTag(tag, token) {
   const normalised = normaliseReleaseTag(tag);
   const headers = releaseApiHeaders(token);
-  const base = `https://api.github.com/repos/${RELEASE_OWNER}/${RELEASE_REPO}`;
+  const { owner, repo } = resolvePublishRepo();
+  const base = `https://api.github.com/repos/${owner}/${repo}`;
 
   const tagRes = await fetch(`${base}/releases/tags/${encodeURIComponent(normalised)}`, { headers });
   if (tagRes.ok) return tagRes.json();

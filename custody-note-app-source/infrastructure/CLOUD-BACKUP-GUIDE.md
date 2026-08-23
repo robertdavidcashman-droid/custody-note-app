@@ -44,8 +44,14 @@ Custody Note offers two backup tiers:
 ### Encryption
 
 Your database is encrypted **before** it leaves your computer using AES-256-GCM
-encryption with a key unique to you. Even if someone gained access to the raw
-backup files on AWS, they cannot read your data without your encryption key.
+with a per-install master key. Raw backup objects on AWS are ciphertext.
+
+**Honest key-recovery note:** Custody Note can also upload a copy of that master
+key wrapped with your **licence key** (licence-key escrow via `/api/recovery`).
+That is **not** zero-knowledge recovery-password escrow. Anyone who has your
+licence key and access to the recovery blob can unwrap the master key. Treat
+your licence key as sensitive, and still set a recovery password for local
+restore flows.
 
 A second layer of encryption (AES-256 server-side) is applied by AWS automatically.
 
@@ -76,7 +82,10 @@ Each subscriber's backups are stored in a separate, isolated area:
 - Your backups are stored under a unique prefix derived from your licence key
 - The temporary credentials your app receives only allow access to your area
 - You cannot see, access, or even know about any other subscriber's backups
-- The Custody Note developers cannot decrypt your backups (client-side encryption)
+- Custody Note developers do not store your plaintext database; backups are
+  client-side ciphertext. Separately, licence-key escrow (when enabled for
+  sync recovery) means the master key wrapping is licence-derived — not a
+  claim that “we never see or store any form of your key material.”
 
 This satisfies Solicitors Regulation Authority requirements for:
 - Client confidentiality
@@ -119,8 +128,13 @@ New backups will not be uploaded until you resubscribe.
 
 ### Can the Custody Note team read my backups?
 
-No. Your database is encrypted on your computer before upload using a key that
-only exists on your machine. We never see or store your encryption key.
+Backup files are uploaded as AES-256-GCM ciphertext from your computer. Staff
+cannot open those files without the master key.
+
+However, cross-device recovery may store a **licence-key-wrapped** copy of the
+master key on Custody Note’s recovery endpoint. That is not “we never see or
+store your encryption key.” Keep your licence key private; set a recovery
+password for local decrypt/restore.
 
 ### What happens if my internet drops during a backup?
 

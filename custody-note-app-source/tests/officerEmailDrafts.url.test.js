@@ -5,7 +5,7 @@ const assert = require('node:assert');
 const { buildOutlookComposeUrl } = require('../lib/officerEmailDrafts');
 
 describe('officerEmailDrafts — Outlook Web compose URL', () => {
-  it('uses outlook.office.com deeplink compose', () => {
+  it('includes body in outlook.office.com deeplink when URL fits', () => {
     const u = buildOutlookComposeUrl({
       toEmail: 'a@b.police.uk',
       subject: 'Hello',
@@ -14,12 +14,15 @@ describe('officerEmailDrafts — Outlook Web compose URL', () => {
     assert.ok(u.startsWith('https://outlook.office.com/mail/0/deeplink/compose'), u);
     assert.ok(u.includes('to='), u);
     assert.ok(u.includes('subject='), u);
-    assert.ok(u.includes('body='), u);
+    assert.ok(u.includes('body='), 'body must be in compose URL when it fits');
+    const parsed = new URL(u);
+    assert.strictEqual(parsed.searchParams.get('body'), 'Line1\r\nLine2');
   });
 
-  it('encodes newlines in body as CRLF in query', () => {
+  it('encodes body newlines as CRLF in query', () => {
     const u = buildOutlookComposeUrl({ toEmail: 'x@y.gov.uk', subject: 'S', body: 'a\nb' });
-    assert.ok(u.includes('a%0D%0Ab') || u.includes('a%0d%0ab'), u);
+    const parsed = new URL(u);
+    assert.strictEqual(parsed.searchParams.get('body'), 'a\r\nb');
   });
 
   it('encodes special characters in subject and body', () => {
@@ -31,5 +34,17 @@ describe('officerEmailDrafts — Outlook Web compose URL', () => {
     const parsed = new URL(u);
     assert.strictEqual(parsed.searchParams.get('subject'), "Re: O'Brien & Co");
     assert.strictEqual(parsed.searchParams.get('body'), "It's urgent.\r\nNext line");
+  });
+
+  it('long body falls back to subject/to URL (Open Outlook uses .eml for body)', () => {
+    const longBody = 'X'.repeat(8000);
+    const u = buildOutlookComposeUrl({
+      toEmail: 'o@police.uk',
+      subject: 'Long',
+      body: longBody,
+    });
+    assert.ok(!u.includes('body='), 'oversized body must not be forced into URL');
+    assert.ok(u.includes('to='));
+    assert.ok(u.includes('subject='));
   });
 });

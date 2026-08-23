@@ -268,6 +268,17 @@ const MIGRATIONS = [
       run(`CREATE INDEX IF NOT EXISTS idx_att_list ON attendances(deleted_at, archived_at, updated_at);`);
     },
   },
+  {
+    version: 2,
+    name: 'tonbridge-mileage-46',
+    up(ctx) {
+      // Personal base mileage for Tonbridge custody suite (LAA code BG039).
+      // Exact name/code only — do not match "West Kent (Tonbridge) (non-police venue)".
+      ctx.run(
+        "UPDATE police_stations SET mileage_from_base = 46 WHERE code = 'BG039' OR name = 'Tonbridge'"
+      );
+    },
+  },
 ];
 
 const LATEST_VERSION = MIGRATIONS.length

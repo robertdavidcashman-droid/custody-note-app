@@ -39,6 +39,13 @@ function openBillingPanel() {
 
   var clientName = [data.forename, data.surname].filter(Boolean).join(' ') || '';
   var firmName = data.firmName || '';
+  if (!firmName && data.firmId && window.firms) {
+    var firmMatch = window.firms.find(function (f) { return String(f.id) === String(data.firmId); });
+    if (firmMatch && firmMatch.name) firmName = firmMatch.name;
+  }
+  if (!firmName && typeof _wfResolveFirmDisplayName === 'function') {
+    firmName = _wfResolveFirmDisplayName(data) || '';
+  }
   var stationName = data.policeStationName || '';
   var attendanceDate = data.date || data.instructionDateTime || '';
   if (attendanceDate && attendanceDate.length > 10) attendanceDate = attendanceDate.slice(0, 10);
@@ -452,6 +459,17 @@ async function _handleCreateInvoice(recordId, opts) {
     allowDuplicate = true;
   }
 
+  if (!opts.firmName) {
+    var liveData = (typeof getFormData === 'function') ? getFormData() : (window.formData || {});
+    if (typeof _wfResolveFirmDisplayName === 'function') {
+      opts.firmName = _wfResolveFirmDisplayName(liveData) || '';
+    } else if (liveData.firmId && window.firms) {
+      var fr = window.firms.find(function (f) { return String(f.id) === String(liveData.firmId); });
+      if (fr && fr.name) opts.firmName = fr.name;
+    } else {
+      opts.firmName = liveData.firmName || '';
+    }
+  }
   if (!opts.firmName) {
     showToast('Select the instructing firm on the record (Case Reference & Arrival) before creating an invoice.', 'error', 6500);
     return;

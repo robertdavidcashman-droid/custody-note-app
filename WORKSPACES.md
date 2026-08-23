@@ -2,7 +2,9 @@
 
 Multi-project layout for all Custody Note / police station rep sites.
 
-**Sole GitHub home:** `robertdavidcashman-droid`. Do not publish to `robertcashman-bit` (archive those repos).
+**Sole publisher:** `robertdavidcashman-droid`. New desktop releases and updater feeds publish only from this org.
+
+**Bit policy:** Do **not** publish new Custody Note releases from `robertcashman-bit`. Keep `robertcashman-bit/custody-note-app` **unarchived** so historical Mac 1.9.68 stays available until droid has Mac notarization secrets.
 
 ## Deploy once, then never think about it
 
@@ -11,7 +13,7 @@ Multi-project layout for all Custody Note / police station rep sites.
 | Everyday action | Automatic result |
 |-----------------|------------------|
 | Push a website repo’s primary branch | Vercel production deploy |
-| Bump `custody-note-app-source` version + changelog on `main` | Tag → Windows installer → **droid** updater → website changelog → Vercel |
+| Bump `custody-note-app-source` version + changelog on `main` | Tag → Windows installer → **droid** updater → website changelog → Vercel (Mac only when notarization secrets exist) |
 
 Health check anytime:
 
@@ -74,6 +76,9 @@ Logs: `~/Library/Logs/cursor-workspace-sync.log`
 | `GITHUB_PAT` | Cursor Cloud secrets | Bootstrap/seed repos from agents |
 | `VERCEL_TOKEN` | Cursor Cloud secrets | `verify-vercel-links.sh` |
 
+**Mac notarization (this repo only — required before Mac ships from droid):**  
+`MAC_CERTIFICATE_P12_BASE64`, `MAC_CERTIFICATE_P12_PASSWORD`, `MAC_KEYCHAIN_PASSWORD`, `APPLE_ID`, `APPLE_TEAM_ID`, `APPLE_APP_SPECIFIC_PASSWORD`
+
 Details: [`DEPLOY_ONCE.md`](DEPLOY_ONCE.md)
 
 ## Open all five in Cursor
@@ -93,7 +98,7 @@ bash scripts/verify-vercel-links.sh
 1. Edit `custody-note-app-source/package.json` version + `changelog.json`
 2. Merge to `main`
 3. `Auto-tag release if needed` creates `v{x.y.z}`
-4. `Release and deploy` builds Windows (and Mac if secrets), publishes to **droid** releases, syncs website
+4. `Release and deploy` builds Windows (and Mac **only if** notarization secrets exist), publishes to **droid** releases, syncs website
 
 Root workflows live in [`.github/workflows/`](.github/workflows/) — **not** under `custody-note-app-source/.github/`.
 

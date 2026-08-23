@@ -114,6 +114,12 @@ function initUpdater(options) {
   autoUpdater.disableWebInstaller = true;
   autoUpdater.disableDifferentialDownload = true;
   autoUpdater.logger = logger;
+  /* Bypass sticky CDN / proxy caches of GitHub releases/latest and latest.yml.
+   * Without this, Windows can keep reporting "up to date" on an older feed. */
+  autoUpdater.requestHeaders = Object.assign({}, autoUpdater.requestHeaders || {}, {
+    'Cache-Control': 'no-cache, no-store, must-revalidate',
+    Pragma: 'no-cache',
+  });
 
   function getMainWindow() {
     return typeof mainWindowRef === 'function' ? mainWindowRef() : null;
@@ -147,13 +153,37 @@ function initUpdater(options) {
     return m.includes('sha512') || m.includes('checksum');
   }
 
+  function getUpdaterCacheRoots() {
+    const roots = [];
+    try {
+      roots.push(app.getPath('cache'));
+    } catch (_) { /* ignore */ }
+    try {
+      roots.push(app.getPath('userData'));
+    } catch (_) { /* ignore */ }
+    if (process.platform === 'win32') {
+      const local = process.env.LOCALAPPDATA || path.join(require('os').homedir(), 'AppData', 'Local');
+      roots.push(local);
+    } else if (process.platform === 'darwin') {
+      roots.push(path.join(require('os').homedir(), 'Library', 'Caches'));
+    } else {
+      roots.push(process.env.XDG_CACHE_HOME || path.join(require('os').homedir(), '.cache'));
+    }
+    return roots;
+  }
+
   function clearUpdaterPendingCache() {
-    const dirs = [
-      path.join(app.getPath('cache'), 'custody-note-updater'),
-      path.join(app.getPath('cache'), 'Custody Note-updater'),
-      path.join(app.getPath('userData'), 'pending'),
-    ];
+    const dirs = [];
+    getUpdaterCacheRoots().forEach(function (root) {
+      if (!root) return;
+      dirs.push(path.join(root, 'custody-note-updater'));
+      dirs.push(path.join(root, 'Custody Note-updater'));
+      dirs.push(path.join(root, 'pending'));
+    });
+    const seen = {};
     for (const dir of dirs) {
+      if (seen[dir]) continue;
+      seen[dir] = true;
       try {
         if (fs.existsSync(dir)) {
           fs.rmSync(dir, { recursive: true, force: true });
@@ -163,6 +193,20 @@ function initUpdater(options) {
         logger.warn(`Failed to clear updater cache ${dir}:`, err && err.message ? err.message : err);
       }
     }
+  }
+
+  /** Force GitHubProvider to re-resolve /releases/latest (drop sticky client + bust headers). */
+  function bustUpdaterFeedCache(reason) {
+    logger.info(`Busting updater feed cache reason=${reason || 'unspecified'}`);
+    clearUpdaterPendingCache();
+    try {
+      autoUpdater.clientPromise = null;
+    } catch (_) { /* older electron-updater */ }
+    autoUpdater.requestHeaders = Object.assign({}, autoUpdater.requestHeaders || {}, {
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      Pragma: 'no-cache',
+      'X-CustodyNote-Update-Check': String(Date.now()),
+    });
   }
 
   function resetDownloadFailureState() {
@@ -581,7 +625,14 @@ function initUpdater(options) {
 
     lastCheckTime = now;
     updaterState = 'checking';
-    logger.info(`Calling checkForUpdates source=${source}`);
+    logger.info(`Calling checkForUpdates source=${source} force=${force}`);
+
+    /* Manual / startup-forced checks must not reuse a stale GitHub latest.yml
+     * or cached provider client — that caused Windows to report "up to date"
+     * while still on an older build after a new release published. */
+    if (force) {
+      bustUpdaterFeedCache(source);
+    }
 
     try {
       const result = await autoUpdater.checkForUpdates();

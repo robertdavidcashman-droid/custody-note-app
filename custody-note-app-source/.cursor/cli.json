@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Shell(git)",
+      "Shell(git *)",
+      "Shell(gh)",
+      "Shell(gh *)"
+    ],
+    "deny": []
+  }
+}

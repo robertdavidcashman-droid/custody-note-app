@@ -30,19 +30,6 @@
     return condition ? '\u2611' : '\u2610';
   }
 
-  /** Match LAA codedSelect values (e.g. "06") plus legacy label/code aliases from older records. */
-  function hasLaaCode(stored, code, legacy) {
-    var val = String(stored || '').trim();
-    if (!val) return false;
-    if (val === code) return true;
-    if (legacy) {
-      for (var i = 0; i < legacy.length; i++) {
-        if (val === legacy[i]) return true;
-      }
-    }
-    return false;
-  }
-
   /** Checkbox span that prints as a square box (empty or ticked) to match official forms */
   function box(condition) {
     return '<span class="laa-cb' + (condition ? ' laa-cb-ticked' : '') + '" aria-hidden="true">' + (condition ? '\u2713' : '') + '</span>';
@@ -357,48 +344,43 @@
       '<div class="crm1-note">Completion of this section is voluntary. This will be treated in the strictest confidence and used purely for statistical monitoring and research.</div>' +
       '<div class="crm1-sec">Ethnicity</div>' +
       '<div class="crm1-tickline">' +
-      '<strong>White</strong>: ' +
-      cb(hasLaaCode(eth, '01', ['W1', 'British']), 'British') + ' ' +
-      cb(hasLaaCode(eth, '02', ['W2', 'Irish']), 'Irish') + ' ' +
-      cb(hasLaaCode(eth, '14', ['W9', 'White Other']), 'White Other') + ' ' +
-      cb(hasLaaCode(eth, '16', ['Gypsy/Traveller']), 'Gypsy/Traveller') +
+      '<strong>White</strong>: ' + cb(eth === 'British' || eth === 'W1', 'British') + ' ' + cb(eth === 'Irish' || eth === 'W2', 'Irish') + ' ' + cb(eth === 'White Other' || eth === 'W9', 'White Other') + ' ' + cb(eth === 'Gypsy/Traveller', 'Gypsy/Traveller') +
       '</div>' +
       '<div class="crm1-tickline"><strong>Mixed</strong>: ' +
-      cb(hasLaaCode(eth, '10', ['M1', 'White and Black Caribbean', 'Mixed White & Black Caribbean']), 'White and Black Caribbean') + ' ' +
-      cb(hasLaaCode(eth, '11', ['M2', 'White and Black African', 'Mixed White & Black African']), 'White and Black African') + ' ' +
-      cb(hasLaaCode(eth, '12', ['M3', 'White and Asian', 'Mixed White & Asian']), 'White and Asian') + ' ' +
-      cb(hasLaaCode(eth, '13', ['M9', 'Mixed Other']), 'Mixed Other') +
+      cb(eth === 'White and Black Caribbean' || eth === 'M1', 'White and Black Caribbean') + ' ' +
+      cb(eth === 'White and Black African' || eth === 'M2', 'White and Black African') + ' ' +
+      cb(eth === 'White and Asian' || eth === 'M3', 'White and Asian') + ' ' +
+      cb(eth === 'Mixed Other' || eth === 'M9', 'Mixed Other') +
       '</div>' +
       '<div class="crm1-tickline"><strong>Asian or Asian British</strong>: ' +
-      cb(hasLaaCode(eth, '06', ['A1', 'Indian', 'Asian or Asian British Indian']), 'Indian') + ' ' +
-      cb(hasLaaCode(eth, '07', ['A2', 'Pakistani', 'Asian or Asian British Pakistani']), 'Pakistani') + ' ' +
-      cb(hasLaaCode(eth, '08', ['A3', 'Bangladeshi', 'Asian or Asian British Bangladeshi']), 'Bangladeshi') + ' ' +
-      cb(hasLaaCode(eth, '09', ['Chinese']), 'Chinese') + ' ' +
-      cb(hasLaaCode(eth, '15', ['A9', 'Asian Other', 'Asian or Asian British Other']), 'Asian Other') +
+      cb(eth === 'Indian' || eth === 'A1', 'Indian') + ' ' +
+      cb(eth === 'Pakistani' || eth === 'A2', 'Pakistani') + ' ' +
+      cb(eth === 'Bangladeshi' || eth === 'A3', 'Bangladeshi') + ' ' +
+      cb(eth === 'Asian Other' || eth === 'A9', 'Asian Other') +
       '</div>' +
       '<div class="crm1-tickline"><strong>Black or Black British</strong>: ' +
-      cb(hasLaaCode(eth, '04', ['B1', 'Black Caribbean', 'Black or Black British Caribbean']), 'Black Caribbean') + ' ' +
-      cb(hasLaaCode(eth, '03', ['B2', 'Black African', 'Black or Black British African']), 'Black African') + ' ' +
-      cb(hasLaaCode(eth, '05', ['B9', 'Black Other', 'Black or Black British Other']), 'Black Other') + ' ' +
-      cb(hasLaaCode(eth, '00', ['Other']), 'Other') + ' ' +
-      cb(hasLaaCode(eth, '99', ['Unknown']), 'Unknown') +
+      cb(eth === 'Black Caribbean' || eth === 'B1', 'Black Caribbean') + ' ' +
+      cb(eth === 'Black African' || eth === 'B2', 'Black African') + ' ' +
+      cb(eth === 'Black Other' || eth === 'B9', 'Black Other') + ' ' +
+      cb(eth === 'Prefer not to say', 'Prefer not to say') +
       '</div>' +
       '<div class="crm1-sec">Disability</div>' +
       '<div class="crm1-note">The Equality Act 2010 defines disability as a physical or mental impairment with substantial and long-term adverse effect on day-to-day activities.</div>' +
       '<div class="crm1-tickline">' +
-      cb(hasLaaCode(dis, 'NCD', ['Not Considered Disabled', 'Not considered disabled']), 'Not considered disabled') + ' ' +
-      cb(hasLaaCode(dis, 'VIS', ['Visually impaired']), 'Visually impaired') + ' ' +
-      cb(hasLaaCode(dis, 'ILL', ['PHY', 'Long-standing physical illness', 'Long-standing illness or health condition']), 'Long-standing physical illness') + ' ' +
-      cb(hasLaaCode(dis, 'OTH', ['Other']), 'Other') +
+      cb(dis === 'Not Considered Disabled' || dis === 'NCD', 'Not considered disabled') + ' ' +
+      cb(dis === 'Visually impaired' || dis === 'VIS', 'Visually impaired') + ' ' +
+      cb(dis === 'Long-standing physical illness' || dis === 'PHY', 'Long-standing physical illness') + ' ' +
+      cb(dis === 'Other', 'Other') +
       '</div>' +
       '<div class="crm1-tickline">' +
-      cb(hasLaaCode(dis, 'UKN', ['Unknown']), 'Unknown') + ' ' +
-      cb(hasLaaCode(dis, 'MHC', ['Mental health condition']), 'Mental health condition') + ' ' +
-      cb(hasLaaCode(dis, 'LDD', ['Learning disability/difficulty']), 'Learning disability/difficulty') + ' ' +
-      cb(hasLaaCode(dis, 'MOB', ['Mobility impairment']), 'Mobility impairment') + ' ' +
-      cb(hasLaaCode(dis, 'DEA', ['Deaf']), 'Deaf') + ' ' +
-      cb(hasLaaCode(dis, 'HEA', ['Hearing impaired']), 'Hearing impaired') + ' ' +
-      cb(hasLaaCode(dis, 'BLI', ['Blind']), 'Blind') +
+      cb(dis === 'Unknown', 'Unknown') + ' ' +
+      cb(dis === 'Prefer not to say', 'Prefer not to say') + ' ' +
+      cb(dis === 'Mental health condition' || dis === 'MHC', 'Mental health condition') + ' ' +
+      cb(dis === 'Learning disability/difficulty' || dis === 'LDD', 'Learning disability/difficulty') + ' ' +
+      cb(dis === 'Mobility impairment' || dis === 'MOB', 'Mobility impairment') + ' ' +
+      cb(dis === 'Deaf' || dis === 'DEA', 'Deaf') + ' ' +
+      cb(dis === 'Hearing impaired' || dis === 'HEA', 'Hearing impaired') + ' ' +
+      cb(dis === 'Blind' || dis === 'BLI', 'Blind') +
       '</div>';
     html += footer(6);
 

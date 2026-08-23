@@ -139,7 +139,7 @@ describe('Outlook Web compose link', () => {
     assert.ok(u.startsWith('https://outlook.office.com/mail/0/deeplink/compose?'));
   });
 
-  it('includes to, cc, subject and body in query (decoded via URL)', () => {
+  it('includes to, cc, subject and body in query when URL fits', () => {
     const u = buildOutlookWebComposeLink({
       to: 'a@b.c',
       cc: 'c@d.e',
@@ -153,13 +153,13 @@ describe('Outlook Web compose link', () => {
     assert.strictEqual(parsed.searchParams.get('body'), 'B');
   });
 
-  it('preserves line breaks in body (CRLF)', () => {
+  it('places multiline body in URL (CRLF) when it fits', () => {
     const u = buildOutlookWebComposeLink({ to: 'a@b.c', subject: '', body: 'one\ntwo' });
     const parsed = new URL(u);
     assert.strictEqual(parsed.searchParams.get('body'), 'one\r\ntwo');
   });
 
-  it('does not lose apostrophes, ampersands or commas', () => {
+  it('does not lose apostrophes, ampersands or commas in subject or body', () => {
     const sub = "Re: O'Brien, Smith & Co — urgent";
     const body = "Dear Sir,\nIt's urgent & required.";
     const u = buildOutlookWebComposeLink({ to: 'a@b.c', cc: '', subject: sub, body: body });
@@ -262,6 +262,35 @@ describe('openEmailDraft (mock env)', () => {
     var ok = openEmailDraft({ to: 'a@b.c', subject: 's', body: 'b' }, 'outlook-web', { window: win });
     assert.strictEqual(ok, true);
     assert.strictEqual(opened.length, 1);
+  });
+
+  it('outlook-web places short body in compose URL (no clipboard paste required)', () => {
+    var written = null;
+    var opened = [];
+    var win = {
+      open: function (u) { opened.push(u); return {}; },
+      location: {},
+    };
+    var body = 'Dear Officer,\nPlease reply.';
+    var ok = openEmailDraft(
+      { to: 'o@police.uk', subject: 'Disclosure', body: body },
+      'outlook-web',
+      {
+        window: win,
+        navigator: {
+          clipboard: {
+            writeText: function (s) {
+              written = s;
+              return Promise.resolve();
+            },
+          },
+        },
+      }
+    );
+    assert.strictEqual(ok, true);
+    assert.strictEqual(written, null, 'short body must be in the URL, not clipboard-primary');
+    assert.strictEqual(opened.length, 1);
+    assert.strictEqual(new URL(opened[0]).searchParams.get('body'), body.replace(/\n/g, '\r\n'));
   });
 
   it('outlook-web returns false when window.open returns null (popup blocked)', () => {

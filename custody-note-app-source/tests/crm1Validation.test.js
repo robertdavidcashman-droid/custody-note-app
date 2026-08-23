@@ -80,6 +80,13 @@ describe('validateCrm1Data — NI format and warnings', () => {
     assert.ok(r.warnings.some((w) => w.field === 'niNumber'));
   });
 
+  it('treats unknown NI sentinel as missing NI (warn, not format error)', () => {
+    const r = validateCrm1Data(Object.assign(fullValidRecord(), { niNumber: '- unknown -' }), { now: NOW });
+    assert.strictEqual(r.ok, true, 'unknown NI is a warning, not a hard error');
+    assert.ok(!r.errors.some((e) => e.field === 'niNumber'), 'must not format-error unknown NI');
+    assert.ok(r.warnings.some((w) => w.field === 'niNumber'));
+  });
+
   it('warns when gender is blank (Equal Opportunities box left empty)', () => {
     const rec = fullValidRecord();
     delete rec.gender;

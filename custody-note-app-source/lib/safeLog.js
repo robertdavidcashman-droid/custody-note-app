@@ -39,6 +39,39 @@ const REDACTORS = [
   { tag: 'custody',   re: /\b[A-Z]{1,3}\s?\d{2,8}\/\d{2,4}\b/g },
 ];
 
+const SENSITIVE_KEYS = new Set([
+  'password', 'pw', 'pin', 'secret', 'token', 'authToken',
+  'authorization', 'cookie', 'sessionId', 'apiKey', 'api_key',
+  'licence_key', 'licenceKey',
+  // Custody-note client / attendance fields
+  'forename', 'surname', 'middleNames', 'clientName', 'recipientName',
+  'address', 'addressLine1', 'addressLine2', 'dob', 'mobile', 'phone', 'email',
+  'custodyNumber', 'dsccRef', 'ufn', 'fileReference',
+  'policeStation', 'policeStationName', 'stationName', 'stationAddress', 'station',
+  'offence', 'offenceDetails', 'elementsOfOffence', 'lawElements',
+  'disclosure', 'advice', 'instructions', 'notes', 'noteBody', 'noteContent',
+  'interview', 'interviewNotes', 'content',
+  'data', // raw JSON blob from attendances table
+  'body', // request body / email body
+  'html', // HTML buffers (custody-note PDFs)
+  'dataUrl',
+  // AI / prompts — never log verbatim
+  'question', 'prompt', 'inputMessages', 'messages', 'formData',
+]);
+
+const SENSITIVE_KEY_PATTERNS = [
+  /^offence\d+/i,
+  /^interview\d+/i,
+];
+
+function isSensitiveKey(key) {
+  if (SENSITIVE_KEYS.has(key)) return true;
+  for (let i = 0; i < SENSITIVE_KEY_PATTERNS.length; i++) {
+    if (SENSITIVE_KEY_PATTERNS[i].test(key)) return true;
+  }
+  return false;
+}
+
 function redact(value) {
   if (value === null || value === undefined) return value;
   if (typeof value === 'number' || typeof value === 'boolean') return value;
@@ -58,25 +91,9 @@ function redact(value) {
   }
   if (Array.isArray(value)) return value.map(redact);
   if (typeof value === 'object') {
-    // Drop obviously sensitive keys outright (don't even let "the value
-    // exists" leak the field name).
-    const SENSITIVE_KEYS = new Set([
-      'password', 'pw', 'pin', 'secret', 'token', 'authToken',
-      'authorization', 'cookie', 'sessionId', 'apiKey', 'api_key',
-      'licence_key', 'licenceKey',
-      // Custody-note specific
-      'forename', 'surname', 'middleNames', 'address', 'addressLine1',
-      'addressLine2', 'dob', 'mobile', 'phone', 'email',
-      'custodyNumber', 'dsccRef', 'ufn', 'fileReference',
-      'disclosure', 'advice', 'instructions', 'notes', 'interview',
-      'data', // raw JSON blob from attendances table
-      'body', // request body / email body
-      'html', // HTML buffers (custody-note PDFs)
-      'dataUrl',
-    ]);
     const out = {};
     for (const k of Object.keys(value)) {
-      if (SENSITIVE_KEYS.has(k)) {
+      if (isSensitiveKey(k)) {
         out[k] = '<redacted:' + k + '>';
       } else {
         out[k] = redact(value[k]);
@@ -105,4 +122,4 @@ function debug(...args) {
   }
 }
 
-module.exports = { redact, info, warn, error, debug };
+module.exports = { redact, info, warn, error, debug, isSensitiveKey };

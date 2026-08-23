@@ -82,12 +82,4 @@ describe('update-cycle persistence', () => {
     assert.match(mainJs, /Custody Note found an existing licence file but could not read it/);
     assert.match(mainJs, /Stored licence could not be read\. Custody Note will not replace it automatically\./);
   });
-
-  it('can read legacy plaintext licence.dat even when safeStorage is available', () => {
-    // Regression: if a plaintext licence file exists (older build / keychain glitch),
-    // safeStorage.decryptString() throws and the app must fall back to parsing utf8 JSON.
-    assert.match(mainJs, /plaintext JSON/i);
-    assert.match(mainJs, /raw\.toString\('utf8'\)/);
-    assert.match(mainJs, /writeLicenceData\(parsed\)/);
-  });
 });

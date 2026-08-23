@@ -34,6 +34,7 @@ var views = { home: 'view-home', list: 'view-list', firms: 'view-firms', new: 'v
 var currentAttendanceId = null;
 var stations = [];
 var firms = [];
+window.firms = firms;
 var firmsPage = 1;
 var FIRMS_PER_PAGE = 50;
 var refData = {};
@@ -875,7 +876,9 @@ var LAA = {
         { key: 'clientEmailConsent', label: 'Consent to email?', type: 'select', options: ['Yes','No'] },
         { key: '_h_case_assessment', label: 'Case Assessment', type: 'sectionHeading' },
         { key: 'gapsInEvidence', label: 'Gaps in Evidence', type: 'text', placeholder: 'e.g. None', cols: 2 },
+        { key: 'aiFillLawElements', label: 'Fill Law / Elements with AI (offence name & statute only — not printed)', type: 'aiLawFill' },
         { key: 'lawElements', label: 'The Law / Elements of offence', type: 'textarea', cols: 2 },
+        { key: 'aiAskQuestion', label: 'Ask AI (any question — not printed)', type: 'aiAsk' },
         { key: 'caseAssessment', label: 'Case assessment (police case)', type: 'select', options: ['N/A','Strong','Medium','Weak'] },
         { key: 'caseAssessmentWhy', label: 'Assessment reasoning', type: 'textarea', placeholder: 'Why is the case assessed this way?', showIf: { field: 'caseAssessment', notValue: 'N/A' } },
         { key: 'likelySentence', label: 'Likely sentence if convicted', type: 'text', placeholder: 'e.g. Community order', cols: 2 },
@@ -1634,7 +1637,9 @@ var LAA = {
         { key: 'clientEmailConsent', label: 'Consent to email?', type: 'select', options: ['Yes','No'] },
         { key: '_h_case_assessment', label: 'Case Assessment', type: 'sectionHeading' },
         { key: 'gapsInEvidence', label: 'Gaps in Evidence', type: 'text', placeholder: 'e.g. None', cols: 2 },
+        { key: 'aiFillLawElements', label: 'Fill Law / Elements with AI (offence name & statute only — not printed)', type: 'aiLawFill' },
         { key: 'lawElements', label: 'The Law / Elements of offence', type: 'textarea', cols: 2 },
+        { key: 'aiAskQuestion', label: 'Ask AI (any question — not printed)', type: 'aiAsk' },
         { key: 'caseAssessment', label: 'Case assessment (police case)', type: 'select', options: ['N/A','Strong','Medium','Weak'] },
         { key: 'caseAssessmentWhy', label: 'Assessment reasoning', type: 'textarea', placeholder: 'Why is the case assessed this way?', showIf: { field: 'caseAssessment', notValue: 'N/A' } },
         { key: 'likelySentence', label: 'Likely sentence if convicted', type: 'text', placeholder: 'e.g. Community order', cols: 2 },
@@ -1793,7 +1798,7 @@ var clientLookupKeys = [
     'nationality','nationalityOther','ethnicOriginCode','disabilityCode',
     'clientPhone','clientEmail','clientEmailConsent',
     'addressNfa','address1','address2','address3','city','county','postCode',
-    'niNumber','arcNumber',
+    'niNumber','niNumberUnknown','arcNumber',
     'maritalStatus','employmentStatus',
     'accommodationStatus','accommodationDetails',
     'benefits','benefitType','benefitOther','benefitNotes',
@@ -2060,6 +2065,35 @@ var REQUIRED_FIELD_KEYS = [
     scheduleQuietSave();
   }
 
+  function applyNiNumberUnknownState(checked, formEl) {
+    formEl = formEl || document.getElementById('attendance-form') || document;
+    formData.niNumberUnknown = checked ? 'Yes' : 'No';
+    if (checked) {
+      formData.niNumber = NI_UNKNOWN_SENTINEL;
+    } else if (isNiUnknown(formData.niNumber)) {
+      formData.niNumber = '';
+    }
+    var el = formEl.querySelector('[data-field="niNumber"]');
+    if (el) {
+      if (checked) {
+        el.value = NI_UNKNOWN_SENTINEL;
+        el.readOnly = true;
+        el.classList.add('ni-unknown-locked');
+        el.classList.remove('input-error');
+        var errEl = el.parentNode && el.parentNode.querySelector('.field-error');
+        if (errEl) errEl.style.display = 'none';
+      } else {
+        el.readOnly = false;
+        el.classList.remove('ni-unknown-locked');
+        if (isNiUnknown(el.value)) el.value = '';
+      }
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    var unknownCb = formEl.querySelector('[data-field="niNumberUnknown"]');
+    if (unknownCb) unknownCb.checked = !!checked;
+    scheduleQuietSave();
+  }
+
   function buildLaaDeclarationFormHtmlForUi(variant, refDataSource) {
     var L = getLaaDeclarationPdfHelpers();
     var rd = refDataSource || refData;
@@ -2317,6 +2351,18 @@ var REQUIRED_FIELD_KEYS = [
   }
   var EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   var NI_REGEX = /^[A-Za-z]{2}\d{6}[A-Za-z]$/;
+  var NI_UNKNOWN_SENTINEL = '- unknown -';
+
+  function isNiUnknown(v) {
+    return String(v || '').trim().toLowerCase() === NI_UNKNOWN_SENTINEL;
+  }
+
+  function isValidNiOrUnknown(v) {
+    var raw = String(v || '').trim();
+    if (!raw) return true;
+    if (isNiUnknown(raw)) return true;
+    return NI_REGEX.test(raw.replace(/\s/g, ''));
+  }
 
   function _getOrCreateFieldError(inputEl) {
     var errEl = inputEl.parentNode.querySelector('.field-error');
@@ -2382,22 +2428,24 @@ var REQUIRED_FIELD_KEYS = [
 
   function attachNiNumberValidation(inputEl) {
     inputEl.addEventListener('blur', function () {
-      var v = (inputEl.value || '').trim().replace(/\s/g, '');
+      var raw = (inputEl.value || '').trim();
       var errEl = _getOrCreateFieldError(inputEl);
-      if (v && !NI_REGEX.test(v)) {
+      if (raw && !isValidNiOrUnknown(raw)) {
         errEl.textContent = 'NI Number format: AB123456C (2 letters, 6 digits, 1 letter)';
         errEl.style.display = 'block';
         inputEl.classList.add('input-error');
       } else {
         errEl.style.display = 'none';
         inputEl.classList.remove('input-error');
-        if (v && NI_REGEX.test(v)) inputEl.value = v.toUpperCase();
+        if (raw && !isNiUnknown(raw) && NI_REGEX.test(raw.replace(/\s/g, ''))) {
+          inputEl.value = raw.replace(/\s/g, '').toUpperCase();
+        }
       }
     });
     inputEl.addEventListener('input', function () {
-      var v = (inputEl.value || '').trim().replace(/\s/g, '');
+      var raw = (inputEl.value || '').trim();
       var errEl = _getOrCreateFieldError(inputEl);
-      if (!v || NI_REGEX.test(v)) {
+      if (!raw || isValidNiOrUnknown(raw)) {
         errEl.style.display = 'none';
         inputEl.classList.remove('input-error');
       }
@@ -3705,6 +3753,9 @@ var REQUIRED_FIELD_KEYS = [
     updateGearLicenceItem();
     initSyncStatus();
     updateHomeBillingWidget();
+    if (window.ProductTips && typeof window.ProductTips.mountHomeTipsStrip === 'function') {
+      try { window.ProductTips.mountHomeTipsStrip(); } catch (e) { console.error('[product-tips]', e); }
+    }
   }
 
   function initSyncStatus() {
@@ -3852,11 +3903,11 @@ var REQUIRED_FIELD_KEYS = [
       if (st && st.isTrial) {
         var trialDays = st.daysRemaining != null ? ' \u2014 ' + st.daysRemaining + ' day' + (st.daysRemaining !== 1 ? 's' : '') + ' remaining' : '';
         if (titleEl) titleEl.textContent = 'Free trial' + trialDays;
-        if (subEl) subEl.innerHTML = 'Enter your paid licence key to activate cloud backup and full access. <strong>custodynote.com/pricing</strong>';
+        if (subEl) subEl.innerHTML = 'Enter a licence key if you have one. Managed cloud backup is planned for Pro after beta. <strong>Free during beta. No credit card. Paid Pro planned after beta.</strong>';
         if (btnEl) btnEl.textContent = 'Enter licence key \u2192';
       } else {
         if (titleEl) titleEl.textContent = 'Enter your licence key';
-        if (subEl) subEl.innerHTML = 'Paste the key from your email. Get a free trial or buy at <strong>custodynote.com</strong>';
+        if (subEl) subEl.innerHTML = 'Paste a licence key if you have one. <strong>Free during beta. No credit card. Paid Pro planned after beta.</strong>';
         if (btnEl) btnEl.textContent = 'Enter key \u2192';
       }
     }).catch(function() {
@@ -3953,7 +4004,7 @@ var REQUIRED_FIELD_KEYS = [
 
     if (!d.firmId) flags.push({ key: 'no-firm', label: 'No firm', tone: 'warning' });
     if (status !== 'finalised' && status !== 'completed') {
-      if (d._formType !== 'telephone' && !d.clientSig) flags.push({ key: 'client-sig', label: 'Client sign', tone: 'warning' });
+      if (d._formType !== 'telephone' && !d.clientSig && !d.clientSigNotNeeded) flags.push({ key: 'client-sig', label: 'Client sign', tone: 'warning' });
       if (!getEffectiveFeeEarnerSig(d)) flags.push({ key: 'fee-earner-sig', label: 'Rep sign', tone: 'warning' });
       if (ageMs > staleDraftMs && !isOutcomeDecisionRecorded(d.outcomeDecision || getLegacyOutcomeDecision(d.caseOutcomeStatus, d._formType))) {
         flags.push({ key: 'outcome', label: 'Outcome', tone: 'danger' });
@@ -4230,7 +4281,7 @@ var REQUIRED_FIELD_KEYS = [
       var name = [d.forename, d.surname].filter(Boolean).join(' ') || r.client_name || 'Unnamed';
       var id = r.id;
 
-      if (!d.clientSig) issues.push({ id: id, name: name, reason: 'Missing client signature' });
+      if (!d.clientSig && !d.clientSigNotNeeded) issues.push({ id: id, name: name, reason: 'Missing client signature' });
       var recordAgeMs = r.created_at ? (Date.now() - new Date(r.created_at).getTime()) : 0;
       var sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
       if (recordAgeMs > sevenDaysMs && !isOutcomeDecisionRecorded(d.outcomeDecision || getLegacyOutcomeDecision(d.caseOutcomeStatus, d._formType))) {
@@ -4680,11 +4731,32 @@ var REQUIRED_FIELD_KEYS = [
     function qcRenderFirmResults(filteredList) {
       if (!resultsDiv) return;
       resultsDiv.innerHTML = '';
-      const q = (searchInp && searchInp.value || '').trim().toLowerCase();
+      const q = (searchInp && searchInp.value || '').trim();
+      const qLower = q.toLowerCase();
       if (!firms.length) {
         resultsDiv.innerHTML = '<div class="firms-search-result-item firms-search-empty">No firms yet. Add a firm first.</div>';
-      } else if (q && (!filteredList || !filteredList.length)) {
-        resultsDiv.innerHTML = '<div class="firms-search-result-item firms-search-empty">No firms match.</div>';
+      } else if (qLower && (!filteredList || !filteredList.length)) {
+        const noMatch = document.createElement('div');
+        noMatch.className = 'firms-search-result-item firms-search-empty firms-search-add-action';
+        noMatch.setAttribute('role', 'option');
+        noMatch.textContent = 'Add "' + q + '" as a new firm';
+        noMatch.addEventListener('click', function() {
+          showConfirm('No firm matches "' + q + '". Add this firm and enter the contact details?').then(function(ok) {
+            if (!ok) return;
+            if (useSection) useSection.style.display = 'none';
+            if (choiceRow) choiceRow.style.display = 'none';
+            if (addSection) addSection.style.display = 'block';
+            var nameEl = document.getElementById('qc-new-firm-name');
+            if (nameEl) {
+              nameEl.value = q;
+              nameEl.classList.remove('input-error');
+            }
+            var contactEl = document.getElementById('qc-new-firm-contact');
+            if (contactEl) contactEl.focus();
+            else if (nameEl) nameEl.focus();
+          });
+        });
+        resultsDiv.appendChild(noMatch);
       } else {
         const list = (filteredList && filteredList.length) ? filteredList : firms;
         list.forEach(function(fi) {
@@ -4764,7 +4836,7 @@ var REQUIRED_FIELD_KEYS = [
         savedFirmId = id;
         return window.api.firmsList();
       }).then(function(f) {
-        firms = f;
+        setFirmsList(f);
         const added = firms.find(function(fi) { return String(fi.id) === String(savedFirmId); }) ||
           firms.find(function(fi) { return fi.name === name; });
         if (added) {
@@ -4775,6 +4847,7 @@ var REQUIRED_FIELD_KEYS = [
         addSection.style.display = 'none';
         if (btn) { btn.disabled = false; btn.textContent = 'Add Firm'; }
         qcUpdateFirmSelectedLine();
+        ensureFirmInQuickFile(added || newFirm);
       }).catch(function() {
         if (btn) { btn.disabled = false; btn.textContent = 'Add Firm'; }
       });
@@ -5058,6 +5131,8 @@ var REQUIRED_FIELD_KEYS = [
     if (!formData.voluntaryInterview) formData.voluntaryInterview = 'No';
     if (!formData.juvenileVulnerable) formData.juvenileVulnerable = 'Not Applicable';
     if (!formData.coSuspects) formData.coSuspects = 'No';
+    if (!formData.numSuspects) formData.numSuspects = '1';
+    if (!formData.numberOfSuspects) formData.numberOfSuspects = '1';
     if (!formData.cctvVisual) formData.cctvVisual = 'No';
     if (!formData.exhibitsToInspect) formData.exhibitsToInspect = 'No';
     if (!formData.writtenEvidence) formData.writtenEvidence = 'No';
@@ -5559,35 +5634,43 @@ var REQUIRED_FIELD_KEYS = [
           }
         }
         if (typeBadge) {
-          if (st.isTrial) {
+          if (st.tier === 'free' || st.isFree || (st.key && String(st.key).indexOf('FREE-') === 0)) {
+            typeBadge.textContent = 'FREE';
+            typeBadge.style.background = '#e0e7ff';
+            typeBadge.style.color = '#3730a3';
+          } else if (st.isTrial || st.tier === 'trial') {
             typeBadge.textContent = 'TRIAL';
             typeBadge.style.background = '#fef3c7';
             typeBadge.style.color = '#92400e';
           } else {
-            typeBadge.textContent = 'SUBSCRIPTION';
+            typeBadge.textContent = 'PRO';
             typeBadge.style.background = '#d1fae5';
             typeBadge.style.color = '#065f46';
           }
         }
         if (timeEl) {
-          if (st.isTrial) {
+          if (st.tier === 'free' || st.isFree || (st.key && String(st.key).indexOf('FREE-') === 0)) {
+            timeEl.textContent = 'Free during beta — core features unlocked';
+            timeEl.style.color = '#4338ca';
+          } else if (st.isTrial) {
             timeEl.textContent = 'Free trial \u2014 ' + (st.daysRemaining !== undefined ? st.daysRemaining + ' day' + (st.daysRemaining !== 1 ? 's' : '') + ' remaining' : 'active');
             timeEl.style.color = '#d97706';
           } else if (st.daysRemaining !== undefined) {
-            timeEl.textContent = 'Subscription \u2014 ' + st.daysRemaining + ' day' + (st.daysRemaining !== 1 ? 's' : '') + ' remaining';
+            timeEl.textContent = 'Pro \u2014 ' + st.daysRemaining + ' day' + (st.daysRemaining !== 1 ? 's' : '') + ' remaining';
             timeEl.style.color = '';
           } else if (st.expiresAt) {
-            timeEl.textContent = 'Subscription \u2014 expires ' + new Date(st.expiresAt).toLocaleDateString('en-GB');
+            timeEl.textContent = 'Pro \u2014 expires ' + new Date(st.expiresAt).toLocaleDateString('en-GB');
             timeEl.style.color = '';
           } else {
-            timeEl.textContent = 'Subscription active';
+            timeEl.textContent = 'Pro active';
             timeEl.style.color = '#059669';
           }
         }
         if (lastValidatedEl) {
           lastValidatedEl.textContent = st.lastValidated ? 'Last validated: ' + new Date(st.lastValidated).toLocaleString('en-GB') : '';
         }
-        if (trialUpgradeEl) trialUpgradeEl.style.display = st.isTrial ? '' : 'none';
+        var isFreeLike = !!(st.tier === 'free' || st.isFree || st.isTrial || (st.key && String(st.key).indexOf('FREE-') === 0) || (st.key && String(st.key).indexOf('TRIAL-') === 0));
+        if (trialUpgradeEl) trialUpgradeEl.style.display = isFreeLike ? '' : 'none';
       } else if (st && st.status === 'grace_expired' && graceEl) {
         activeEl.style.display = 'none';
         noneEl.style.display = 'none';
@@ -5681,6 +5764,11 @@ var REQUIRED_FIELD_KEYS = [
     if (!window.api) return;
     loadLicenceSettingsUI();
     loadLaaFormsSettingsUI(false);
+    try {
+      if (window.FreemiumFeatures && typeof window.FreemiumFeatures.loadFirmWorkspace === 'function') {
+        window.FreemiumFeatures.loadFirmWorkspace();
+      }
+    } catch (_) {}
     // Trigger System Status card refresh whenever Settings is opened
     document.dispatchEvent(new CustomEvent('view-settings-shown'));
     syncQuickFileSettingsFromAccount({ toastOnPull: false }).then(function() {
@@ -5712,12 +5800,16 @@ var REQUIRED_FIELD_KEYS = [
       const qfApp = document.getElementById('setting-quickfile-appid');
       if (qfApp) qfApp.value = s.quickfileAppId || '';
       if (typeof refreshQuickFileConnectionPanel === 'function') refreshQuickFileConnectionPanel();
+      const oaiKey = document.getElementById('setting-openai-apikey');
+      if (oaiKey) oaiKey.value = s.openaiApiKey || '';
       const fen = document.getElementById('setting-fee-earner-name');
       if (fen) fen.value = s.feeEarnerNameDefault || '';
       const opc = document.getElementById('setting-office-postcode');
       if (opc && document.activeElement !== opc) opc.value = s.officePostcode || '';
       const dm = document.getElementById('setting-dark-mode');
       if (dm) dm.checked = s.darkMode === 'true';
+      const pdfBrand = document.getElementById('setting-pdf-branding-footer');
+      if (pdfBrand) pdfBrand.checked = s.pdfBrandingFooter !== 'false';
       if (s.colourTheme) applyTheme(s.colourTheme);
       const fs = document.getElementById('setting-font-size');
       if (fs && s.fontSize) { fs.value = s.fontSize; }
@@ -5774,7 +5866,14 @@ var REQUIRED_FIELD_KEYS = [
 
       var idleEl = document.getElementById('setting-idle-timeout');
       if (idleEl) {
-        idleEl.value = s.idleTimeoutMinutes || '0';
+        // Match runtime default in session-lock (_IDLE_DEFAULT_MINUTES = 10):
+        // unset/empty means 10 minutes, not Disabled. Explicit "0" stays Disabled.
+        var idleRaw = s.idleTimeoutMinutes;
+        if (idleRaw === undefined || idleRaw === null || idleRaw === '') {
+          idleEl.value = '10';
+        } else {
+          idleEl.value = String(idleRaw);
+        }
         if (!idleEl._idleListenerAttached) {
           idleEl._idleListenerAttached = true;
           idleEl.addEventListener('change', function() {
@@ -5812,11 +5911,11 @@ var REQUIRED_FIELD_KEYS = [
           if (isSub) isSub.style.display = 'none';
           if (reasonEl) {
             if (status && status.isTrial) {
-              reasonEl.innerHTML = 'You are on a <strong>trial licence</strong>. Cloud backup is included with paid subscriptions only. <a href="https://custodynote.com/pricing" target="_blank" rel="noopener" style="color:#1e40af;">Subscribe at custodynote.com/pricing</a> to enable it.';
+              reasonEl.innerHTML = 'You are on a <strong>trial licence</strong>. Managed cloud backup is planned for Pro after beta. <strong>Free during beta. No credit card. Paid Pro planned after beta.</strong> See <a href="https://custodynote.com/pricing" target="_blank" rel="noopener" style="color:#1e40af;">custodynote.com/pricing</a>.';
             } else if (status && status.lastError) {
               reasonEl.textContent = 'Cloud backup verification failed: ' + status.lastError + '. Check your internet connection and try again.';
             } else {
-              reasonEl.innerHTML = 'Cloud backup is included with paid subscriptions. <a href="https://custodynote.com/pricing" target="_blank" rel="noopener" style="color:#1e40af;">Subscribe at custodynote.com</a>, then sign in or enter your licence key in Settings \u203a Licence.';
+              reasonEl.innerHTML = 'Managed cloud backup is planned for Pro after beta. Free during beta. No credit card. Paid Pro planned after beta. If you already have a Pro key, sign in or enter it in Settings \u203a Licence. <a href="https://custodynote.com/pricing" target="_blank" rel="noopener" style="color:#1e40af;">Pricing</a>';
             }
           }
         }
@@ -6022,6 +6121,7 @@ var REQUIRED_FIELD_KEYS = [
       })(),
       officePostcode: document.getElementById('setting-office-postcode')?.value?.trim() || '',
       darkMode: document.getElementById('setting-dark-mode')?.checked ? 'true' : 'false',
+      pdfBrandingFooter: document.getElementById('setting-pdf-branding-footer')?.checked ? 'true' : 'false',
       fontSize: document.getElementById('setting-font-size')?.value || '16',
       layoutMode: document.getElementById('setting-layout-mode')?.value || 'standard',
       navMode: document.getElementById('setting-nav-mode')?.value || 'auto',
@@ -6053,13 +6153,50 @@ var REQUIRED_FIELD_KEYS = [
         vatRate: _normaliseVatRate(s.billingVatRate, 0.20),
       };
       showToast('Settings saved', 'success');
+      if (window.api.quickfileSettingsPush) {
+        window.api.quickfileSettingsPush().catch(function () {});
+      }
     }).catch(function(e) { showToast('Failed to save settings', 'error'); console.error('[saveSettings]', e); });
+  }
+
+  function setFirmsList(next) {
+    firms = Array.isArray(next) ? next : [];
+    window.firms = firms;
+    return firms;
+  }
+
+  /* After a local firm save, find-or-create the matching QuickFile client when
+   * credentials are configured. Never blocks or fails the local save. */
+  function ensureFirmInQuickFile(firmOrName, contactEmail) {
+    if (!window.api || !window.api.quickfileEnsureClient) return;
+    var firmName = '';
+    var email = contactEmail || '';
+    if (firmOrName && typeof firmOrName === 'object') {
+      firmName = String(firmOrName.name || '').trim();
+      if (!email) email = String(firmOrName.contact_email || '').trim();
+    } else {
+      firmName = String(firmOrName || '').trim();
+    }
+    if (!firmName) return;
+    window.api.quickfileEnsureClient({ firmName: firmName, contactEmail: email }).then(function(res) {
+      if (!res) return;
+      if (res.ok) {
+        showToast('Firm also added to QuickFile', 'success', 3500);
+        return;
+      }
+      if (res.skipped === 'not-configured') return;
+      if (res.error) {
+        showToast('Firm saved locally, but QuickFile sync failed: ' + res.error, 'warning', 6500);
+      }
+    }).catch(function(err) {
+      console.warn('[QuickFile] ensureFirmInQuickFile', err);
+    });
   }
 
   function loadFirmsList() {
     if (!window.api) return;
     window.api.firmsList().then(f => {
-      firms = f;
+      setFirmsList(f);
       if (formData && formData.firmId && !(String(formData.firmName || '').trim())) {
         const fi = firms.find(function (x) { return String(x.id) === String(formData.firmId); });
         if (fi && fi.name) formData.firmName = fi.name;
@@ -6097,9 +6234,23 @@ var REQUIRED_FIELD_KEYS = [
       container.appendChild(item);
     } else if (query && !filteredList.length) {
       const item = document.createElement('div');
-      item.className = 'firms-search-result-item firms-search-empty';
-      item.textContent = 'No firms match.';
+      item.className = 'firms-search-result-item firms-search-empty firms-search-add-action';
       item.setAttribute('role', 'option');
+      item.textContent = 'Add "' + query + '" as a new firm';
+      item.addEventListener('click', function() {
+        showConfirm('No firm matches "' + query + '". Add this firm and enter the contact details?').then(function(ok) {
+          if (!ok) return;
+          if (typeof showFirmsAddSection === 'function') showFirmsAddSection();
+          const nameEl = document.getElementById('new-firm-name');
+          if (nameEl) {
+            nameEl.value = query;
+            nameEl.classList.remove('input-error');
+          }
+          const contactEl = document.getElementById('new-firm-contact');
+          if (contactEl) contactEl.focus();
+          else if (nameEl) nameEl.focus();
+        });
+      });
       container.appendChild(item);
     } else {
       (filteredList.length ? filteredList : firms).forEach(firm => {
@@ -6192,6 +6343,7 @@ var REQUIRED_FIELD_KEYS = [
           '<label>Contact <input class="fe-contact" value="' + esc(firm.contact_name || '') + '" placeholder="Contact name"></label>' +
           '<label>Phone <input type="tel" class="fe-phone" value="' + esc(firm.contact_phone || '') + '" placeholder="Phone"></label>' +
           '<label>Email <input class="fe-email" value="' + esc(firm.contact_email || '') + '" placeholder="Email"></label>' +
+          '<label>Address <input class="fe-address" value="' + esc(firm.address || '') + '" placeholder="Postal address"></label>' +
           '<div class="firm-edit-actions"><button type="button" class="btn btn-primary btn-small fe-save">Save</button><button type="button" class="btn btn-secondary btn-small fe-cancel">Cancel</button></div>' +
           '</div></td>';
         tr.querySelector('.firm-del').addEventListener('click', () => {
@@ -6218,6 +6370,7 @@ var REQUIRED_FIELD_KEYS = [
             contact_name: editRow.querySelector('.fe-contact').value.trim(),
             contact_phone: phoneVal,
             contact_email: editRow.querySelector('.fe-email').value.trim(),
+            address: (editRow.querySelector('.fe-address') && editRow.querySelector('.fe-address').value.trim()) || '',
           });
           window.api.firmSave(updated).then(() => { showToast('Firm updated', 'success'); loadFirmsList(); }).catch(function(err) { showToast('Failed to save firm: ' + (err && err.message || ''), 'error'); });
         });
@@ -6242,12 +6395,14 @@ var REQUIRED_FIELD_KEYS = [
     if (phone && !isValidPhoneOrSentinel(phone)) { showToast('Phone: digits / + / - / brackets, or None / N/A / Not applicable', 'error'); return; }
     if (email && !EMAIL_REGEX.test(email)) { showToast('Please enter a valid email address', 'error'); return; }
     document.getElementById('new-firm-name')?.classList.remove('input-error');
-    window.api.firmSave({ name: name, contact_name: contact || '', contact_phone: phone || '', contact_email: email || '' }).then(() => {
+    const payload = { name: name, contact_name: contact || '', contact_phone: phone || '', contact_email: email || '' };
+    window.api.firmSave(payload).then(() => {
       document.getElementById('new-firm-name').value = '';
       document.getElementById('new-firm-contact').value = '';
       document.getElementById('new-firm-phone').value = '';
       document.getElementById('new-firm-email').value = '';
       loadFirmsList();
+      ensureFirmInQuickFile(payload);
     }).catch(function(e) { showToast('Failed to add firm', 'error'); console.error('[addFirm]', e); });
   }
 
@@ -6432,7 +6587,7 @@ var REQUIRED_FIELD_KEYS = [
       }).then(function() {
         return window.api.firmsList();
       }).then(function(updatedFirms) {
-        firms = updatedFirms || [];
+        setFirmsList(updatedFirms || []);
         loadFirmsList();
         updateQuickFileImportStatusLabel(stamp);
         const parts = [];
@@ -6507,11 +6662,9 @@ var REQUIRED_FIELD_KEYS = [
           var success = sampleCount > 0
             ? 'QuickFile connection successful. Directory access is working.'
             : 'QuickFile connection successful. The API responded, but no client rows were returned in the sample check.';
-          var nextInv = result && result.nextInvoiceNumber ? String(result.nextInvoiceNumber) : '';
-          if (nextInv) success += ' Next invoice #: ' + nextInv + '.';
           var msg = lengthsLine ? (lengthsLine + ' \u2014 ' + success) : success;
           setQuickFileStatusMessage(msg);
-          showToast(nextInv ? ('QuickFile connection successful — next invoice #' + nextInv) : 'QuickFile connection successful', 'success');
+          showToast('QuickFile connection successful', 'success');
         }).catch(function(err) {
           var message = err && err.message ? err.message : String(err);
           var combined = lengthsLine ? (lengthsLine + ' \u2014 ' + message) : message;
@@ -6574,7 +6727,7 @@ var REQUIRED_FIELD_KEYS = [
     return window.api.firmSave(updated).then(function() {
       return window.api.firmsList();
     }).then(function(f) {
-      firms = f;
+      setFirmsList(f);
       refreshQuickCaptureContactSuggestions();
     });
   }
@@ -6683,6 +6836,15 @@ var REQUIRED_FIELD_KEYS = [
             if (actionBtn.disabled) return;
             billAttendanceFromList(id);
             break;
+          case 'archive':
+            if (typeof archiveAttendance === 'function') archiveAttendance(id, title);
+            break;
+          case 'unarchive':
+            if (typeof unarchiveAttendance === 'function') unarchiveAttendance(id);
+            break;
+          case 'restore':
+            if (typeof restoreDeletedAttendance === 'function') restoreDeletedAttendance(id, title);
+            break;
           case 'delete': deleteAttendance(id, title); break;
         }
       } else if (e.target.closest('.list-item-text')) {
@@ -6691,11 +6853,58 @@ var REQUIRED_FIELD_KEYS = [
     });
   }
 
+  function _loadListRows() {
+    if (listStatusFilter === 'archived') {
+      return window.api.attendanceSearch({ archived: true, page: 1, pageSize: 10000 }).then(function(res) {
+        return (res && res.rows) || [];
+      });
+    }
+    if (listStatusFilter === 'deleted') {
+      return window.api.attendanceSearch({ deleted: true, page: 1, pageSize: 10000 }).then(function(res) {
+        return (res && res.rows) || [];
+      });
+    }
+    return window.api.attendanceListFull();
+  }
+
+  function _renderListItemActionsHtml(r) {
+    var idAttr = esc(String(r.id));
+    if (listStatusFilter === 'deleted') {
+      return '<button type="button" class="btn-list-action" data-action="restore" data-id="' + idAttr + '" title="Restore this record to the active list">Restore</button>';
+    }
+    if (listStatusFilter === 'archived') {
+      return '<button type="button" class="btn-list-action amend-btn" data-action="amend" data-id="' + idAttr + '" title="Open record">Edit</button>' +
+        '<button type="button" class="btn-list-action" data-action="unarchive" data-id="' + idAttr + '" title="Restore this record to the active list">Unarchive</button>' +
+        '<button type="button" class="btn-list-action" data-action="delete" title="Delete this record">Delete</button>';
+    }
+    var canArchive = r.status === 'finalised' || r.status === 'completed';
+    var archiveBtn = canArchive
+      ? '<button type="button" class="btn-list-action" data-action="archive" data-id="' + idAttr + '" title="Archive this record">Archive</button>'
+      : '';
+    var billHtml = (typeof window._renderListBillButtonHtml === 'function'
+      ? window._renderListBillButtonHtml(r)
+      : (function () {
+        var billOn = isListBillEnabled(r);
+        var billTitle = billOn
+          ? 'Open Finish matter billing for this record'
+          : (r.archived_at
+            ? 'Archived records cannot be billed from the list'
+            : 'Finalise the attendance note before billing');
+        return '<button type="button" class="btn-list-action bill-btn' + (billOn ? '' : ' bill-btn--disabled') + '" data-action="bill" data-id="' + idAttr + '"' + (billOn ? '' : ' disabled') + ' title="' + esc(billTitle) + '">Bill</button>';
+      })());
+    return billHtml +
+      '<button type="button" class="btn-list-action amend-btn" data-action="amend" data-id="' + idAttr + '" title="Open record to edit (amend)">Edit</button>' +
+      '<button type="button" class="btn-list-action" data-action="dup" title="Duplicate for another client (same session)">Duplicate</button>' +
+      '<button type="button" class="btn-list-action" data-action="newMatter" title="New matter (same client)">New matter</button>' +
+      archiveBtn +
+      '<button type="button" class="btn-list-action" data-action="delete" title="Delete this record">Delete</button>';
+  }
+
   function refreshList() {
     const ul = document.getElementById('attendance-list');
     if (!ul || !window.api) return;
     setupListDelegation();
-    window.api.attendanceListFull().then(function(rows) {
+    _loadListRows().then(function(rows) {
       var parsedCache = {};
       function getParsed(r) {
         if (!parsedCache[r.id]) parsedCache[r.id] = safeJson(r.data);
@@ -6733,7 +6942,10 @@ var REQUIRED_FIELD_KEYS = [
       ul.innerHTML = '';
       _listItemIndex = {};
       if (!filtered.length) {
-        ul.innerHTML = '<li class="empty-state"><p>No attendances yet. Click "New Attendance" to start.</p></li>';
+        var emptyMsg = 'No attendances yet. Click "New Attendance" to start.';
+        if (listStatusFilter === 'archived') emptyMsg = 'No archived records.';
+        else if (listStatusFilter === 'deleted') emptyMsg = 'No deleted records.';
+        ul.innerHTML = '<li class="empty-state"><p>' + emptyMsg + '</p></li>';
         renderListPagination(0);
         return;
       }
@@ -6772,8 +6984,12 @@ var REQUIRED_FIELD_KEYS = [
         }
         const meta = [dateLabel, stationLabel, dsccLabel, outcomeLabel].filter(Boolean).join(' \u00B7 ');
         const formTypeBadge = d._formType === 'telephone' ? '<span class="badge badge-tel">TEL</span>' : (d.attendanceMode === 'voluntary' ? '<span class="badge badge-vol">VOL</span>' : '<span class="badge badge-att">ATT</span>');
-        const hasDecl = !!(d.clientSig);
-        const declBadge = hasDecl ? '<span class="badge badge-decl" title="Applicant declaration signed">Declared</span>' : '';
+        const hasDecl = !!(d.clientSig || d.clientSigNotNeeded);
+        const declBadge = hasDecl
+          ? (d.clientSigNotNeeded
+            ? '<span class="badge badge-decl" title="Client signature marked not needed">Sig N/A</span>'
+            : '<span class="badge badge-decl" title="Applicant declaration signed">Declared</span>')
+          : '';
         const healthBadges = renderRecordHealthBadges({
           id: r.id,
           status: r.status,
@@ -6784,7 +7000,7 @@ var REQUIRED_FIELD_KEYS = [
           data: d
         }, 2, 'list-health-badge');
         var billingBadge = '';
-        if (r.status === 'finalised' || r.quickfile_invoice_id) {
+        if (r.status === 'finalised' || r.status === 'completed' || r.quickfile_invoice_id) {
           var _hasInv = !!r.quickfile_invoice_id;
           var _hasAtt = !!(d.photos && d.photos.attachments && d.photos.attachments.length);
           if (_hasInv) billingBadge = '<span class="record-billing-badge record-billing-badge--invoiced">Invoiced</span>';
@@ -6801,24 +7017,12 @@ var REQUIRED_FIELD_KEYS = [
               declBadge +
               healthBadges +
               billingBadge +
+              (listStatusFilter === 'archived' ? '<span class="badge archived">archived</span>' : '') +
+              (listStatusFilter === 'deleted' ? '<span class="badge deleted">deleted</span>' : '') +
               '<span class="badge ' + (r.status || 'draft') + '">' + (r.status || 'draft') + '</span>' +
             '</div>' +
             '<div class="list-item-btns" role="group" aria-label="Record actions">' +
-              (typeof window._renderListBillButtonHtml === 'function'
-                ? window._renderListBillButtonHtml(r)
-                : (function () {
-                var billOn = isListBillEnabled(r);
-                var billTitle = billOn
-                  ? 'Open Finish matter billing for this record'
-                  : (r.archived_at
-                    ? 'Archived records cannot be billed from the list'
-                    : 'Finalise the attendance note before billing');
-                return '<button type="button" class="btn-list-action bill-btn' + (billOn ? '' : ' bill-btn--disabled') + '" data-action="bill" data-id="' + esc(String(r.id)) + '"' + (billOn ? '' : ' disabled') + ' title="' + esc(billTitle) + '">Bill</button>';
-              })()) +
-              '<button type="button" class="btn-list-action amend-btn" data-action="amend" data-id="' + esc(String(r.id)) + '" title="Open record to edit (amend)">Edit</button>' +
-              '<button type="button" class="btn-list-action" data-action="dup" title="Duplicate for another client (same session)">Duplicate</button>' +
-              '<button type="button" class="btn-list-action" data-action="newMatter" title="New matter (same client)">New matter</button>' +
-              '<button type="button" class="btn-list-action" data-action="delete" title="Delete this record">Delete</button>' +
+              _renderListItemActionsHtml(r) +
             '</div>' +
           '</div>';
         frag.appendChild(li);
@@ -6870,7 +7074,7 @@ var REQUIRED_FIELD_KEYS = [
   /* ─── DUPLICATE ATTENDANCE: implemented globally in renderer/views/list.js (duplicateAttendance) ─── */
 
   /* ─── NEW MATTER (SAME CLIENT) ─── Copy only client personal details; new file number on save */
-  var clientPersonalKeys = ['title','forename','middleName','surname','dob','gender','addressNfa','address1','address2','address3','city','county','postCode','clientPhone','clientEmail','clientEmailConsent','nationality','nationalityOther','accommodationStatus','accommodationDetails','maritalStatus','employmentStatus','niNumber','arcNumber','benefits','benefitType','benefitOther','benefitNotes','passportedBenefit','grossIncome','partnerIncome','partnerName','dependants','capitalClient','capitalPartner','capitalTotal','incomeNotes','clientInvolvedAnotherWay','clientInvolvedDetails','counselInstructed','advocacyReason','ethnicOriginCode','disabilityCode','riskAssessment','juvenileVulnerable','appropriateAdultName','appropriateAdultRelation','appropriateAdultPhone','appropriateAdultEmail','appropriateAdultOrganisation','appropriateAdultAddress','interpreterName','interpreterLanguage','languageIssues'];
+  var clientPersonalKeys = ['title','forename','middleName','surname','dob','gender','addressNfa','address1','address2','address3','city','county','postCode','clientPhone','clientEmail','clientEmailConsent','nationality','nationalityOther','accommodationStatus','accommodationDetails','maritalStatus','employmentStatus','niNumber','niNumberUnknown','arcNumber','benefits','benefitType','benefitOther','benefitNotes','passportedBenefit','grossIncome','partnerIncome','partnerName','dependants','capitalClient','capitalPartner','capitalTotal','incomeNotes','clientInvolvedAnotherWay','clientInvolvedDetails','counselInstructed','advocacyReason','ethnicOriginCode','disabilityCode','riskAssessment','juvenileVulnerable','appropriateAdultName','appropriateAdultRelation','appropriateAdultPhone','appropriateAdultEmail','appropriateAdultOrganisation','appropriateAdultAddress','interpreterName','interpreterLanguage','languageIssues'];
 
   function newMatterFromAttendance(id) {
     window.api.attendanceGet(id).then(row => {
@@ -6990,7 +7194,7 @@ var REQUIRED_FIELD_KEYS = [
     var sharedKeys = [
       'title','forename','middleName','surname','gender','dob','nationality','nationalityOther',
       'clientPhone','clientEmail','addressNfa','address1','address2','address3','city','county','postCode',
-      'niNumber','arcNumber','clientType','benefits','benefitType','benefitOther','passportedBenefit','employmentStatus',
+      'niNumber','niNumberUnknown','arcNumber','clientType','benefits','benefitType','benefitOther','passportedBenefit','employmentStatus',
       'ethnicOriginCode','disabilityCode',
       'policeStationId','policeStationName','schemeId','firmId','firmName','firmLaaAccount',
       'firmContactName','firmContactPhone','firmContactEmail','feeEarnerName',
@@ -7205,11 +7409,15 @@ var REQUIRED_FIELD_KEYS = [
     const postFinaliseBar = document.getElementById('form-post-finalise-bar');
     const archiveBtn = document.getElementById('form-archive-btn');
     const unarchiveBtn = document.getElementById('form-unarchive-btn');
-    /* §9 action buttons remain in DOM for delegated handlers but are never shown. */
+    /* §9 Finalise / Finish bars stay hidden — primary action is the header pill. */
     if (finaliseBar) finaliseBar.style.display = 'none';
     if (endBillingBtn) endBillingBtn.style.display = 'none';
     if (postFinaliseBar) postFinaliseBar.style.display = 'none';
-    if (archiveBtn) archiveBtn.style.display = 'none';
+    if (archiveBtn) {
+      var showArchive = !!(currentAttendanceId && !currentRecordArchived &&
+        (currentRecordStatus === 'finalised' || currentRecordStatus === 'completed'));
+      archiveBtn.style.display = showArchive ? '' : 'none';
+    }
     if (unarchiveBtn) {
       unarchiveBtn.style.display = (currentAttendanceId && currentRecordArchived) ? '' : 'none';
     }
@@ -7302,6 +7510,46 @@ var REQUIRED_FIELD_KEYS = [
 
   function showPostFinaliseNextStepsHint() {
     showToast('Next: tap Finish matter in the bottom bar for documents, QuickFile invoice, and archive.', 'info', 7500);
+    maybeShowReferralInviteAfterFinalise();
+  }
+
+  function maybeShowReferralInviteAfterFinalise() {
+    try {
+      if (localStorage.getItem('cn_referral_invite_done') === '1') return;
+    } catch (_) {
+      return;
+    }
+    setTimeout(function () {
+      if (typeof showConfirm !== 'function') return;
+      showConfirm(
+        'Invite a colleague to Custody Note?\n\nFree during beta. No credit card. Paid Pro planned after beta. We will copy a short message you can paste into WhatsApp or email.',
+        'Share Custody Note'
+      ).then(function (ok) {
+        try { localStorage.setItem('cn_referral_invite_done', '1'); } catch (_) {}
+        if (!ok) return;
+        var url = 'https://custodynote.com/download';
+        try {
+          if (window.WEBSITE_LINKS && typeof window.WEBSITE_LINKS.download === 'function') {
+            url = window.WEBSITE_LINKS.download();
+          }
+        } catch (_) {}
+        var text =
+          'I use Custody Note for custody notes and police station attendances — it\'s built for reps and criminal solicitors.\n\n' +
+          'Download free: ' + url + '\n\nFree during beta. No credit card. Paid Pro planned after beta.';
+        var copied = false;
+        try {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(function () {
+              showToast('Invite text copied — paste it to a colleague', 'success', 5000);
+            }).catch(function () {
+              showToast(text, 'info', 12000);
+            });
+            copied = true;
+          }
+        } catch (_) {}
+        if (!copied) showToast(text, 'info', 12000);
+      }).catch(function () {});
+    }, 2500);
   }
 
   function getBillingReadinessWarnings() {
@@ -7827,7 +8075,6 @@ var REQUIRED_FIELD_KEYS = [
       }
     }
     if (sec.id === 'outcome') {
-      ensureMagistratesCourtsLoaded();
       var od = formData.outcomeDecision;
       if (od === 'Charged without Bail' || od === 'Charged with Bail' || od === 'Remanded in Custody') {
         prefillOutcomeChargesFromOffences();
@@ -9206,6 +9453,53 @@ var REQUIRED_FIELD_KEYS = [
       if (isNfa) {
         requestAnimationFrame(function () { applyAddressNfaState(true); });
       }
+      return;
+    }
+    if (f.type === 'aiLawFill' || f.type === 'aiAsk') {
+      /* UI-only — never printed on PDF. */
+      const wrap = document.createElement('div');
+      wrap.className = 'form-group';
+      wrap.style.gridColumn = '1 / -1';
+      const lbl = document.createElement('label');
+      lbl.className = 'checkbox-item';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.name = f.key;
+      cb.dataset.field = f.key;
+      cb.dataset.pdfExclude = '1';
+      lbl.appendChild(cb);
+      lbl.appendChild(document.createTextNode(' ' + f.label));
+      wrap.appendChild(lbl);
+      const hint = document.createElement('p');
+      hint.className = 'settings-hint';
+      hint.style.margin = '0.25rem 0 0 1.5rem';
+      if (f.type === 'aiAsk') {
+        hint.textContent =
+          'Requires your OpenAI API key in Settings → Integrations. Ask any question; follow-ups stay in the session. Nothing is written into the note until you Copy or Append. You control what is sent — do not paste client names or privileged instructions unless you intend to.';
+      } else {
+        hint.textContent =
+          'Requires your OpenAI API key in Settings → Integrations. Draft opens for review only — nothing is inserted into Law / Elements until you press Insert.';
+        const status = document.createElement('p');
+        status.className = 'settings-hint';
+        status.setAttribute('data-ai-law-status', '1');
+        status.style.margin = '0.25rem 0 0 1.5rem';
+        status.style.color = 'var(--warning, #b45309)';
+        const savedLaw = String((formData && formData.lawElements) || '').trim();
+        const viaAi = String((formData && formData.lawElementsFilledViaAi) || '').trim();
+        if (viaAi) {
+          status.textContent =
+            'Last inserted via AI — review before relying on it. Tick again only if you want a new draft (Insert required).';
+        } else if (savedLaw) {
+          status.textContent =
+            'This field already has saved text. Ticking AI drafts a new version for review — nothing is inserted until you press Insert.';
+        } else {
+          status.style.display = 'none';
+          status.textContent = '';
+        }
+        wrap.appendChild(status);
+      }
+      wrap.appendChild(hint);
+      grid.appendChild(wrap);
       return;
     }
     if (f.type === 'actionButton') {
@@ -10732,16 +11026,30 @@ var REQUIRED_FIELD_KEYS = [
 
       function renderFormFirmResults(filteredList) {
         resultsDiv.innerHTML = '';
-        var q = (searchInp.value || '').trim().toLowerCase();
+        var q = (searchInp.value || '').trim();
+        var qLower = q.toLowerCase();
         if (!firms.length) {
           var empty = document.createElement('div');
           empty.className = 'firms-search-result-item firms-search-empty';
           empty.textContent = 'No firms yet. Add a firm first.';
           resultsDiv.appendChild(empty);
-        } else if (q && !filteredList.length) {
+        } else if (qLower && !filteredList.length) {
           var noMatch = document.createElement('div');
-          noMatch.className = 'firms-search-result-item firms-search-empty';
-          noMatch.textContent = 'No firms match.';
+          noMatch.className = 'firms-search-result-item firms-search-empty firms-search-add-action';
+          noMatch.setAttribute('role', 'option');
+          noMatch.textContent = 'Add "' + q + '" as a new firm';
+          noMatch.addEventListener('click', function() {
+            showConfirm('No firm matches "' + q + '". Add this firm and enter the contact details?').then(function(ok) {
+              if (!ok) return;
+              useExistingWrap.style.display = 'none';
+              choiceRow.style.display = 'none';
+              addRow.style.display = 'block';
+              firmInps.afn.value = q;
+              firmInps.afn.classList.remove('input-error');
+              if (firmInps.afc) firmInps.afc.focus();
+              else firmInps.afn.focus();
+            });
+          });
           resultsDiv.appendChild(noMatch);
         } else {
           var list = filteredList.length ? filteredList : firms;
@@ -10823,7 +11131,7 @@ var REQUIRED_FIELD_KEYS = [
           savedFirmId = id;
           return window.api.firmsList();
         }).then(function(f) {
-          firms = f;
+          setFirmsList(f);
           var added = firms.find(function(fi) { return String(fi.id) === String(savedFirmId); }) ||
             firms.find(function(fi) { return fi.name === name; });
           if (added) {
@@ -10839,6 +11147,8 @@ var REQUIRED_FIELD_KEYS = [
               setFieldValue('instructionSource', added.source_of_referral);
             }
             showToast('Firm saved and selected', 'success');
+            if (typeof quietSave === 'function') quietSave();
+            ensureFirmInQuickFile(added);
           }
           addRow.style.display = 'none';
           Object.keys(firmInps).forEach(function(k) { firmInps[k].value = ''; });
@@ -10950,8 +11260,72 @@ var REQUIRED_FIELD_KEYS = [
         });
         sw.appendChild(presetBtn);
       }
+      if (isClientSig) {
+        const notNeededWrap = document.createElement('div');
+        notNeededWrap.className = 'client-sig-not-needed';
+        const notNeededLabel = document.createElement('label');
+        notNeededLabel.className = 'client-sig-not-needed__label';
+        const notNeededCb = document.createElement('input');
+        notNeededCb.type = 'checkbox';
+        notNeededCb.className = 'client-sig-not-needed__cb';
+        notNeededCb.checked = !!(data.clientSigNotNeeded || formData.clientSigNotNeeded);
+        notNeededLabel.appendChild(notNeededCb);
+        notNeededLabel.appendChild(document.createTextNode(' Client signature not needed'));
+        notNeededWrap.appendChild(notNeededLabel);
+        const reasonWrap = document.createElement('div');
+        reasonWrap.className = 'client-sig-not-needed__reason-wrap';
+        reasonWrap.style.display = notNeededCb.checked ? 'block' : 'none';
+        const reasonLab = document.createElement('label');
+        reasonLab.className = 'client-sig-not-needed__reason-label';
+        reasonLab.textContent = 'Reason (optional)';
+        const reasonInp = document.createElement('input');
+        reasonInp.type = 'text';
+        reasonInp.className = 'form-input client-sig-not-needed__reason';
+        reasonInp.placeholder = 'e.g. client released / refused';
+        reasonInp.maxLength = 200;
+        reasonInp.value = data.declarationUnsignedReason || formData.declarationUnsignedReason || '';
+        reasonWrap.appendChild(reasonLab);
+        reasonWrap.appendChild(reasonInp);
+        notNeededWrap.appendChild(reasonWrap);
+        sw.appendChild(notNeededWrap);
+
+        function applyClientSigNotNeededState() {
+          var on = !!notNeededCb.checked;
+          formData.clientSigNotNeeded = on;
+          reasonWrap.style.display = on ? 'block' : 'none';
+          canvas.style.opacity = on ? '0.45' : '';
+          canvas.style.pointerEvents = on ? 'none' : '';
+          var controls = sw.querySelectorAll('.btn-client-sign-fullscreen, .btn-small, .btn-sign-fullscreen');
+          controls.forEach(function(btn) {
+            if (btn.closest && btn.closest('.client-sig-not-needed')) return;
+            btn.disabled = on;
+          });
+          if (on) {
+            if (formData.clientSig) clearInlineSignature(canvas, 'clientSig', true);
+            formData.declarationUnsignedReason = (reasonInp.value || '').trim();
+          } else {
+            if (!(reasonInp.value || '').trim()) delete formData.declarationUnsignedReason;
+          }
+          quietSave();
+        }
+        notNeededCb.addEventListener('change', applyClientSigNotNeededState);
+        reasonInp.addEventListener('input', function() {
+          if (!notNeededCb.checked) return;
+          formData.declarationUnsignedReason = (reasonInp.value || '').trim();
+        });
+        reasonInp.addEventListener('change', function() {
+          if (!notNeededCb.checked) return;
+          formData.declarationUnsignedReason = (reasonInp.value || '').trim();
+          quietSave();
+        });
+        sw._applyClientSigNotNeededState = applyClientSigNotNeededState;
+        sw._clientSigNotNeededCb = notNeededCb;
+      }
       wrap.appendChild(sw);
       initSignatureCanvas(canvas, f.sigKey, data);
+      if (isClientSig && sw._clientSigNotNeededCb && sw._clientSigNotNeededCb.checked && sw._applyClientSigNotNeededState) {
+        sw._applyClientSigNotNeededState();
+      }
       grid.appendChild(wrap);
       return;
     } else if (f.type === 'time') {
@@ -11129,6 +11503,28 @@ var REQUIRED_FIELD_KEYS = [
         telWrap.appendChild(btn);
       });
       wrap.appendChild(telWrap);
+    } else if (f.key === 'niNumber') {
+      wrap.appendChild(input);
+      const unknownLbl = document.createElement('label');
+      unknownLbl.className = 'checkbox-item ni-unknown-label';
+      const unknownCb = document.createElement('input');
+      unknownCb.type = 'checkbox';
+      unknownCb.dataset.field = 'niNumberUnknown';
+      const isUnknown = data.niNumberUnknown === 'Yes' || isNiUnknown(data.niNumber);
+      unknownCb.checked = !!isUnknown;
+      if (isUnknown && data.niNumberUnknown !== 'Yes') {
+        data.niNumberUnknown = 'Yes';
+        formData.niNumberUnknown = 'Yes';
+      }
+      unknownCb.addEventListener('change', function () {
+        applyNiNumberUnknownState(unknownCb.checked);
+      });
+      unknownLbl.appendChild(unknownCb);
+      unknownLbl.appendChild(document.createTextNode(' unknown NI no.'));
+      wrap.appendChild(unknownLbl);
+      if (isUnknown) {
+        requestAnimationFrame(function () { applyNiNumberUnknownState(true); });
+      }
     } else {
       wrap.appendChild(input);
     }
@@ -11138,6 +11534,13 @@ var REQUIRED_FIELD_KEYS = [
       sbtHint.className = 'field-hint sbt-hint';
       sbtHint.textContent = 'LAA requirement: select the work undertaken that shows sufficient benefit to the client. Add any extra details in the notes field below.';
       wrap.appendChild(sbtHint);
+    }
+
+    if (f.key === 'outcomeDecision') {
+      const outcomeDisclaimer = document.createElement('p');
+      outcomeDisclaimer.className = 'field-hint outcome-decision-disclaimer';
+      outcomeDisclaimer.textContent = 'We make every effort to obtain correct information from custody staff/officers with regard to results. However you are always advised to double check. They are prone to misinformation/error.';
+      wrap.appendChild(outcomeDisclaimer);
     }
 
     if (f.key === 'reasonsForAdviceSelect') {
@@ -11574,23 +11977,12 @@ var REQUIRED_FIELD_KEYS = [
     function positionCourtDropdown() {
       if (!dropdown.classList.contains('open')) return;
       var rect = input.getBoundingClientRect();
-      var viewportPad = 8;
-      var maxDropdownHeight = Math.max(120, window.innerHeight - viewportPad * 2);
       dropdown.style.position = 'fixed';
-      dropdown.style.left = Math.max(viewportPad, rect.left) + 'px';
+      dropdown.style.left = Math.max(8, rect.left) + 'px';
+      dropdown.style.top = (rect.bottom + 2) + 'px';
       dropdown.style.width = Math.max(rect.width, 280) + 'px';
       dropdown.style.right = 'auto';
       dropdown.style.zIndex = '5000';
-      dropdown.style.maxHeight = maxDropdownHeight + 'px';
-      dropdown.style.overflowY = 'auto';
-      var dropdownHeight = dropdown.offsetHeight || 0;
-      var spaceBelow = window.innerHeight - rect.bottom - viewportPad;
-      var spaceAbove = rect.top - viewportPad;
-      if (dropdownHeight > spaceBelow && spaceAbove > spaceBelow) {
-        dropdown.style.top = Math.max(viewportPad, rect.top - dropdownHeight - 2) + 'px';
-      } else {
-        dropdown.style.top = (rect.bottom + 2) + 'px';
-      }
     }
 
     function resetCourtDropdownPosition() {
@@ -12024,14 +12416,6 @@ var REQUIRED_FIELD_KEYS = [
       if (formData.passportedBenefit !== pp) { formData.passportedBenefit = pp; setFieldValue('passportedBenefit', pp); }
     } else if (!bt) {
       if (formData.passportedBenefit !== 'Unknown') { formData.passportedBenefit = 'Unknown'; setFieldValue('passportedBenefit', 'Unknown'); }
-    }
-
-    var courtInput = scope.querySelector('[data-field="courtName"]');
-    if (courtInput) {
-      var courtWrap = courtInput.closest('[data-show-if-field]');
-      if (!courtWrap || courtWrap.style.display !== 'none') {
-        ensureMagistratesCourtsLoaded();
-      }
     }
 
     scheduleRefreshSubsectionHeadingChips();
@@ -12474,6 +12858,9 @@ var REQUIRED_FIELD_KEYS = [
   }
 
   function getFormData() { collectCurrentData(); return formData; }
+  window.getFormData = getFormData;
+  window.setFieldValue = setFieldValue;
+  window.getFieldValue = getFieldValue;
 
   /* ─── SAVE ─── */
   function setListFilterAndShowList(filter) {
@@ -12795,9 +13182,12 @@ var REQUIRED_FIELD_KEYS = [
     }
     if (formData.languageIssues === 'Yes' && !(formData.interpreterLanguage || '').trim()) m.push({ key: 'interpreterLanguage', label: 'Language required', section: 2 });
 
-    var niVol = (formData.niNumber || '').trim().replace(/\s/g, '').toUpperCase();
-    if (niVol && !/^[A-Z]{2}\d{6}[A-Z]$/.test(niVol)) {
-      m.push({ key: 'niNumber', label: 'NI Number format invalid (expected AB123456C)', section: 5 });
+    var niVolRaw = (formData.niNumber || '').trim();
+    if (niVolRaw && niVolRaw.toLowerCase() !== '- unknown -') {
+      var niVol = niVolRaw.replace(/\s/g, '').toUpperCase();
+      if (!/^[A-Z]{2}\d{6}[A-Z]$/.test(niVol)) {
+        m.push({ key: 'niNumber', label: 'NI Number format invalid (expected AB123456C)', section: 5 });
+      }
     }
     var dobVol = (formData.dob || '').trim();
     if (dobVol) {
@@ -12894,9 +13284,12 @@ var REQUIRED_FIELD_KEYS = [
       if (!(formData.appropriateAdultPhone || '').trim()) m.push({ key: 'appropriateAdultPhone', label: 'AA contact number', section: 2 });
     }
 
-    var ni = (formData.niNumber || '').trim().replace(/\s/g, '').toUpperCase();
-    if (ni && !/^[A-Z]{2}\d{6}[A-Z]$/.test(ni)) {
-      m.push({ key: 'niNumber', label: 'NI Number format invalid (expected AB123456C)', section: 5 });
+    var niRaw = (formData.niNumber || '').trim();
+    if (niRaw && niRaw.toLowerCase() !== '- unknown -') {
+      var ni = niRaw.replace(/\s/g, '').toUpperCase();
+      if (!/^[A-Z]{2}\d{6}[A-Z]$/.test(ni)) {
+        m.push({ key: 'niNumber', label: 'NI Number format invalid (expected AB123456C)', section: 5 });
+      }
     }
 
     var dob = (formData.dob || '').trim();
@@ -13239,11 +13632,19 @@ var REQUIRED_FIELD_KEYS = [
   /* ═══════════════════════════════════════════════
      PDF GENERATION – comprehensive LAA-compliant
      ═══════════════════════════════════════════════ */
-  /* Free-trial advert last page – keep in sync with index.html splash-advert */
-  var PDF_CASENOTE_ADVERT = '<div style="margin-top:32px;padding:14px 20px;border-top:2px solid #2563eb;text-align:center;font-size:10px;color:#475569;background:#f8fafc;border-radius:0 0 6px 6px;">' +
-    '<strong style="color:#2563eb;font-size:11px;">Custody Note</strong> &mdash; Digital attendance notes for police station representatives.<br>' +
-    '<span style="font-size:11px;font-weight:600;color:#0f172a;">Free trial? Go to <a href="https://www.custodynote.com" style="color:#2563eb;text-decoration:underline;">www.custodynote.com</a></span>' +
-    '</div>';
+  /* Free-plan advert last page – keep in sync with freemium copy; gated by pdfBrandingFooter setting */
+  function pdfBrandingEnabled(settings) {
+    var s = settings || window._appSettingsCache || {};
+    if (s.pdfBrandingFooter === 'false' || s.pdfBrandingFooter === false) return false;
+    return true;
+  }
+  function pdfCaseNoteAdvertHtml(settings) {
+    if (!pdfBrandingEnabled(settings)) return '';
+    return '<div style="margin-top:32px;padding:14px 20px;border-top:2px solid #2563eb;text-align:center;font-size:10px;color:#475569;background:#f8fafc;border-radius:0 0 6px 6px;">' +
+      '<strong style="color:#2563eb;font-size:11px;">Custody Note</strong> &mdash; Digital attendance notes for police station representatives.<br>' +
+      '<span style="font-size:11px;font-weight:600;color:#0f172a;">Free during beta &middot; <a href="https://www.custodynote.com/download" style="color:#2563eb;text-decoration:underline;">www.custodynote.com/download</a></span>' +
+      '</div>';
+  }
   function formatInstructionDateTime(val) {
     if (!val || typeof val !== 'string') return '';
     var s = val.trim();
@@ -13451,7 +13852,14 @@ var REQUIRED_FIELD_KEYS = [
       (typeof val === 'string' && /^(yes|y|true|on|checked|ticked)$/i.test(val.trim()));
     const check = (k, l) => _isTicked(d[k]) ? '<span class="chk">\u2611 ' + h(l) + '</span>' : '<span class="chk unc">\u2610 ' + h(l) + '</span>';
     const sigUri = function(k) { return k === 'feeEarnerSig' ? getEffectiveFeeEarnerSig(d) : (d[k] || ''); };
-    const sig = k => sigUri(k) ? '<img src="' + sigUri(k) + '" class="sig-img" alt="">' : '<em class="sig-unsigned">Not signed</em>';
+    const sig = function(k) {
+      if (sigUri(k)) return '<img src="' + sigUri(k) + '" class="sig-img" alt="">';
+      if (k === 'clientSig' && d.clientSigNotNeeded) {
+        var reason = (d.declarationUnsignedReason || '').trim();
+        return '<em class="sig-unsigned">Not needed' + (reason ? ' \u2014 ' + h(reason) : '') + '</em>';
+      }
+      return '<em class="sig-unsigned">Not signed</em>';
+    };
     const sn = d.policeStationName || '';
     const firmName = d.firmName || '';
     const brand = (settings.brandName || 'Defence Legal Services Ltd') + (settings.tradingAs ? ' t/a ' + settings.tradingAs : '');
@@ -13920,7 +14328,7 @@ row('Invoice notes', d.invoiceNotes) +
     (d.crm14HasPartner === 'Yes' ? crm14PartnerDeclarationNotePdfHtml(h) + '<div class="sig-block"><p class="sig-label">CRM14 partner signature</p>' + sig('crm14PartnerSig') + '</div>' : '');
 })() +
 
-PDF_CASENOTE_ADVERT +
+pdfCaseNoteAdvertHtml() +
 pdfAuditFooterHtml(d, settings) +
 '</body></html>';
   }
@@ -14048,7 +14456,7 @@ pdfAuditFooterHtml(d, settings) +
       row('UFN', d.ufn) + row('Firm LAA Account', d.firmLaaAccount) +
       row('Ethnic Origin', d.ethnicOriginCode) + row('Disability', d.disabilityCode) +
       '</table>' +
-      PDF_CASENOTE_ADVERT +
+      pdfCaseNoteAdvertHtml() +
       pdfAuditFooterHtml(d, settings) +
       '</body></html>';
   }
@@ -14408,7 +14816,7 @@ pdfAuditFooterHtml(d, settings) +
           '<table>' + consentRows + '</table>';
       })() +
 
-      PDF_CASENOTE_ADVERT +
+      pdfCaseNoteAdvertHtml() +
       pdfAuditFooterHtml(d, settings) +
       '</body></html>';
   }
@@ -14457,7 +14865,11 @@ pdfAuditFooterHtml(d, settings) +
       const label = data._formType === 'telephone' ? 'tel-advice' : (data.attendanceMode === 'voluntary' ? 'voluntary' : 'attendance');
       const n = [data.surname, data.forename].filter(Boolean).join('_') || label;
       const fn = n + '-' + (data.ufn ? data.ufn.replace('/', '-') : '') + '-' + ((data.date || '').replace(/-/g, '') || Date.now()) + '.pdf';
-      window.api.printToPdf({ html: html, filename: fn }).then(function(p) {
+      window.api.printToPdf({
+        html: html,
+        filename: fn,
+        brandingFooter: pdfBrandingEnabled(settings),
+      }).then(function(p) {
         showToast('PDF saved: ' + p, 'success');
       }).catch(e => showToast('PDF failed: ' + (e && e.message), 'error'));
     }).catch(function(e) { showToast('Export failed: could not load settings', 'error'); console.error('[exportPdf]', e); });
@@ -14867,7 +15279,7 @@ pdfAuditFooterHtml(d, settings) +
 
   function showLicenceGateToast() {
     if (window.__licenceExpired) {
-      showToast('Your subscription has expired. Renew at custodynote.com/pricing to create new records.', 'warning', 5000);
+      showToast('Core notes stay available on free beta access. Managed cloud backup is planned for Pro after beta — see custodynote.com/pricing.', 'warning', 5000);
       return true;
     }
     return false;
@@ -15090,7 +15502,7 @@ pdfAuditFooterHtml(d, settings) +
       repSigHtml +
       '<p>Name: ' + esc(fee) + '&nbsp;&nbsp;&nbsp;&nbsp; Date: ' + esc(sigDateLine || '____________') + '</p>' +
       '<div class="footer">© Defence Legal Services Ltd &nbsp;|&nbsp; Generated: ' + new Date().toLocaleString('en-GB') + '</div>' +
-      PDF_CASENOTE_ADVERT +
+      pdfCaseNoteAdvertHtml() +
       '</body></html>';
     printGeneratedDoc(html);
   }
@@ -15130,7 +15542,7 @@ pdfAuditFooterHtml(d, settings) +
       '<div class="sig-box"></div>' +
       '<p>Name (BLOCK CAPITALS): ______________________________&nbsp;&nbsp;&nbsp;&nbsp; Date: ' + esc(date) + (time ? ' &nbsp;&nbsp; Time: ' + esc(time) : '') + '</p>' +
       '<div class="footer">© Defence Legal Services Ltd &nbsp;|&nbsp; Generated: ' + new Date().toLocaleString('en-GB') + '</div>' +
-      PDF_CASENOTE_ADVERT +
+      pdfCaseNoteAdvertHtml() +
       '</body></html>';
     printGeneratedDoc(html);
   }
@@ -15167,7 +15579,7 @@ pdfAuditFooterHtml(d, settings) +
       '<div class="sig-box"></div>' +
       '<p>Name: ' + esc(fee) + '&nbsp;&nbsp;&nbsp;&nbsp; Date: ' + esc(date) + '</p>' +
       '<div class="footer">© Defence Legal Services Ltd &nbsp;|&nbsp; Generated: ' + new Date().toLocaleString('en-GB') + '</div>' +
-      PDF_CASENOTE_ADVERT +
+      pdfCaseNoteAdvertHtml() +
       '</body></html>';
     printGeneratedDoc(html);
   }
@@ -15324,13 +15736,30 @@ pdfAuditFooterHtml(d, settings) +
   }
 
   function initKeyboardShortcuts() {
+    /* Accept Ctrl (Windows/Linux) or Meta/Cmd (macOS) for the same shortcuts. */
+    function modPressed(e) { return !!(e && (e.ctrlKey || e.metaKey)); }
+    var shortcutModLabel = (/Mac|iPhone|iPad|iPod/i.test(navigator.platform || '') ||
+      /Mac OS X/i.test(navigator.userAgent || '')) ? 'Cmd' : 'Ctrl';
+    try {
+      document.querySelectorAll('[data-shortcut-mod]').forEach(function(el) {
+        el.textContent = shortcutModLabel;
+      });
+      var saveExitTitle = document.getElementById('form-save-exit');
+      if (saveExitTitle) {
+        saveExitTitle.title = 'Save & exit';
+      }
+      var formPrev = document.getElementById('form-prev');
+      if (formPrev) formPrev.title = 'Previous section (' + shortcutModLabel + '+←)';
+      var formNext = document.getElementById('form-next');
+      if (formNext) formNext.title = 'Next section (' + shortcutModLabel + '+→)';
+    } catch (_) {}
     document.addEventListener('keydown', (e) => {
       if (e.altKey && e.key === 'ArrowLeft') {
         e.preventDefault();
         goBack();
         return;
       }
-      if (e.ctrlKey && e.shiftKey && e.key === 'D') {
+      if (modPressed(e) && e.shiftKey && e.key === 'D') {
         e.preventDefault();
         var ov = document.getElementById('sync-diagnostics-overlay');
         if (ov && ov.style.display === 'none') {
@@ -15340,19 +15769,19 @@ pdfAuditFooterHtml(d, settings) +
           ov.style.display = 'none';
         }
       }
-      if (e.ctrlKey && e.shiftKey && e.key === 'P') {
+      if (modPressed(e) && e.shiftKey && e.key === 'P') {
         e.preventDefault();
         togglePerformancePanel();
         return;
       }
-      /* NEW: Ctrl+N = New record (from any view) */
-      if (e.ctrlKey && e.key === 'n') {
+      /* Cmd/Ctrl+N = New record (from any view) */
+      if (modPressed(e) && e.key === 'n') {
         e.preventDefault();
         showView('quickcapture');
         return;
       }
-      /* NEW: Ctrl+F = Focus search in list view */
-      if (e.ctrlKey && e.key === 'f') {
+      /* Cmd/Ctrl+F = Focus search in list view */
+      if (modPressed(e) && e.key === 'f') {
         const listView = document.getElementById('view-list');
         if (listView && listView.classList.contains('active')) {
           e.preventDefault();
@@ -15364,7 +15793,7 @@ pdfAuditFooterHtml(d, settings) +
         }
         return;
       }
-      /* NEW: / = Quick focus search in list */
+      /* / = Quick focus search in list */
       if (e.key === '/' && !e.ctrlKey && !e.altKey && !e.metaKey) {
         const listView = document.getElementById('view-list');
         const activeEl = document.activeElement;
@@ -15406,7 +15835,7 @@ pdfAuditFooterHtml(d, settings) +
       });
     });
     document.addEventListener('keydown', (e) => {
-      if (e.ctrlKey && e.shiftKey && e.key === 'B') {
+      if (modPressed(e) && e.shiftKey && e.key === 'B') {
         e.preventDefault();
         window.api.backupNow().then(function(p) { showToast('Backup saved: ' + p, 'success'); }).catch(function(err) { showToast('Failed: ' + (err && err.message), 'error'); });
         return;
@@ -15414,8 +15843,8 @@ pdfAuditFooterHtml(d, settings) +
       const formViewActive = document.getElementById('view-form')?.classList.contains('active');
       if (!formViewActive) return;
 
-      /* NEW: Ctrl+Enter = Finalise record */
-      if (e.ctrlKey && e.key === 'Enter') {
+      /* Cmd/Ctrl+Enter = Finalise record */
+      if (modPressed(e) && e.key === 'Enter') {
         e.preventDefault();
         if (currentAttendanceId && !isNoteLockedForEditing()) {
           // H8 — saveForm expects a string status; passing boolean `true` was
@@ -15431,15 +15860,16 @@ pdfAuditFooterHtml(d, settings) +
         return;
       }
 
-      if (e.ctrlKey && e.key === 's') {
+      /* Cmd/Ctrl+S = quiet save (does not exit — matches custody-desk safety) */
+      if (modPressed(e) && e.key === 's') {
         e.preventDefault();
         quietSave();
       }
-      if (e.ctrlKey && e.key === 'ArrowRight') {
+      if (modPressed(e) && e.key === 'ArrowRight') {
         e.preventDefault();
         showSection(currentSectionIdx + 1);
       }
-      if (e.ctrlKey && e.key === 'ArrowLeft') {
+      if (modPressed(e) && e.key === 'ArrowLeft') {
         e.preventDefault();
         showSection(currentSectionIdx - 1);
       }
@@ -16515,7 +16945,7 @@ pdfAuditFooterHtml(d, settings) +
       loadMagistratesCourts(),
     ]).then(([s, f, rd]) => {
       stations = s;
-      firms = f;
+      setFirmsList(f);
       refData = rd || {};
       loadRecentStations();
       splashDataReady = true;
@@ -17799,9 +18229,9 @@ pdfAuditFooterHtml(d, settings) +
       var settingsCta = ' <button type="button" id="home-cloud-backup-cta" style="background:none;border:none;padding:0;color:#1e40af;cursor:pointer;font-size:0.8rem;text-decoration:underline;font-weight:600;">Go to Settings &rarr;</button>';
       var reasonEl = document.getElementById('cloud-backup-unavailable-reason');
       var homeReasonEl = document.getElementById('home-cloud-backup-reason');
-      var trialHtml = 'You are on a <strong>trial licence</strong>. Cloud backup is included with paid subscriptions only. <a href="https://custodynote.com/pricing" target="_blank" rel="noopener" style="color:#1e40af;">Subscribe at custodynote.com/pricing</a> to enable it.';
-      var defaultSettingsHtml = 'Cloud backup is included with paid subscriptions. <a href="https://custodynote.com/pricing" target="_blank" rel="noopener" style="color:#1e40af;">Subscribe at custodynote.com</a>, then sign in or enter your licence key in Settings \u203a Licence.';
-      var defaultHomeHtml = 'Cloud backup is included with paid subscriptions — your data is currently backed up locally only.' + settingsCta;
+      var trialHtml = 'You are on a <strong>trial licence</strong>. Managed cloud backup is planned for Pro after beta. <strong>Free during beta. No credit card. Paid Pro planned after beta.</strong> See <a href="https://custodynote.com/pricing" target="_blank" rel="noopener" style="color:#1e40af;">custodynote.com/pricing</a>.';
+      var defaultSettingsHtml = 'Managed cloud backup is planned for Pro after beta. Free during beta. No credit card. Paid Pro planned after beta. If you already have a Pro key, sign in or enter it in Settings \u203a Licence. <a href="https://custodynote.com/pricing" target="_blank" rel="noopener" style="color:#1e40af;">Pricing</a>';
+      var defaultHomeHtml = 'Managed cloud backup is planned for Pro after beta — during beta your data is backed up locally. Free during beta. No credit card. Paid Pro planned after beta.' + settingsCta;
       if (data && data.isTrial) {
         if (reasonEl) reasonEl.innerHTML = trialHtml;
         if (homeReasonEl) homeReasonEl.innerHTML = trialHtml + settingsCta;
@@ -18073,10 +18503,10 @@ pdfAuditFooterHtml(d, settings) +
           if (l2El) l2El.textContent = data.lastSuccess ? 'Last upload: ' + new Date(data.lastSuccess).toLocaleString('en-GB') : 'Backup active — no uploads yet this session';
         } else if (data.isTrial) {
           setBlock('sysstat-backup-icon','ℹ️','#2563eb','sysstat-backup-line1','Local backup only — trial licence','sysstat-backup-line2','');
-          if (l2El) l2El.textContent = 'Cloud backup is not included in the free trial. Subscribe at custodynote.com/pricing to enable it.';
+          if (l2El) l2El.textContent = 'Cloud backup is not included on trial keys. Managed cloud backup is planned for Pro after beta — see custodynote.com/pricing.';
         } else {
           setBlock('sysstat-backup-icon','⚠️','#d97706','sysstat-backup-line1','Local backup only','sysstat-backup-line2','');
-          var reason = data.lastError || 'Cloud backup requires a paid subscription. Subscribe at custodynote.com/pricing.';
+          var reason = data.lastError || 'Managed cloud backup is planned for Pro after beta. Free during beta. No credit card. Paid Pro planned after beta.';
           if (l2El) l2El.textContent = reason;
         }
       }
@@ -18780,17 +19210,43 @@ pdfAuditFooterHtml(d, settings) +
         }
       }
     });
-    var shareAppUrl = window.WEBSITE_LINKS
-      ? window.WEBSITE_LINKS.download()
-      : 'https://custodynote.com/download?utm_source=app&utm_medium=referral&utm_campaign=share';
+    function getShareInviteUrl() {
+      var code = '';
+      try {
+        var cache = window._appSettingsCache || {};
+        if (cache.referralCode) code = String(cache.referralCode);
+      } catch (_) {}
+      if (!code) {
+        try {
+          code = localStorage.getItem('cn_referral_code') || '';
+        } catch (_) {}
+      }
+      if (!code) {
+        code = 'CN' + Date.now().toString(36).toUpperCase().slice(-6);
+        try { localStorage.setItem('cn_referral_code', code); } catch (_) {}
+        if (window.api && window.api.setSettings) {
+          window.api.setSettings({ referralCode: code }).catch(function () {});
+        }
+      }
+      if (window.WEBSITE_LINKS && typeof window.WEBSITE_LINKS.referral === 'function') {
+        return window.WEBSITE_LINKS.referral(code);
+      }
+      return 'https://custodynote.com/r/' + encodeURIComponent(code) +
+        '?utm_source=app&utm_medium=referral&utm_campaign=invite';
+    }
+    var shareAppUrl = getShareInviteUrl();
+    var shareUrlEl = document.getElementById('share-referral-url');
+    if (shareUrlEl) shareUrlEl.textContent = shareAppUrl;
     document.getElementById('share-app-copy-btn')?.addEventListener('click', function() {
       var btn = this;
+      shareAppUrl = getShareInviteUrl();
+      if (shareUrlEl) shareUrlEl.textContent = shareAppUrl;
       var copy = function() {
         if (navigator.clipboard && navigator.clipboard.writeText) {
           navigator.clipboard.writeText(shareAppUrl).then(function() {
-            showToast('Link copied to clipboard', 'success');
+            showToast('Invite link copied', 'success');
             btn.textContent = 'Copied!';
-            setTimeout(function() { btn.textContent = 'Copy download link'; }, 2000);
+            setTimeout(function() { btn.textContent = 'Copy invite link'; }, 2000);
           }).catch(function() { showToast('Could not copy', 'error'); });
         } else {
           var ta = document.createElement('textarea');
@@ -18801,9 +19257,9 @@ pdfAuditFooterHtml(d, settings) +
           ta.select();
           try {
             document.execCommand('copy');
-            showToast('Link copied to clipboard', 'success');
+            showToast('Invite link copied', 'success');
             btn.textContent = 'Copied!';
-            setTimeout(function() { btn.textContent = 'Copy download link'; }, 2000);
+            setTimeout(function() { btn.textContent = 'Copy invite link'; }, 2000);
           } catch (_) { showToast('Could not copy', 'error'); }
           document.body.removeChild(ta);
         }
@@ -18811,9 +19267,10 @@ pdfAuditFooterHtml(d, settings) +
       copy();
     });
     document.getElementById('share-app-email-btn')?.addEventListener('click', function() {
+      shareAppUrl = getShareInviteUrl();
       var subject = 'Custody Note – custody notes app for police station reps';
       var body =
-        'I use Custody Note for custody notes and police station attendances — it\'s built for reps and criminal solicitors.\n\nDownload: ' + shareAppUrl + '\n\n30-day free trial, no credit card.';
+        'I use Custody Note for custody notes and police station attendances — it\'s built for reps and criminal solicitors.\n\nDownload free: ' + shareAppUrl + '\n\nFree during beta. No credit card. Paid Pro planned after beta.';
       copyOutlookComposeFields('', subject, body, {
         allowEmptyTo: true,
         successToast: 'Copied — paste into Outlook or any mail client',
@@ -18827,6 +19284,7 @@ pdfAuditFooterHtml(d, settings) +
       ['setting-quickfile-account', 'quickfileAccountNumber'],
       ['setting-quickfile-apikey', 'quickfileApiKey'],
       ['setting-quickfile-appid', 'quickfileAppId'],
+      ['setting-openai-apikey', 'openaiApiKey'],
       ['setting-backup-folder', 'backupFolder'],
       ['setting-offsite-backup-folder', 'offsiteBackupFolder'],
       ['setting-cloud-backup-url', 'cloudBackupUrl'],
@@ -18839,7 +19297,13 @@ pdfAuditFooterHtml(d, settings) +
       if (el) {
         el.addEventListener('input', debounce((e) => {
           const val = e.target.value.trim();
-          window.api.setSettings({ [key]: val }).then(showSettingsSavedToast).catch(function(e) { console.error('[setSettings]', e); });
+          window.api.setSettings({ [key]: val }).then(function () {
+            showSettingsSavedToast();
+            /* Main process also debounces cloud push for syncable keys. */
+            if (window.api.quickfileSettingsPush && (key === 'email' || key === 'officePostcode' || key === 'feeEarnerNameDefault')) {
+              window.api.quickfileSettingsPush().catch(function () {});
+            }
+          }).catch(function(e) { console.error('[setSettings]', e); });
         }, 800));
       }
     });
@@ -19152,7 +19616,7 @@ pdfAuditFooterHtml(d, settings) +
     }
 
     var proceed = function () {
-      var needsClientSig = !data.clientSig;
+      var needsClientSig = !data.clientSig && !data.clientSigNotNeeded;
       var needsFeeEarnerSig = !getEffectiveFeeEarnerSig(data);
       var sigQueue = [];
       if (needsClientSig) sigQueue.push({ sigKey: 'clientSig', label: 'Client Signature — ' + title });
@@ -19302,6 +19766,7 @@ pdfAuditFooterHtml(d, settings) +
 
     var sigStatus = '';
     if (data.clientSig) sigStatus += '<span style="color:#22c55e;font-size:0.8rem;margin-right:0.75rem;" title="Client has signed">&#10003; Client signed</span>';
+    else if (data.clientSigNotNeeded) sigStatus += '<span style="color:#64748b;font-size:0.8rem;margin-right:0.75rem;" title="' + esc(data.declarationUnsignedReason || 'Client signature not needed') + '">&#10003; Client signature not needed</span>';
     else sigStatus += '<span style="color:#ef4444;font-size:0.8rem;margin-right:0.75rem;" title="Client has NOT signed">&#10007; Client unsigned</span>';
     if (getEffectiveFeeEarnerSig(data)) sigStatus += '<span style="color:#22c55e;font-size:0.8rem;" title="Fee earner has signed">&#10003; Fee earner signed</span>';
     else sigStatus += '<span style="color:#ef4444;font-size:0.8rem;" title="Fee earner has NOT signed">&#10007; Fee earner unsigned</span>';
@@ -19677,10 +20142,102 @@ pdfAuditFooterHtml(d, settings) +
     } catch (_) {}
   }
 
+  function _gatherCredentialFreeBlankerState() {
+    var formView = document.getElementById('view-form');
+    var listView = document.getElementById('view-list');
+    var homeView = document.getElementById('view-home');
+    var qcView = document.getElementById('view-quickcapture');
+    var ctx = document.getElementById('form-context-bar');
+    var homeActive = document.getElementById('home-active-matters');
+    var homeRecent = document.getElementById('home-recent-list');
+    var homeFocusMeta = document.getElementById('home-focus-meta');
+    var listHasRows = false;
+    if (listView && listView.classList.contains('active')) {
+      /* Rows are plain li[data-id] with .list-item-text children — not .list-item. */
+      listHasRows = !!(listView.querySelector('#attendance-list li[data-id]'));
+    }
+    var qcHasClientData = false;
+    if (qcView && qcView.classList.contains('active')) {
+      var qcIds = ['qc-forename', 'qc-surname', 'qc-offence', 'qc-dscc'];
+      for (var qi = 0; qi < qcIds.length; qi++) {
+        var qcEl = document.getElementById(qcIds[qi]);
+        if (qcEl && String(qcEl.value || '').trim()) {
+          qcHasClientData = true;
+          break;
+        }
+      }
+    }
+    var homeHasActive = false;
+    var homeHasRecent = false;
+    var homeFocusHasClient = false;
+    if (homeView && homeView.classList.contains('active')) {
+      if (homeActive) homeHasActive = !!homeActive.querySelector('.home-active-item');
+      if (homeRecent) homeHasRecent = !!homeRecent.querySelector('.home-recent-item');
+      if (homeFocusMeta) {
+        var focusText = String(homeFocusMeta.textContent || '').trim();
+        /* Placeholder copy is safe; any other meta text may include a client name. */
+        homeFocusHasClient = !!(focusText
+          && focusText !== 'Checking your most recent record.'
+          && focusText !== 'No active draft needs attention right now.');
+      }
+    }
+    var meaningful = false;
+    try {
+      if (typeof hasMeaningfulData === 'function' && typeof formData !== 'undefined') {
+        meaningful = !!hasMeaningfulData(formData);
+      } else if (typeof formData !== 'undefined' && formData) {
+        var d = formData;
+        meaningful = !!(
+          (d.surname && String(d.surname).trim()) ||
+          (d.forename && String(d.forename).trim()) ||
+          (d.ufn && String(d.ufn).trim()) ||
+          (d.custodyNumber && String(d.custodyNumber).trim()) ||
+          (d.dsccRef && String(d.dsccRef).trim()) ||
+          (d.offenceSummary && String(d.offenceSummary).trim())
+        );
+      }
+    } catch (_) {}
+    return {
+      formViewActive: !!(formView && formView.classList.contains('active')),
+      hasOpenAttendance: !!(typeof currentAttendanceId !== 'undefined' && currentAttendanceId),
+      hasMeaningfulFormData: meaningful,
+      formContextBarHasText: !!(ctx && (ctx.textContent || '').trim()),
+      listViewActive: !!(listView && listView.classList.contains('active')),
+      listHasRows: listHasRows,
+      quickCaptureViewActive: !!(qcView && qcView.classList.contains('active')),
+      quickCaptureHasClientData: qcHasClientData,
+      homeViewActive: !!(homeView && homeView.classList.contains('active')),
+      homeHasActiveMatters: homeHasActive,
+      homeHasRecentCases: homeHasRecent,
+      homeFocusHasClientText: homeFocusHasClient,
+    };
+  }
+
   function _showCredentialFreeBlanker(reason) {
     try {
       var existing = document.getElementById('cn-credentialfree-blanker');
       if (existing) return;
+      var policy = (typeof window !== 'undefined' && window.SessionBlankerPolicy)
+        ? window.SessionBlankerPolicy
+        : null;
+      var allowDismiss = true;
+      try {
+        var state = _gatherCredentialFreeBlankerState();
+        if (policy && typeof policy.mayDismissCredentialFreeBlanker === 'function') {
+          allowDismiss = policy.mayDismissCredentialFreeBlanker(state);
+        } else if (state.formViewActive && (state.hasOpenAttendance || state.hasMeaningfulFormData || state.formContextBarHasText)) {
+          allowDismiss = false;
+        } else if (state.listViewActive && state.listHasRows) {
+          allowDismiss = false;
+        } else if (state.quickCaptureViewActive && state.quickCaptureHasClientData) {
+          allowDismiss = false;
+        } else if (state.homeViewActive && (state.homeHasActiveMatters || state.homeHasRecentCases || state.homeFocusHasClientText)) {
+          allowDismiss = false;
+        }
+      } catch (_) {
+        /* Fail closed: if we cannot prove the screen is empty, block dismiss. */
+        allowDismiss = false;
+      }
       var div = document.createElement('div');
       div.id = 'cn-credentialfree-blanker';
       div.setAttribute('role', 'alertdialog');
@@ -19689,17 +20246,26 @@ pdfAuditFooterHtml(d, settings) +
         'position:fixed;inset:0;z-index:2147483647;background:#0f172a;color:#f8fafc;'
         + 'display:flex;align-items:center;justify-content:center;flex-direction:column;'
         + 'font-family:Segoe UI,Arial,sans-serif;padding:2rem;text-align:center;';
-      div.innerHTML =
+      var bodyHtml =
         '<h2 style="margin:0 0 1rem;font-size:1.5rem;">Session locked</h2>'
         + '<p style="max-width:36rem;line-height:1.5;">'
         + 'CustodyNote was locked because the operating system reported a '
         + (reason ? '<code>' + reason.replace(/[<>&]/g, '') + '</code>' : 'lock event')
         + '. To unlock, set a recovery password or admin password in Settings &gt; Security '
-        + 'and re-open the app.</p>'
-        + '<button type="button" id="cn-credentialfree-dismiss" '
-        + 'style="margin-top:1.5rem;padding:0.5rem 1.25rem;border:1px solid #475569;'
-        + 'background:#1e293b;color:#f8fafc;border-radius:6px;cursor:pointer;">'
-        + 'Dismiss (no real client data)</button>';
+        + 'and re-open the app.</p>';
+      if (allowDismiss) {
+        bodyHtml +=
+          '<button type="button" id="cn-credentialfree-dismiss" '
+          + 'style="margin-top:1.5rem;padding:0.5rem 1.25rem;border:1px solid #475569;'
+          + 'background:#1e293b;color:#f8fafc;border-radius:6px;cursor:pointer;">'
+          + 'Dismiss (no real client data)</button>';
+      } else {
+        bodyHtml +=
+          '<p style="max-width:36rem;margin-top:1.25rem;line-height:1.5;color:#cbd5e1;">'
+          + 'Client or case data may be on screen, so this lock cannot be dismissed. '
+          + 'Set a recovery or admin password in Settings &gt; Security, then unlock properly.</p>';
+      }
+      div.innerHTML = bodyHtml;
       document.body.appendChild(div);
       var btn = document.getElementById('cn-credentialfree-dismiss');
       if (btn) btn.addEventListener('click', function() {

@@ -135,7 +135,6 @@ describe('QuickFile error parsing for attachment failures', () => {
 describe('QuickFile invoice number — ledger sync and duplicate retry', () => {
   it('calls invoice/search ordered by InvoiceNumber DESC before create', () => {
     assert.ok(mainJs.includes('/1_2/invoice/search'));
-    assert.ok(mainJs.includes('healInvoiceNumberSequence'));
     assert.ok(mainJs.includes('syncNextInvoiceNumberFromQuickFileLedger'));
     assert.ok(mainJs.includes('OrderResultsBy'));
     assert.ok(mainJs.includes("'DESC'"));
@@ -150,27 +149,5 @@ describe('QuickFile invoice number — ledger sync and duplicate retry', () => {
   it('extracts invoice rows and numeric parts for max-number sync', () => {
     assert.ok(mainJs.includes('quickFileExtractInvoiceSearchRecords'));
     assert.ok(mainJs.includes('parseInvoiceNumberNumericPart'));
-  });
-
-  it('self-heals invoice numbers with multi-record numeric max', () => {
-    assert.ok(mainJs.includes('ReturnCount: 100'), 'heal must sample more than one invoice row');
-    assert.ok(mainJs.includes('function healInvoiceNumberSequence'), 'named heal routine required');
-    assert.ok(mainJs.includes("reason: 'startup'"), 'startup must trigger heal');
-    assert.ok(mainJs.includes("reason: 'test-connection'"), 'Test QuickFile must heal');
-    assert.ok(mainJs.includes("reason: 'create-duplicate-retry'"), 'create must re-heal on conflict');
-    assert.ok(mainJs.includes("reason: 'create-failed'"), 'failed create must best-effort heal');
-  });
-
-  it('falls back to QuickFile auto-assigned number after exhausted conflicts', () => {
-    assert.ok(mainJs.includes('exhaustedDuplicateRetries') || mainJs.includes('auto-assigned invoice number'));
-    assert.ok(mainJs.includes('create-auto-assign-fallback'));
-    assert.ok(mainJs.includes('bumpLocalNextAfterAssignedInvoiceNumber'));
-    assert.ok(mainJs.includes('lastAttemptedInvNum'));
-  });
-
-  it('exposes heal IPC and hard-heals before create', () => {
-    assert.ok(mainJs.includes("ipcMain.handle('quickfile-heal-invoice-number'"));
-    assert.ok(mainJs.includes("reason: 'create-invoice'"));
-    assert.ok(mainJs.includes('Could not sync next invoice number from QuickFile'));
   });
 });

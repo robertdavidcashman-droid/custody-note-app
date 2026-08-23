@@ -65,7 +65,8 @@ their disk (BitLocker / FileVault), and lock the machine when away.
 Within that boundary the app adds:
 - Idle-lock at 10 minutes by default (configurable), forced on OS lock-screen / suspend / shutdown.
 - Optional admin password gate for destructive admin actions (data wipe, key reset).
-- Optional recovery password to decrypt the master key from off-device escrow.
+- Optional recovery password for local master-key unlock / restore flows.
+- Optional cloud escrow wraps the master key with the licence key (not ZK recovery-password escrow).
 
 ---
 
@@ -77,7 +78,7 @@ Within that boundary the app adds:
 | Photo attachments | AES-256-GCM | 256-bit | Same master key. |
 | Recovery password → key | PBKDF2-SHA512 | 600,000 iterations | OWASP 2023 minimum. Legacy 100,000-iteration blobs are auto-upgraded on next successful unlock. |
 | Admin password | PBKDF2-SHA512 | 310,000 iterations | OWASP 2023 minimum for sha512. Local-only. |
-| Cloud key escrow | PBKDF2-SHA512 | 600,000 iterations | Recovery password derives the wrapping key client-side; server never sees plaintext key. |
+| Cloud key escrow | PBKDF2-SHA256 | 600,000 iterations | Master key is wrapped with a key derived from the **licence key** (not a recovery-password ZK scheme). Server stores the wrapped blob + licence association; it does not need the raw master key to accept escrow, but licence possession recovers it. |
 | TLS to custodynote.com | TLS 1.2+ via Node `https` | platform-default cipher suite | Pinned hostnames; `isAllowedApiUrl` rejects every other host. |
 
 **Out of scope:** Argon2id. Adopting it requires a native module that
@@ -92,14 +93,22 @@ revisit when we ship a native crypto module for any other reason.
 | Service | What's sent | Why | Privileged content? |
 |---------|-------------|-----|---------------------|
 | `custodynote.com` (licence) | Licence key, install id (random), product version | Activation, entitlement check | **No** |
-| `custodynote.com` (escrow) | PBKDF2-wrapped master key, install id | Recovery if local store lost | No (key is wrapped client-side) |
+| `custodynote.com` (escrow) | Licence-key-wrapped master key blob, licence key, machine id | Cross-device / recovery if local store lost | **Sensitive** — wrapped with licence key, not recovery-password ZK escrow |
 | `custodynote.com` (postcode) | One UK postcode at a time | Address auto-fill convenience | **No** — the postcode itself is sensitive personal data; the lookup is opt-in per request and the response is not stored unless the user accepts. |
 | `outlook.office.com/mail/deeplink/compose` | `to`, `subject`, optional `body` in URL query string | One-click compose | **Potentially** — this is why the app shows a confirmation dialog on every email open with a recommended "subject only" mode that strips the body from the URL. |
 | GitHub releases | Nothing user-specific (version check + signed binary download) | Auto-update | No |
 | AWS S3 (per-firm) | Encrypted backup ciphertext (AES-256-GCM client-side) | Disaster recovery | No (server only sees ciphertext) |
 
-We do **not** send anything to: OpenAI, Anthropic, Google, Microsoft Graph,
-analytics platforms, crash reporting platforms, or any other third party.
+We do **not** send case content to third parties by default. Opt-in OpenAI Law /
+Elements fill sends offence name/statute only after confirmation, using the
+user's own API key, with OpenAI web search for grounding. Opt-in Ask AI sends
+the questions you type (plus session follow-ups, and optionally offence
+names/statutes) after confirmation — nothing else from the note is auto-attached.
+Both features require Sources in the response; unsourced legal answers are
+rejected by the app before display for Insert/Append. Licence settings sync
+uploads an encrypted preferences blob (ciphertext only) to the Custody Note
+account. We do not send anything to Anthropic, Google, Microsoft Graph,
+analytics platforms, or advertising networks.
 
 ---
 

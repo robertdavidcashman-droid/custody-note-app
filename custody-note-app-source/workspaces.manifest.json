@@ -1,0 +1,41 @@
+{
+  "notes": "Canonical manifest is at repo root workspaces.manifest.json. This nested copy exists only for older scripts that expected a sibling layout.",
+  "repos": [
+    {
+      "name": "PoliceStationAgent",
+      "dir": "one",
+      "github": "robertdavidcashman-droid/one",
+      "branch": "master",
+      "vercel": "web44ai"
+    },
+    {
+      "name": "PoliceStationRepUK",
+      "dir": "Policestationrepuk",
+      "github": "robertdavidcashman-droid/Policestationrepuk",
+      "branch": "master",
+      "vercel": "policestationrepuk-new"
+    },
+    {
+      "name": "CustodyNoteWebsite",
+      "dir": "custody-note-website",
+      "github": "robertdavidcashman-droid/custody-note-website",
+      "branch": "master",
+      "vercel": "custody-note-website"
+    },
+    {
+      "name": "PSRUKTrain",
+      "dir": "pstrain-rebuild",
+      "github": "robertdavidcashman-droid/psrtrain",
+      "branch": "main",
+      "vercel": "pstrain-rebuild"
+    },
+    {
+      "name": "CustodyNoteApp",
+      "dir": ".",
+      "github": "robertdavidcashman-droid/custody-note-app",
+      "branch": "main",
+      "vercel": null,
+      "updaterFeed": "robertdavidcashman-droid/custody-note-app"
+    }
+  ]
+}

@@ -202,7 +202,7 @@ describe('quietSave — autosave guards', () => {
 describe('Main process — attendance-save handler', () => {
 
   const saveHandlerStart = mainJsSource.indexOf("ipcMain.handle('attendance-save'");
-  const saveHandler = mainJsSource.substring(saveHandlerStart, saveHandlerStart + 5000);
+  const saveHandler = mainJsSource.substring(saveHandlerStart, saveHandlerStart + 7000);
 
   it('blocks draft writes to finalised or office-completed records', () => {
     assert.ok(saveHandler.includes("existing.status === 'finalised' || existing.status === 'completed'"),
@@ -233,8 +233,8 @@ describe('Main process — attendance-save handler', () => {
   });
 
   it('flushes DB to disk after finalise or office-complete', () => {
-    assert.ok(saveHandler.includes("if (st === 'finalised' || st === 'completed') flushDb()"),
-      'must call flushDb after finalise or completed write');
+    assert.ok(saveHandler.includes("if (st === 'finalised' || st === 'completed') flushDbSync()"),
+      'must call flushDbSync after finalise or completed write');
   });
 });
 
@@ -418,8 +418,8 @@ describe('Finalise button handlers', () => {
 describe('Debug panel', () => {
 
   it('Ctrl+Shift+D opens diagnostics panel', () => {
-    assert.ok(appJsSource.includes("e.ctrlKey && e.shiftKey && e.key === 'D'"),
-      'must have Ctrl+Shift+D shortcut');
+    assert.ok(appJsSource.includes("modPressed(e) && e.shiftKey && e.key === 'D'"),
+      'must have Ctrl/Cmd+Shift+D shortcut');
   });
 
   it('debug panel shows finalise tracking data', () => {

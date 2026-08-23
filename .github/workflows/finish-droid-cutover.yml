@@ -67,7 +67,8 @@ jobs:
             commit -m "docs: placeholder until PSRTrain source recovered"
           git push -u origin main
 
-      - name: Note about bit archive and Vercel
+      - name: Note about bit policy and Vercel
         run: |
-          echo "Bit archive needs bit-account login."
-          echo "Vercel Git reconnect + desktop 1.9.52 install still need a human."
+          echo "Do NOT archive robertcashman-bit/custody-note-app (historical Mac 1.9.68)."
+          echo "Do NOT publish new desktop releases from bit — droid is the sole publisher."
+          echo "Vercel Git reconnect + Mac notarization secrets on droid still need a human (see DEPLOY_ONCE.md)."

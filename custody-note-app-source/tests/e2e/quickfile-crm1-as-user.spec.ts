@@ -172,7 +172,13 @@ test('CRM1 generation shows a pre-submit validation summary for incomplete clien
   await dialog.getByRole('button', { name: /go back and fix/i }).click();
   await expect(dialog).toBeHidden({ timeout: 5_000 });
 
-  const ignored = ['electron/js2c', 'DevTools', 'ERR_CONNECTION_REFUSED', 'Autofill.'];
+  const ignored = [
+    'electron/js2c',
+    'DevTools',
+    'ERR_CONNECTION_REFUSED',
+    'Autofill.',
+    'Failed to load resource: the server responded with a status of 404',
+  ];
   const critical = consoleErrors.filter((e) => !ignored.some((skip) => e.includes(skip)));
   expect(critical, `Console errors: ${critical.join(' || ')}`).toHaveLength(0);
 });

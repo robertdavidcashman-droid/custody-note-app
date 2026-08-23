@@ -1,6 +1,8 @@
 # Deploy once, then never think about it
 
-**Sole GitHub home:** `robertdavidcashman-droid`. Archive `robertcashman-bit` repos and do not publish there.
+**Sole publisher:** `robertdavidcashman-droid`. All new Custody Note desktop releases, updater feeds, and in-repo docs/workflows publish from this org only.
+
+**Do not archive** `robertcashman-bit/custody-note-app`. Bit shipped live Win+Mac **1.9.68** and still holds the notarized Mac assets and certs. Leave it open so Mac users on that feed are not stranded. Do not publish new versions from bit.
 
 After these **one-click / one-form** steps, every workspace deploys automatically.
 
@@ -9,12 +11,12 @@ After these **one-click / one-form** steps, every workspace deploys automaticall
 ### 1. Authenticate Vercel in Cursor
 Cursor Desktop → MCP / Integrations → **Vercel** → **Authenticate**.
 
-### 2. One-time Custody Note install (existing desktops)
-Older installs poll the archived **bit** feed and will stay on 1.9.51. Install **1.9.52** once from:
+### 2. One-time Custody Note install (older Windows desktops)
+Older installs that still poll the bit feed stay on whatever bit last published. Install the current Windows build once from droid:
 
-https://github.com/robertdavidcashman-droid/custody-note-app/releases/tag/v1.9.52
+https://github.com/robertdavidcashman-droid/custody-note-app/releases/latest
 
-After that, Check for updates uses the droid feed.
+After that, Check for updates uses the **droid** feed (`package.json` → `build.publish.owner: robertdavidcashman-droid`).
 
 ### 3. Optional — website push from CI
 Open:  
@@ -46,11 +48,9 @@ Vercel → Project → **Settings → Git → Connect Repository**
 | `custody-note-website` | `robertdavidcashman-droid/custody-note-website` |
 | Project serving **psrtrain.com** | `robertdavidcashman-droid/psrtrain` *(after source is seeded)* |
 
-### 5. Mac signed app builds
+### 5. Mac notarized builds (required before claiming Mac ships from droid)
 
-**Option A — GitHub Actions (recommended once secrets are uploaded)**  
-Add these Actions secrets on `custody-note-app`, then run  
-**Actions → Release macOS only → Run workflow** (tag `v1.9.52`):
+Mac CI skips when the P12 secret is missing. **Do not claim Mac is shipping from this repo until all of these Actions secrets exist on `robertdavidcashman-droid/custody-note-app`:**
 
 | Secret | What |
 |--------|------|
@@ -58,15 +58,28 @@ Add these Actions secrets on `custody-note-app`, then run
 | `MAC_CERTIFICATE_P12_PASSWORD` | Password for that `.p12` |
 | `MAC_KEYCHAIN_PASSWORD` | Any random password for the CI keychain |
 | `APPLE_ID` | Apple ID email |
-| `APPLE_APP_SPECIFIC_PASSWORD` | App-specific password (`xxxx-xxxx-xxxx-xxxx`) |
 | `APPLE_TEAM_ID` | 10-character Team ID |
+| `APPLE_APP_SPECIFIC_PASSWORD` | App-specific password (`xxxx-xxxx-xxxx-xxxx`) |
+
+`APPLE_APP_SPECIFIC_PASSWORD` alone is not enough. **Current droid Actions secrets are incomplete** (typically only `APPLE_APP_SPECIFIC_PASSWORD` + `GH_PAT` are present). Until **all** of the following exist on `robertdavidcashman-droid/custody-note-app`, do **not** claim Mac notarization is done:
+
+- `MAC_CERTIFICATE_P12_BASE64`
+- `MAC_CERTIFICATE_P12_PASSWORD`
+- `MAC_KEYCHAIN_PASSWORD`
+- `APPLE_ID`
+- `APPLE_TEAM_ID`
+- (plus `APPLE_APP_SPECIFIC_PASSWORD` already noted above)
+
+Until the full set is present, Release and deploy publishes **Windows only** on droid. Historical Mac **1.9.68** remains on bit — leave that repo unarchived.
+
+After secrets are uploaded, run **Actions → Release macOS only** for the target tag (or rely on the next full Release and deploy).
 
 **Option B — on your Mac (certs already in Keychain)**  
 ```bash
 cd custody-note-app-source
 bash scripts/publish-mac-1.9.52-on-this-mac.sh
 ```
-That uses `.env.local` (created via `node scripts/setup-apple-env.mjs` if missing) and uploads to the GitHub release.
+That uses `.env.local` (created via `node scripts/setup-apple-env.mjs` if missing) and uploads to the **droid** GitHub release.
 
 ### 6. Finish remaining Git pushes (one PAT + one button)
 
@@ -80,14 +93,13 @@ Cloud agents run as `cursor[bot]` and **cannot** create repos or push `custody-n
    https://github.com/robertdavidcashman-droid/custody-note-app/actions/workflows/finish-droid-cutover.yml  
    → **Run workflow** → **Run workflow**
 
-That seeds `policestationrepuk`, pushes the website 1.9.52 changelog, and stubs empty `psrtrain`.
+That seeds `policestationrepuk`, pushes the website changelog, and stubs empty `psrtrain`.
 
-### 7. Lock bit forever
-When you can open the bit GitHub account, **Archive** (do not delete yet):
+### 7. Bit repo policy
 
-- `robertcashman-bit/custody-note-app`
-- `robertcashman-bit/Policestationrepuk`
-- any other bit repos you no longer use
+- **Keep** `robertcashman-bit/custody-note-app` **unarchived** (Mac 1.9.68 + notarization history).
+- **Do not** publish new desktop releases from bit.
+- Other bit website/repos can be retired later if unused; that is separate from Custody Note desktop publishing.
 
 ---
 
@@ -96,7 +108,7 @@ When you can open the bit GitHub account, **Archive** (do not delete yet):
 | What you do | What happens |
 |-------------|--------------|
 | Push website repo primary branch | Vercel production deploy |
-| Bump `custody-note-app-source/package.json` + `changelog.json` on `main` | Auto-tag → Windows (and Mac if secrets) → **droid** updater feed → website changelog → Vercel |
+| Bump `custody-note-app-source/package.json` + `changelog.json` on `main` | Auto-tag → Windows (and Mac **only if** secrets above exist) → **droid** updater feed → website changelog → Vercel |
 
 ## Health check
 

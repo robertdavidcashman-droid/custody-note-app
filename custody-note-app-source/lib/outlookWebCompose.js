@@ -1,23 +1,34 @@
 'use strict';
 
 /**
- * Outlook Web compose deeplink helpers (https://outlook.office.com/mail/0/deeplink/compose).
+ * Outlook compose helpers for officer emails and related flows.
  *
- * URL length: OWA compose deeplinks are far more fragile than the Windows shell
- * handoff limit. Around/above 2KB Outlook Web may open the app but ignore the
- * query fields (to/subject/body). Keep the deeplink under 1800 chars and copy
- * the full email to clipboard when the body is truncated.
+ * Launch strategy (body must appear IN Outlook — clipboard paste is not OK):
+ *   1. Open Outlook (default): always use an X-Unsent .eml draft when the body
+ *      is non-empty. OWA `body=` is unreliable (often opens compose with an empty
+ *      body even when the query param is present), so Open must not depend on it.
+ *   2. Copy / share link (`preferEmlForBody: false`): OWA URL with body= when the
+ *      URL fits; otherwise subject/to only (body stays in the draft / .eml).
+ *
+ * .eml uses HTML + quoted-printable (see outlookComposeEml) so New Outlook and
+ * Apple Mail keep an editable body.
  */
+
+const { buildOutlookComposeEmlContent } = require('./outlookComposeEml');
 
 const OUTLOOK_WEB_COMPOSE_BASE = 'https://outlook.office.com/mail/0/deeplink/compose';
 
 /** @deprecated use OUTLOOK_WEB_COMPOSE_URL_MAX_SAFE_LENGTH */
 const DEFAULT_MAX_OUTLOOK_COMPOSE_URL_LENGTH = 1800;
 
+/**
+ * Conservative max for shell.openExternal / browser hand-off. Longer messages
+ * use the .eml path so the body is never silently dropped.
+ */
 const OUTLOOK_WEB_COMPOSE_URL_MAX_SAFE_LENGTH = 1800;
 
-/** Appended to the body in the URL when the full message does not fit the shell limit. */
-const TRUNCATION_CLIPBOARD_NOTICE = '[… remainder copied to clipboard …]';
+/** @deprecated clipboard paste is no longer the primary body path */
+const TRUNCATION_CLIPBOARD_NOTICE = '[… full message copied to clipboard — paste into body …]';
 
 /** @deprecated use TRUNCATION_CLIPBOARD_NOTICE */
 const BODY_TRUNCATION_URL_SUFFIX = '\r\n' + TRUNCATION_CLIPBOARD_NOTICE;
@@ -39,10 +50,14 @@ const normalizeBodyNewlinesToCRLF = normalizeBodyToCrlf;
 
 /**
  * @param {{ to?: string, cc?: string, subject?: string, body?: string }} fields
+ * @param {{ includeBody?: boolean }} [options] includeBody defaults to false for
+ *   legacy callers; prepareOutlookComposeForOpen always opts in when using OWA.
  * @returns {string}
  */
-function buildOutlookWebComposeUrl(fields) {
+function buildOutlookWebComposeUrl(fields, options) {
   const f = fields || {};
+  const opts = options || {};
+  const includeBody = opts.includeBody === true;
   const toS = String(f.to != null ? f.to : '').trim();
   const ccS = String(f.cc != null ? f.cc : '');
   const subS = String(f.subject != null ? f.subject : '');
@@ -51,13 +66,13 @@ function buildOutlookWebComposeUrl(fields) {
   if (toS) parts.push('to=' + encodeURIComponent(toS));
   if (String(ccS).trim()) parts.push('cc=' + encodeURIComponent(ccS));
   if (subS) parts.push('subject=' + encodeURIComponent(subS));
-  if (bodS) parts.push('body=' + encodeURIComponent(bodS));
+  if (includeBody && bodS) parts.push('body=' + encodeURIComponent(bodS));
   return parts.length ? OUTLOOK_WEB_COMPOSE_BASE + '?' + parts.join('&') : OUTLOOK_WEB_COMPOSE_BASE;
 }
 
 /**
  * Same plain-text shape as buildFullEmailClipboardText in lib/emailComposeDraft.js
- * (To / Subject / blank line / body).
+ * (To / Subject / blank line / body). Use for "copy whole draft" actions only.
  *
  * @param {{ to?: string, subject?: string, body?: string }} fields
  * @returns {string}
@@ -68,15 +83,43 @@ function buildFullComposePlainTextForClipboard(fields) {
   return 'To: ' + String(x.to != null ? x.to : '') + '\nSubject: ' + String(x.subject != null ? x.subject : '') + '\n\n' + body;
 }
 
+/**
+ * Body-only clipboard payload (Copy body button / optional secondary aid).
+ * @param {{ body?: string } | string} fieldsOrBody
+ * @returns {string}
+ */
+function buildBodyPlainTextForClipboard(fieldsOrBody) {
+  if (fieldsOrBody == null) return '';
+  if (typeof fieldsOrBody === 'string') return String(fieldsOrBody);
+  return String(fieldsOrBody.body != null ? fieldsOrBody.body : '');
+}
+
 /** @deprecated use buildFullComposePlainTextForClipboard */
 const buildOutlookComposeClipboardText = buildFullComposePlainTextForClipboard;
 
 /**
+ * Prepare an Outlook launch that places the current body INTO Outlook.
+ *
  * @param {{ to?: string, cc?: string, subject?: string, body?: string }} fields
- * @param {{ maxUrlLength?: number } | number} [optionsOrMax] legacy: number max length, or { maxUrlLength }
- * @returns {{ url: string, truncated: boolean, fullPlainTextForClipboard: string, bodyUsedInUrl: string }}
+ * @param {{ maxUrlLength?: number, preferEmlForBody?: boolean } | number} [optionsOrMax]
+ *   preferEmlForBody defaults to true (Open Outlook). Pass false for copy-link /
+ *   share URL so short bodies can still appear in an OWA body= query string.
+ * @returns {{
+ *   method: 'outlook-web' | 'outlook-desktop-eml',
+ *   url: string,
+ *   emlContent: string,
+ *   truncated: boolean,
+ *   bodyPlacedInCompose: boolean,
+ *   fullPlainTextForClipboard: string,
+ *   bodyPlainTextForClipboard: string,
+ *   bodyUsedInUrl: string,
+ *   urlLength: number,
+ *   to: string,
+ *   subject: string,
+ *   body: string
+ * }}
  */
-function truncateOutlookComposeForShellOpen(fields, optionsOrMax) {
+function prepareOutlookComposeForOpen(fields, optionsOrMax) {
   const f = fields || {};
   let opts = {};
   if (typeof optionsOrMax === 'number' && optionsOrMax > 0) {
@@ -87,80 +130,103 @@ function truncateOutlookComposeForShellOpen(fields, optionsOrMax) {
   const maxLen = typeof opts.maxUrlLength === 'number' && opts.maxUrlLength > 0
     ? opts.maxUrlLength
     : OUTLOOK_WEB_COMPOSE_URL_MAX_SAFE_LENGTH;
+  /* Default true: Open Outlook must not rely on OWA body= (often empty compose). */
+  const preferEmlForBody = opts.preferEmlForBody !== false;
 
   const toS = String(f.to != null ? f.to : '').trim();
   const ccS = String(f.cc != null ? f.cc : '');
   const subS = String(f.subject != null ? f.subject : '');
   const rawBody = String(f.body != null ? f.body : '');
+  const hasBody = Boolean(rawBody.trim());
 
   const fullPlainTextForClipboard = buildFullComposePlainTextForClipboard({
     to: toS,
     subject: subS,
     body: rawBody,
   });
+  const bodyPlainTextForClipboard = buildBodyPlainTextForClipboard(rawBody);
 
-  const normalizedBody = normalizeBodyToCrlf(rawBody);
-  const idealUrl = buildOutlookWebComposeUrl({ to: toS, cc: ccS, subject: subS, body: rawBody });
+  const urlWithBody = buildOutlookWebComposeUrl(
+    { to: toS, cc: ccS, subject: subS, body: rawBody },
+    { includeBody: true }
+  );
+  const subjectOnlyUrl = buildOutlookWebComposeUrl(
+    { to: toS, cc: ccS, subject: subS, body: '' },
+    { includeBody: false }
+  );
 
-  if (idealUrl.length <= maxLen) {
+  /* Open path: any non-empty body → .eml so compose is never empty. */
+  if (hasBody && preferEmlForBody) {
+    const emlContent = buildOutlookComposeEmlContent({
+      to: toS,
+      cc: ccS,
+      subject: subS,
+      body: rawBody,
+    });
     return {
-      url: idealUrl,
+      method: 'outlook-desktop-eml',
+      url: subjectOnlyUrl,
+      emlContent,
       truncated: false,
+      bodyPlacedInCompose: true,
       fullPlainTextForClipboard,
-      bodyUsedInUrl: normalizedBody,
-      urlLength: idealUrl.length,
-    };
-  }
-
-  const suffix = '\r\n' + TRUNCATION_CLIPBOARD_NOTICE;
-
-  function urlFor(subjectUsed, bodyArg) {
-    return buildOutlookWebComposeUrl({ to: toS, cc: ccS, subject: subjectUsed, body: bodyArg });
-  }
-
-  let subjectWork = subS;
-  while (subjectWork.length > 0 && urlFor(subjectWork, suffix).length > maxLen) {
-    subjectWork = subjectWork.slice(0, Math.max(0, subjectWork.length - 100));
-  }
-
-  if (urlFor(subjectWork, suffix).length > maxLen) {
-    if (String(ccS).trim()) {
-      return truncateOutlookComposeForShellOpen(
-        { to: toS, cc: '', subject: subS, body: rawBody },
-        opts
-      );
-    }
-    let u = urlFor('', '');
-    if (u.length > maxLen) {
-      u = OUTLOOK_WEB_COMPOSE_BASE;
-    }
-    return {
-      url: u,
-      truncated: true,
-      fullPlainTextForClipboard,
+      bodyPlainTextForClipboard,
       bodyUsedInUrl: '',
-      urlLength: u.length,
+      urlLength: subjectOnlyUrl.length,
+      to: toS,
+      subject: subS,
+      body: rawBody,
     };
   }
 
-  let lo = 0;
-  let hi = normalizedBody.length;
-  while (lo < hi) {
-    const mid = Math.floor((lo + hi + 1) / 2);
-    const candidate = normalizedBody.slice(0, mid) + suffix;
-    if (urlFor(subjectWork, candidate).length <= maxLen) lo = mid;
-    else hi = mid - 1;
+  /* Copy-link / empty body: OWA URL (with body when it fits and preferEml is off). */
+  if (!hasBody || urlWithBody.length <= maxLen) {
+    return {
+      method: 'outlook-web',
+      url: urlWithBody,
+      emlContent: '',
+      truncated: false,
+      bodyPlacedInCompose: hasBody,
+      fullPlainTextForClipboard,
+      bodyPlainTextForClipboard,
+      bodyUsedInUrl: hasBody ? normalizeBodyToCrlf(rawBody) : '',
+      urlLength: urlWithBody.length,
+      to: toS,
+      subject: subS,
+      body: rawBody,
+    };
   }
 
-  const bodyUsedInUrl = normalizedBody.slice(0, lo) + suffix;
-  const url = urlFor(subjectWork, bodyUsedInUrl);
+  /* Copy-link with body too long for a reliable OWA URL — still produce .eml. */
+  const emlContent = buildOutlookComposeEmlContent({
+    to: toS,
+    cc: ccS,
+    subject: subS,
+    body: rawBody,
+  });
+
   return {
-    url,
-    truncated: true,
+    method: 'outlook-desktop-eml',
+    url: subjectOnlyUrl,
+    emlContent,
+    truncated: false,
+    bodyPlacedInCompose: true,
     fullPlainTextForClipboard,
-    bodyUsedInUrl,
-    urlLength: url.length,
+    bodyPlainTextForClipboard,
+    bodyUsedInUrl: '',
+    urlLength: subjectOnlyUrl.length,
+    to: toS,
+    subject: subS,
+    body: rawBody,
   };
+}
+
+/**
+ * @deprecated Prefer prepareOutlookComposeForOpen — same return shape plus method/emlContent.
+ * Kept so existing call sites and tests that still import this name keep working.
+ */
+function truncateOutlookComposeForShellOpen(fields, optionsOrMax) {
+  return prepareOutlookComposeForOpen(fields, optionsOrMax);
 }
 
 module.exports = {
@@ -173,6 +239,8 @@ module.exports = {
   normalizeBodyNewlinesToCRLF,
   buildOutlookWebComposeUrl,
   buildFullComposePlainTextForClipboard,
+  buildBodyPlainTextForClipboard,
   buildOutlookComposeClipboardText,
+  prepareOutlookComposeForOpen,
   truncateOutlookComposeForShellOpen,
 };

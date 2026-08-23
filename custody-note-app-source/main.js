@@ -124,6 +124,14 @@ const _safeLog = require('./lib/safeLog');
 const officerEmailDrafts = require('./lib/officerEmailDrafts');
 const outlookWebCompose = require('./lib/outlookWebCompose');
 const openExternalUrlModule = require('./lib/openExternalUrl');
+const {
+  resolveAdminEmails,
+  isAdminEmail,
+} = require('./main/licenceAdminEmails');
+const {
+  shouldSkipOnlineValidation,
+  applyOnlineValidationResult,
+} = require('./main/licenceValidationPolicy');
 
 let mainWindow;
 let db;
@@ -1442,6 +1450,9 @@ async function initDb() {
     // H20 — default to userData\Backups instead of Desktop (often OneDrive).
     db.run("INSERT INTO settings (key, value) VALUES (?, ?)", ['backupFolder', _defaultBackupFolder()]);
   }
+  // Fresh installs previously only stored the path and never mkdir'd it, so
+  // scheduled backups silently skipped via isBackupFolderReady(). Create now.
+  try { ensureBackupFolderExists(); } catch (_) {}
 
   loadStationsFromFile();
   try { migrateSchemeIdsToSchemeCodes(); } catch (e) { console.error('[migrateSchemeIdsToSchemeCodes] failed:', e && e.message); }
@@ -1618,11 +1629,24 @@ function markDbDirty() {
   scheduleSyncSoon();
 }
 
-function isBackupFolderReady() {
+/** Ensure the configured (or default) Backups directory exists on disk. */
+function ensureBackupFolderExists() {
   try {
     const dir = getBackupFolder();
-    return dir && fs.existsSync(dir);
-  } catch (_) { return false; }
+    if (!dir) return false;
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+      console.log('[Backup] Created backup folder:', dir);
+    }
+    return fs.existsSync(dir);
+  } catch (err) {
+    console.error('[Backup] Could not create backup folder:', err && err.message ? err.message : err);
+    return false;
+  }
+}
+
+function isBackupFolderReady() {
+  return ensureBackupFolderExists();
 }
 
 function runQuickBackup() {
@@ -1845,6 +1869,8 @@ function emitCloudBackupStatus(overrides) {
 async function checkCloudBackupEntitlement() {
   const data = readLicenceData();
   const isTrial = !!(data && data.isTrial);
+  const isFree =
+    !!(data && (data.isFree || data.tier === 'free' || String(data.key || '').toUpperCase().startsWith('FREE-')));
   const hasAuth = !!(data && data.authToken);
   if (!data || (!data.key && !hasAuth)) {
     _cloudBackupEnabled = false;
@@ -1852,11 +1878,12 @@ async function checkCloudBackupEntitlement() {
     emitCloudBackupStatus({ enabled: false, isTrial: false, lastError: null });
     return;
   }
-  if (isTrial && !hasAuth) {
+  // Free during beta and local trial do not include managed AWS cloud backup (Pro planned after beta).
+  if ((isFree || isTrial) && !hasAuth) {
     _cloudBackupEnabled = false;
     _lastManagedCloudError = null;
-    console.info('[CloudBackup] Skipping entitlement check â€” trial licence active. Cloud backup not included.');
-    emitCloudBackupStatus({ enabled: false, isTrial: true, lastError: null });
+    console.info('[CloudBackup] Skipping entitlement check — Free/trial licence. Cloud backup is Pro-only.');
+    emitCloudBackupStatus({ enabled: false, isTrial: !!isTrial, lastError: null });
     return;
   }
   const apiUrl = getManagedCloudApiUrl();
@@ -1876,11 +1903,21 @@ async function checkCloudBackupEntitlement() {
     if (resp && resp.valid === false) {
       _cloudBackupEnabled = false;
       _lastManagedCloudError = resp.message || resp.error || 'Licence validation failed. Check your licence and try again.';
-      if (resp.expiresAt) data.expiresAt = resp.expiresAt;
-      if (resp.email) data.email = resp.email;
-      if (resp.status) data.status = resp.status;
-      if (resp.isTrial !== undefined) data.isTrial = !!resp.isTrial;
-      if (resp.entitlements !== undefined) data.entitlements = resp.entitlements;
+      // Same revoke policy as licence:validate — never stamp admin or
+      // synthetic Free/trial keys as revoked from a backup entitlement check.
+      applyOnlineValidationResult(
+        data,
+        {
+          valid: false,
+          expiresAt: resp.expiresAt || null,
+          email: resp.email || '',
+          isTrial: resp.isTrial,
+          serverStatus: resp.status || 'revoked',
+          entitlements: resp.entitlements,
+          message: _lastManagedCloudError,
+        },
+        { adminEmails: getAdminEmailsLocal() }
+      );
       writeLicenceData(data);
       console.warn('[CloudBackup] Entitlement blocked:', _lastManagedCloudError);
       emitCloudBackupStatus({
@@ -2513,7 +2550,16 @@ function createWindow() {
     },
     title: 'Custody Note',
   });
-  const isCaptureMode = process.env.CAPTURE_SCREENSHOTS === '1';
+  /* Marketing screenshot capture (capturePage) is dev-only unless explicitly
+     overridden — packaged installers must never silently screenshot the UI. */
+  const isCaptureMode =
+    process.env.CAPTURE_SCREENSHOTS === '1' &&
+    (!app.isPackaged || process.env.CUSTODYNOTE_ENABLE_MARKETING_CAPTURE === '1');
+  if (process.env.CAPTURE_SCREENSHOTS === '1' && app.isPackaged && !isCaptureMode) {
+    _safeLog.warn(
+      '[Capture] CAPTURE_SCREENSHOTS ignored in packaged build — set CUSTODYNOTE_ENABLE_MARKETING_CAPTURE=1 to override'
+    );
+  }
   mainWindow.once('ready-to-show', () => {
     if (!isCaptureMode) {
       mainWindow.show();
@@ -3011,24 +3057,22 @@ function createWindow() {
                     if (detailsEl && !detailsEl.open) { detailsEl.setAttribute('open', ''); await sleep(100); }
                     var supportFaqLinks = document.querySelectorAll('.support-faq-link');
                     var supportUrls = Array.from(supportFaqLinks).map(function(btn) { return btn.dataset.url || ''; });
-                    function hasSupportPath(p) {
-                      return supportUrls.some(function(u) {
-                        u = String(u || '');
-                        return u.indexOf('custodynote.com' + p) >= 0 || u.indexOf('www.custodynote.com' + p) >= 0;
-                      });
-                    }
-                    var requiredSupportPaths = ['/support', '/faq', '/contact', '/how-to-write-attendance-notes', '/police-station-interview-notes'];
-                    var missingSupportPaths = requiredSupportPaths.filter(function(p) { return !hasSupportPath(p); });
-                    if (supportFaqLinks.length >= 5 && !missingSupportPaths.length) {
-                      // Do not click external links in CI/headless smoke runs — just verify destinations exist.
-                      log('12b. support-faq-link destinations present');
+                    var missingSupportUrls = ['https://www.custodynote.com/support', 'https://www.custodynote.com/faq', 'https://www.custodynote.com/contact'].filter(function(url) {
+                      return supportUrls.indexOf(url) < 0;
+                    });
+                    if (supportFaqLinks.length >= 3 && !missingSupportUrls.length) {
+                      supportFaqLinks[0].click();
+                      await sleep(150);
+                      log('12b. support-faq-link clicked (Open forum)');
                     } else {
                       errors.push('support-faq-link buttons missing expected destinations: ' + supportUrls.join(', '));
                     }
                     var usefulLinks = document.querySelectorAll('.useful-link-btn');
                     var supportLink = Array.from(usefulLinks).find(function(a){ return (a.dataset.extUrl || a.href || '').indexOf('support') >= 0; });
                     if (supportLink) {
-                      log('12c. useful-link-btn Support present');
+                      supportLink.click();
+                      await sleep(150);
+                      log('12c. useful-link-btn Support clicked');
                     }
                   } else {
                     errors.push('Gear Settings: view-settings not active');
@@ -3462,10 +3506,10 @@ function createWindow() {
                     errors.push('Backup status did not return a valid state');
                   }
                   var backupList = await window.api.localBackupList();
-                  if (backupList && backupList.ok && Array.isArray(backupList.files)) {
-                    log('27b. Local backup list OK (count=' + backupList.files.length + ')');
+                  if (backupList && backupList.ok && backupList.files && backupList.files.length) {
+                    log('27b. Local backup list returned backups');
                   } else {
-                    errors.push('Local backup list did not return a valid response');
+                    errors.push('Local backup list did not return any backups');
                   }
                 } catch (e) {
                   errors.push('Backup flow failed: ' + (e && e.message ? e.message : e));
@@ -3615,7 +3659,7 @@ function createWindow() {
 
               /* 29. Billing API surface check */
               var billingApis = [
-                'quickfileSuggestNextInvoiceNumber', 'quickfileHealInvoiceNumber', 'quickfileCreateInvoice', 'stationMileageGet', 'stationsMileageList',
+                'quickfileSuggestNextInvoiceNumber', 'quickfileCreateInvoice', 'stationMileageGet', 'stationsMileageList',
                 'stationMileageSave', 'stationMileageBulkSave',
                 'billingAuditLogAdd', 'billingAuditLogGet',
                 'billableAttendances', 'attendanceInvoiceStatus'
@@ -3876,7 +3920,20 @@ const LICENCE_GRACE_DAYS = 60;
 const LICENCE_REVALIDATE_HOURS = 24;
 const TRIAL_DAYS = 30;
 
-/** One anonymous ping when a packaged install starts its local trial (no case data). */
+/** Freemium free during beta — set FREE_TIER_ENABLED=0 or licence-config freeTierEnabled:false to roll back to timed trial. */
+function isFreeTierEnabled() {
+  if (process.env.FREE_TIER_ENABLED === '0' || process.env.FREE_TIER_ENABLED === 'false') return false;
+  try {
+    const cfgPath = path.join(app.getPath('userData'), 'licence-config.json');
+    if (fs.existsSync(cfgPath)) {
+      const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+      if (cfg.freeTierEnabled === false) return false;
+    }
+  } catch (_) {}
+  return true;
+}
+
+/** One anonymous ping when a packaged install starts Free / legacy trial (no case data). */
 function reportTrialStartedToServer() {
   if (!app.isPackaged) return;
   const apiUrl = getManagedCloudApiUrl();
@@ -3885,7 +3942,47 @@ function reportTrialStartedToServer() {
     machineId: getMachineId(),
     platform: process.platform,
     appVersion: app.getVersion(),
+    tier: isFreeTierEnabled() ? 'free' : 'trial',
   }, { timeout: 8000 }).catch(function () {});
+}
+
+function buildLocalFreeLicenceData() {
+  const now = new Date().toISOString();
+  return {
+    key: 'FREE-' + getMachineId().slice(0, 16).toUpperCase(),
+    email: '',
+    activatedAt: now,
+    lastValidated: now,
+    expiresAt: null,
+    machineId: getMachineId(),
+    status: 'active',
+    isTrial: false,
+    isFree: true,
+    tier: 'free',
+  };
+}
+
+/** Migrate legacy TRIAL-* (or expired paid local trial) onto non-expiring Free when freemium is on. */
+function maybeMigrateLicenceToFree(data) {
+  if (!isFreeTierEnabled() || !data || !data.key) return data;
+  const key = String(data.key).toUpperCase();
+  if (key.startsWith('FREE-')) {
+    if (data.expiresAt || data.isTrial || data.tier !== 'free') {
+      data.expiresAt = null;
+      data.isTrial = false;
+      data.isFree = true;
+      data.tier = 'free';
+      data.status = 'active';
+      writeLicenceData(data);
+    }
+    return data;
+  }
+  if (!key.startsWith('TRIAL-')) return data;
+  const migrated = buildLocalFreeLicenceData();
+  migrated.activatedAt = data.activatedAt || migrated.activatedAt;
+  migrated.email = data.email || '';
+  writeLicenceData(migrated);
+  return migrated;
 }
 
 function getLicencePath() {
@@ -4199,24 +4296,29 @@ async function validateLicenceOnline(key, machineId) {
   }
 }
 
-// Admin email allow-list. Previously contained two hardcoded personal email
-// addresses (`robertdavidcashman@gmail.com`, `nerijus83@gmail.com`) which
-// granted unconditional admin entitlements to any installation that had a
-// licence registered against either address. That is unsafe in a multi-user
-// product because (a) the owners of those addresses change over time, (b) it
-// blurs the audit trail, and (c) an attacker who can register a licence
-// against one of those emails on the licence server gets full admin.
-//
-// The list is now strictly opt-in via the `CUSTODY_ADMIN_EMAILS` env var
-// (comma-separated). If the env var is unset or empty, NO local install
-// treats any user as an admin. This means the licence server remains the
-// single source of truth for entitlements.
-//
-// Set CUSTODY_ADMIN_EMAILS only on machines used for support/admin work.
-const ADMIN_EMAILS_LOCAL = (process.env.CUSTODY_ADMIN_EMAILS || '')
-  .split(',')
-  .map(e => e.trim().toLowerCase())
-  .filter(Boolean);
+// Admin email allow-list for product-owner licences.
+// Prefer CUSTODY_ADMIN_EMAILS (comma-separated) or licence-config.json
+// adminEmails. When neither is set, fall back to the built-in product-owner
+// list so packaged installs still treat admin licences as non-revocable and
+// always re-check them online. See main/licenceAdminEmails.js.
+function readLicenceConfigAdminEmails() {
+  try {
+    const cfgPath = path.join(app.getPath('userData'), 'licence-config.json');
+    if (!fs.existsSync(cfgPath)) return [];
+    const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+    return Array.isArray(cfg.adminEmails) ? cfg.adminEmails : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function getAdminEmailsLocal() {
+  return resolveAdminEmails({
+    envValue: process.env.CUSTODY_ADMIN_EMAILS,
+    configEmails: readLicenceConfigAdminEmails(),
+    includeBuiltin: true,
+  });
+}
 
 const { computeLicenceStatus: computeLicenceStatusCore } = require('./main/computeLicenceStatus');
 
@@ -4224,7 +4326,8 @@ function computeLicenceStatus(data) {
   return computeLicenceStatusCore(data, {
     graceDays: LICENCE_GRACE_DAYS,
     trialDays: TRIAL_DAYS,
-    adminEmails: ADMIN_EMAILS_LOCAL,
+    adminEmails: getAdminEmailsLocal(),
+    freeTierEnabled: isFreeTierEnabled(),
   });
 }
 
@@ -4237,28 +4340,40 @@ ipcMain.handle('licence:status', () => {
       status: 'error',
       message: 'Stored licence could not be read. Custody Note will not replace it automatically.',
       addons: { quickfile: false, emailAddon: false },
+      tier: 'none',
+      createAllowed: false,
       enforced,
     };
   }
   if (!data || !data.key) {
-    const now = new Date();
-    const expires = new Date(now.getTime() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
-    data = {
-      key: 'TRIAL-' + getMachineId().slice(0, 16).toUpperCase(),
-      email: '',
-      activatedAt: now.toISOString(),
-      lastValidated: now.toISOString(),
-      expiresAt: expires.toISOString(),
-      machineId: getMachineId(),
-      status: 'active',
-      isTrial: true,
-    };
-    writeLicenceData(data);
-    reportTrialStartedToServer();
+    if (isFreeTierEnabled()) {
+      data = buildLocalFreeLicenceData();
+      writeLicenceData(data);
+      reportTrialStartedToServer();
+    } else {
+      const now = new Date();
+      const expires = new Date(now.getTime() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
+      data = {
+        key: 'TRIAL-' + getMachineId().slice(0, 16).toUpperCase(),
+        email: '',
+        activatedAt: now.toISOString(),
+        lastValidated: now.toISOString(),
+        expiresAt: expires.toISOString(),
+        machineId: getMachineId(),
+        status: 'active',
+        isTrial: true,
+        tier: 'trial',
+      };
+      writeLicenceData(data);
+      reportTrialStartedToServer();
+    }
+  } else {
+    data = maybeMigrateLicenceToFree(data);
   }
   const result = computeLicenceStatus(data);
   result.enforced = enforced;
   result.graceDays = LICENCE_GRACE_DAYS;
+  result.freeTierEnabled = isFreeTierEnabled();
   if (data && data.authToken) {
     result.signInWithAccount = true;
     result.accountEmail = data.email || '';
@@ -4295,29 +4410,39 @@ ipcMain.handle('licence:activate', async (_, { key, email }) => {
 ipcMain.handle('licence:validate', async () => {
   const data = readLicenceData();
   if (!data || (!data.key && !data.authToken)) return { valid: false, status: { status: 'none' } };
+  const adminEmails = getAdminEmailsLocal();
+
+  // Local Free/trial keys are not server subscriptions — never stamp them revoked.
+  if (shouldSkipOnlineValidation(data)) {
+    if (data.status === 'revoked' || data.status === 'invalid') {
+      data.status = 'active';
+      writeLicenceData(data);
+    }
+    return { valid: true, status: computeLicenceStatus(data) };
+  }
+
   const machineId = getMachineId();
   const result = await validateLicenceOnline(String(data.key || ''), machineId);
-  if (result.valid === true) {
-    data.lastValidated = new Date().toISOString();
-    if (result.expiresAt) data.expiresAt = result.expiresAt;
-    if (result.email) data.email = result.email;
-    if (result.isTrial !== undefined) data.isTrial = !!result.isTrial;
-    if (result.serverStatus) data.status = result.serverStatus;
-    if (result.entitlements !== undefined) data.entitlements = result.entitlements;
+  const apply = applyOnlineValidationResult(data, result, { adminEmails });
+
+  if (apply.persisted) {
     writeLicenceData(data);
+  }
+
+  if (result.valid === true) {
     retrySyncQueueAfterLicenceSuccess();
     checkCloudBackupEntitlement().catch(() => {});
     ensureQuickFileSettingsFromServer({ reason: 'licence-validate' }).catch(function (e) {
       console.warn('[QuickFile] background settings pull after licence validate failed:', e && e.message);
     });
   } else if (result.valid === false) {
-    const serverStatus = result.serverStatus || 'revoked';
-    if (serverStatus === 'expired') data.expiresAt = result.expiresAt || data.expiresAt;
-    data.status = serverStatus;
-    writeLicenceData(data);
     const status = computeLicenceStatus(data);
+    // Admin licences stay active even when the server returns invalid/revoked.
+    if (isAdminEmail(data.email, adminEmails)) {
+      return { valid: true, status, checkedOnline: true };
+    }
     status.message = result.message || status.message || 'Licence is not valid';
-    return { valid: false, status };
+    return { valid: false, status, checkedOnline: true };
   }
   if (result.offline) {
     return {
@@ -4327,7 +4452,7 @@ ipcMain.handle('licence:validate', async () => {
       message: result.message || 'Could not reach validation server',
     };
   }
-  return { valid: result.valid === true, status: computeLicenceStatus(data) };
+  return { valid: result.valid === true, status: computeLicenceStatus(data), checkedOnline: true };
 });
 
 ipcMain.handle('licence:deactivate', () => {
@@ -4632,6 +4757,7 @@ app.whenReady().then(async () => {
   try {
     await initDb();
     assertReadableStoredLicence();
+    seedOpenAiApiKeyIntoSettings();
   } catch (err) {
     const formatted = formatPersistenceStartupError(err);
     console.error('[Startup] Fatal persistence error\n' + formatted);
@@ -4675,23 +4801,11 @@ app.whenReady().then(async () => {
       const tag = r && r.skipped ? r.skipped : (r && r.usedLocal ? 'cached' : 'pulled');
       console.info('[QuickFile] startup pull: ' + tag);
     };
-    const maybeHealInvoiceNumbers = function () {
-      const status = getQuickFileSettingsStatus();
-      if (status.missing.length) return;
-      healInvoiceNumberSequence({ soft: true, reason: 'startup' }).catch(function (e) {
-        console.warn('[QuickFile] startup invoice-number heal failed:', e && e.message);
-      });
-    };
     if (qfStatus.missing.length > 0) {
       logQfStartup(await qfStartup);
-      maybeHealInvoiceNumbers();
     } else {
-      qfStartup.then(function (r) {
-        logQfStartup(r);
-        maybeHealInvoiceNumbers();
-      }).catch(function (e) {
+      qfStartup.then(logQfStartup).catch(function (e) {
         console.warn('[QuickFile] startup pull failed:', e && e.message);
-        maybeHealInvoiceNumbers();
       });
     }
   } catch (qfErr) {
@@ -4892,6 +5006,297 @@ ipcMain.handle('get-settings', () => {
   return Object.fromEntries(rows.map((r) => [r.key, r.value]));
 });
 
+/* ── Freemium: firm workspace, Anywhere bridge; opt-in OpenAI law fill ── */
+const {
+  buildOffencePayload,
+  requestLawElementsDraft,
+} = require('./main/openaiLawElements');
+const { requestAskAnswer } = require('./main/openaiAsk');
+
+function loadOpenAiKeyFromEnvLocal() {
+  if (process.env.OPENAI_API_KEY && String(process.env.OPENAI_API_KEY).trim()) {
+    return String(process.env.OPENAI_API_KEY).trim();
+  }
+  try {
+    const envPath = path.join(__dirname, '.env.local');
+    if (!fs.existsSync(envPath)) return '';
+    const text = fs.readFileSync(envPath, 'utf8');
+    for (const line of text.split(/\r?\n/)) {
+      const m = /^OPENAI_API_KEY=(.*)$/.exec(line.trim());
+      if (m) {
+        let v = m[1].trim();
+        if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+          v = v.slice(1, -1);
+        }
+        return v;
+      }
+    }
+  } catch (_) {}
+  return '';
+}
+
+function resolveOpenAiApiKey() {
+  try {
+    const row = dbGet("SELECT value FROM settings WHERE key = 'openaiApiKey'");
+    const fromDb = row && row.value ? String(row.value).trim() : '';
+    if (fromDb) return fromDb;
+  } catch (_) {}
+  try {
+    const localPath = path.join(app.getPath('userData'), 'openai-api-key.local');
+    if (fs.existsSync(localPath)) {
+      const v = String(fs.readFileSync(localPath, 'utf8') || '').trim();
+      if (v) return v;
+    }
+  } catch (_) {}
+  return loadOpenAiKeyFromEnvLocal();
+}
+
+function seedOpenAiApiKeyIntoSettings() {
+  try {
+    const existing = dbGet("SELECT value FROM settings WHERE key = 'openaiApiKey'");
+    if (existing && String(existing.value || '').trim()) return;
+    const key = resolveOpenAiApiKey();
+    if (!key) return;
+    dbRun('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ['openaiApiKey', key]);
+    markDbDirty();
+    console.log('[ai-law] OpenAI API key seeded into settings from local secret file');
+    setTimeout(function () {
+      if (typeof scheduleUserSettingsCloudPush === 'function') {
+        scheduleUserSettingsCloudPush('openai-seed');
+      } else if (typeof pushQuickFileSettingsToCloud === 'function') {
+        pushQuickFileSettingsToCloud('openai-seed').catch(function (err) {
+          console.warn('[ai-law] cloud push after seed failed:', err && err.message);
+        });
+      }
+    }, 2500);
+  } catch (e) {
+    console.warn('[ai-law] could not seed OpenAI key:', e && e.message);
+  }
+}
+
+const {
+  normaliseFirmWorkspace,
+  addSeat: firmAddSeat,
+  removeSeat: firmRemoveSeat,
+  addSharedTemplate: firmAddSharedTemplate,
+  removeSharedTemplate: firmRemoveSharedTemplate,
+} = require('./main/firmWorkspace');
+const {
+  isBridgePayload,
+  buildBridgeFromAnywhereBackup,
+  mapBridgeAttendanceToDesktop,
+} = require('./main/anywhereBridge');
+
+function readFirmWorkspaceFromDb() {
+  try {
+    const row = dbGet("SELECT value FROM settings WHERE key = 'firmWorkspaceJson'");
+    if (!row || !row.value) return normaliseFirmWorkspace({});
+    return normaliseFirmWorkspace(JSON.parse(row.value));
+  } catch (_) {
+    return normaliseFirmWorkspace({});
+  }
+}
+
+function writeFirmWorkspaceToDb(ws) {
+  const normalised = normaliseFirmWorkspace(ws);
+  dbRun('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [
+    'firmWorkspaceJson',
+    JSON.stringify(normalised),
+  ]);
+  return normalised;
+}
+
+ipcMain.handle('ai:fill-law-elements', async (_, params) => {
+  const p = params || {};
+  if (p.confirmed !== true) {
+    return { ok: false, error: 'Explicit confirmation required before calling OpenAI.' };
+  }
+  const payload = buildOffencePayload(p.formData || {});
+  if (payload.error) {
+    return { ok: false, error: payload.error };
+  }
+  const apiKey = resolveOpenAiApiKey();
+  const result = await requestLawElementsDraft({
+    confirmed: true,
+    apiKey: apiKey,
+    offences: payload.offences,
+  });
+  try {
+    const aid = p.attendanceId != null ? Number(p.attendanceId) : null;
+    if (aid && result && result.ok) {
+      dbRun(
+        'INSERT INTO audit_log (attendance_id, action, timestamp, user_note) VALUES (?,?,?,?)',
+        [
+          aid,
+          'ai_law_elements',
+          new Date().toISOString(),
+          'model=' + (result.model || 'gpt-4o-mini') + '; offences=' + payload.offences.length,
+        ],
+      );
+    }
+  } catch (e) {
+    console.warn('[ai-law] audit log failed:', e && e.message);
+  }
+  return result;
+});
+
+ipcMain.handle('ai:ask-question', async (_, params) => {
+  const p = params || {};
+  if (p.confirmed !== true) {
+    return { ok: false, error: 'Explicit confirmation required before calling OpenAI.' };
+  }
+  const question = String(p.question || '').trim();
+  if (!question) {
+    return { ok: false, error: 'Enter a question first.' };
+  }
+  let offences = [];
+  if (p.includeOffences === true) {
+    const payload = buildOffencePayload(p.formData || {});
+    offences = payload.offences || [];
+  }
+  const apiKey = resolveOpenAiApiKey();
+  const result = await requestAskAnswer({
+    confirmed: true,
+    apiKey: apiKey,
+    question: question,
+    history: Array.isArray(p.history) ? p.history : [],
+    offences: offences,
+  });
+  try {
+    const aid = p.attendanceId != null ? Number(p.attendanceId) : null;
+    if (aid && result && result.ok) {
+      dbRun(
+        'INSERT INTO audit_log (attendance_id, action, timestamp, user_note) VALUES (?,?,?,?)',
+        [
+          aid,
+          'ai_ask_question',
+          new Date().toISOString(),
+          'model=' +
+            (result.model || 'gpt-4o-mini') +
+            '; offences=' +
+            offences.length +
+            '; history=' +
+            (Array.isArray(p.history) ? p.history.length : 0),
+        ],
+      );
+    }
+  } catch (e) {
+    console.warn('[ai-ask] audit log failed:', e && e.message);
+  }
+  return result;
+});
+
+ipcMain.handle('firm-workspace:get', () => {
+  return { ok: true, workspace: readFirmWorkspaceFromDb() };
+});
+
+ipcMain.handle('firm-workspace:save', (_, payload) => {
+  const next = writeFirmWorkspaceToDb(Object.assign({}, readFirmWorkspaceFromDb(), payload || {}));
+  return { ok: true, workspace: next };
+});
+
+ipcMain.handle('firm-workspace:add-seat', (_, params) => {
+  const result = firmAddSeat(readFirmWorkspaceFromDb(), params && params.email, params && params.role);
+  if (!result.ok) return result;
+  return { ok: true, workspace: writeFirmWorkspaceToDb(result.workspace) };
+});
+
+ipcMain.handle('firm-workspace:remove-seat', (_, params) => {
+  const result = firmRemoveSeat(readFirmWorkspaceFromDb(), params && params.email);
+  if (!result.ok) return result;
+  return { ok: true, workspace: writeFirmWorkspaceToDb(result.workspace) };
+});
+
+ipcMain.handle('firm-workspace:add-template', (_, params) => {
+  const result = firmAddSharedTemplate(
+    readFirmWorkspaceFromDb(),
+    params && params.name,
+    params && params.body,
+  );
+  if (!result.ok) return result;
+  return { ok: true, workspace: writeFirmWorkspaceToDb(result.workspace), template: result.template };
+});
+
+ipcMain.handle('firm-workspace:remove-template', (_, params) => {
+  const result = firmRemoveSharedTemplate(readFirmWorkspaceFromDb(), params && params.id);
+  if (!result.ok) return result;
+  return { ok: true, workspace: writeFirmWorkspaceToDb(result.workspace) };
+});
+
+function importAnywhereBridgePayload(payload) {
+  if (!isBridgePayload(payload)) {
+    if (Array.isArray(payload)) {
+      payload = buildBridgeFromAnywhereBackup({ attendances: payload });
+    } else if (payload && Array.isArray(payload.attendances)) {
+      // Anywhere backup JSON (app: custodynote-anywhere) or any attendances array
+      payload = buildBridgeFromAnywhereBackup(payload);
+    }
+  }
+  if (!isBridgePayload(payload)) {
+    return { ok: false, error: 'Not a valid Custody Note Anywhere bridge file (cn-anywhere-bridge v1).' };
+  }
+  let imported = 0;
+  const errors = [];
+  for (const item of payload.attendances) {
+    try {
+      const mapped = mapBridgeAttendanceToDesktop(item);
+      const now = new Date().toISOString();
+      const data = mapped.data || {};
+      const status = mapped.status || 'draft';
+      const clientName = [data.surname || '', data.forename || ''].filter(Boolean).join(', ');
+      const stationName = data.policeStationName || '';
+      const dsccRef = data.dsccRef || '';
+      const attendanceDate = data.date || '';
+      const workType = data.workType || '';
+      const newSyncId = typeof generateSyncId === 'function' ? generateSyncId() : ('local-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8));
+      dbRun(
+        'INSERT INTO attendances (data, status, updated_at, client_name, station_name, dscc_ref, attendance_date, work_type, sync_id, sync_dirty, sync_version) VALUES (?,?,?,?,?,?,?,?,?,1,1)',
+        [JSON.stringify(data), status, now, clientName, stationName, dsccRef, attendanceDate, workType, newSyncId],
+      );
+      imported += 1;
+    } catch (e) {
+      errors.push(e && e.message ? e.message : String(e));
+    }
+  }
+  try { if (typeof markDbDirty === 'function') markDbDirty(); } catch (_) {}
+  return { ok: true, imported, errors: errors.slice(0, 5), total: payload.attendances.length };
+}
+
+ipcMain.handle('anywhere-bridge:import', async (_, params) => {
+  let payload = params && params.payload;
+  if (!payload && params && params.filePath) {
+    try {
+      payload = JSON.parse(fs.readFileSync(String(params.filePath), 'utf8'));
+    } catch (e) {
+      return { ok: false, error: 'Could not read bridge file: ' + (e && e.message) };
+    }
+  }
+  return importAnywhereBridgePayload(payload);
+});
+
+ipcMain.handle('anywhere-bridge:choose-and-import', async () => {
+  const { dialog } = require('electron');
+  const win = BrowserWindow.getFocusedWindow() || mainWindow;
+  const result = await dialog.showOpenDialog(win || undefined, {
+    title: 'Import Anywhere bridge / backup',
+    properties: ['openFile'],
+    filters: [{ name: 'JSON', extensions: ['json'] }],
+  });
+  if (result.canceled || !result.filePaths || !result.filePaths[0]) {
+    return { ok: false, cancelled: true };
+  }
+  let payload;
+  try {
+    payload = JSON.parse(fs.readFileSync(result.filePaths[0], 'utf8'));
+  } catch (e) {
+    return { ok: false, error: 'Could not read file: ' + (e && e.message) };
+  }
+  const out = importAnywhereBridgePayload(payload);
+  if (out && out.ok) out.filePath = result.filePaths[0];
+  return out;
+});
+
+
 // H21 — settings keys that hold network endpoints can repoint the encrypted
 // DB upload target if a renderer is poisoned. Validate them server-side
 // before persisting; return an error to the renderer rather than silently
@@ -4916,12 +5321,13 @@ ipcMain.handle('set-settings', (_, settings) => {
   if (!settings || typeof settings !== 'object') return { ok: false, error: 'Invalid settings payload' };
   const rejected = [];
   let wroteQuickFile = false;
+  let wroteSyncable = false;
   for (const [key, value] of Object.entries(settings)) {
     if (_URL_LIKE_SETTINGS.has(key) && !_isAllowedSettingsUrl(value)) {
       rejected.push(key);
       continue;
     }
-    if (QUICKFILE_CREDENTIAL_KEYS.has(key)) {
+    if (QUICKFILE_CREDENTIAL_KEYS.has(key) || key === 'openaiApiKey') {
       const incoming = value == null ? '' : String(value).trim();
       if (!incoming) {
         const existing = dbGet('SELECT value FROM settings WHERE key = ?', [key]);
@@ -4930,15 +5336,21 @@ ipcMain.handle('set-settings', (_, settings) => {
           continue;
         }
       }
-      wroteQuickFile = true;
+      if (QUICKFILE_CREDENTIAL_KEYS.has(key)) wroteQuickFile = true;
     }
     dbRun('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [key, value == null ? '' : String(value)]);
+    if (typeof quickfileSettingsSync !== 'undefined' && quickfileSettingsSync.isSyncableSettingsKey && quickfileSettingsSync.isSyncableSettingsKey(key)) {
+      wroteSyncable = true;
+    }
   }
   markDbDirty();
   if (wroteQuickFile && typeof flushDbSync === 'function') {
     try { flushDbSync(); } catch (flushErr) {
       console.warn('[set-settings] flushDbSync after QuickFile keys failed:', flushErr && flushErr.message);
     }
+  }
+  if (wroteSyncable && typeof scheduleUserSettingsCloudPush === 'function') {
+    scheduleUserSettingsCloudPush('set-settings');
   }
   if (rejected.length) {
     return { ok: true, rejectedSettings: rejected };
@@ -5053,7 +5465,7 @@ ipcMain.handle('attendance-search', (_, params) => {
   const p = total > 0 ? Math.min(requestedPage, totalPages) : 1;
   const offset = (p - 1) * ps;
   const rows = dbAll(
-    `SELECT id, created_at, updated_at, client_name, station_name, dscc_ref, attendance_date, status, supervisor_approved_at, archived_at, deleted_at, deletion_reason, data
+    `SELECT id, created_at, updated_at, client_name, station_name, dscc_ref, attendance_date, status, supervisor_approved_at, archived_at, deleted_at, deletion_reason, quickfile_invoice_id, quickfile_invoice_number, data
      FROM attendances ${where} ORDER BY ${orderCol} ${orderDir} LIMIT ? OFFSET ?`,
     [...params2, ps, offset]
   );
@@ -5184,7 +5596,9 @@ ipcMain.handle('attendance-save', (_, { id, data, status, unlock }) => {
       }
     }
     markDbDirty();
-    if (st === 'finalised' || st === 'completed') flushDb();
+    // Durability: finalise/complete must hit disk before the UI reports saved.
+    // flushDb() only kicks an async save; flushDbSync writes immediately.
+    if (st === 'finalised' || st === 'completed') flushDbSync();
     enqueueSyncForRecord(id, st === 'finalised' ? 'finalise' : 'upsert');
     return id;
   }
@@ -5309,6 +5723,7 @@ ipcMain.handle('attendance-unarchive', (_, id) => {
   const ev = dbGet('SELECT sync_version FROM attendances WHERE id=?', [id]);
   const nv = (ev && ev.sync_version || 1) + 1;
   dbRun('UPDATE attendances SET archived_at=NULL, updated_at=?, sync_dirty=1, sync_version=? WHERE id=?', [now, nv, id]);
+  db.run('INSERT INTO audit_log (attendance_id, action, timestamp) VALUES (?,?,?)', [id, 'unarchived', now]);
   markDbDirty();
   enqueueSyncForRecord(id);
   return true;
@@ -6091,10 +6506,13 @@ ipcMain.handle('session-lock-status', () => getSecurityCredentialStatus());
 
 // Lock the renderer immediately when the OS reports lock-screen, suspend,
 // shutdown, or screen lock events. Treats those as "user has stepped away,
-// the session is no longer trusted". The renderer-side lock overlay handles
-// the actual UI; here we just notify it.
+// the session is no longer trusted". Persist the DB first so a power-loss
+// after "Saved" cannot drop the last debounce window (~30s).
 function _broadcastForceLock(reason) {
   try {
+    try { if (typeof flushDbSync === 'function') flushDbSync(); } catch (flushErr) {
+      console.error('[security] flushDbSync on force-lock failed:', flushErr && flushErr.message ? flushErr.message : flushErr);
+    }
     const wins = BrowserWindow.getAllWindows ? BrowserWindow.getAllWindows() : [];
     for (const w of wins) {
       if (w && !w.isDestroyed() && w.webContents) {
@@ -6611,7 +7029,7 @@ ipcMain.handle('open-app-folder', async () => {
 // (multi-attachment cover bundles) while killing pathological renderer input.
 const RENDER_HTML_MAX_BYTES = 25 * 1024 * 1024;
 
-async function renderHtmlToPdfBuffer(html) {
+async function renderHtmlToPdfBuffer(html, options) {
   if (typeof html !== 'string' || html.length === 0) {
     throw new Error('renderHtmlToPdfBuffer: html is empty');
   }
@@ -6619,6 +7037,7 @@ async function renderHtmlToPdfBuffer(html) {
   if (byteLen > RENDER_HTML_MAX_BYTES) {
     throw new Error('renderHtmlToPdfBuffer: html exceeds ' + RENDER_HTML_MAX_BYTES + ' bytes (got ' + byteLen + ')');
   }
+  const brandingFooter = !(options && options.brandingFooter === false);
   const tempDir = app.getPath('temp');
   const tempPath = path.join(tempDir, `cn-pdf-${process.pid}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.html`);
   fs.writeFileSync(tempPath, html, 'utf8');
@@ -6651,7 +7070,7 @@ async function renderHtmlToPdfBuffer(html) {
         if (err) reject(err); else resolve();
       };
       const timer = setTimeout(
-        () => finish(new Error('PDF HTML load timeout (60s) â€” temp file: ' + tempPath)),
+        () => finish(new Error('PDF HTML load timeout (60s) — temp file: ' + tempPath)),
         60000
       );
       win.webContents.once('did-finish-load', () => finish());
@@ -6664,6 +7083,9 @@ async function renderHtmlToPdfBuffer(html) {
       win.loadFile(tempPath).catch((err) => finish(err));
     });
 
+    const brandLine = brandingFooter
+      ? '<div>Prepared with Custody Note</div>'
+      : '<div></div>';
     const buf = await win.webContents.printToPDF({
       pageSize: 'A4',
       margins: { marginType: 'default' },
@@ -6674,7 +7096,7 @@ async function renderHtmlToPdfBuffer(html) {
       footerTemplate: `
       <div style="width:100%; padding:0 12px; font-family:Segoe UI, Arial, sans-serif; font-size:8px; color:#475569; border-top:1px solid #e2e8f0; padding-top:6px; display:flex; justify-content:space-between; align-items:center;">
         <div>Page <span class="pageNumber"></span> of <span class="totalPages"></span></div>
-        <div>Created with Custody Note</div>
+        ${brandLine}
         <div>Generated <span class="date"></span></div>
       </div>
     `,
@@ -6686,7 +7108,7 @@ async function renderHtmlToPdfBuffer(html) {
   }
 }
 
-ipcMain.handle('print-to-pdf', async (_, { html, filename }) => {
+ipcMain.handle('print-to-pdf', async (_, { html, filename, brandingFooter }) => {
   // Logged-name only (never log the full path — the home folder leaks the
   // OS username; the file basename can leak client name if the renderer
   // hasn't already sanitised it). The basename is what the user already
@@ -6695,29 +7117,12 @@ ipcMain.handle('print-to-pdf', async (_, { html, filename }) => {
   let safeName = '';
   try {
     const desktop = app.getPath('desktop');
-    let outDir = desktop;
-    try { fs.mkdirSync(outDir, { recursive: true }); } catch (_) {}
-    if (!fs.existsSync(outDir)) {
-      // Headless/test environments (and some locked-down desktops) may not have a Desktop folder.
-      // Fall back to Documents, then userData, so PDF export still works.
-      try {
-        const docs = app.getPath('documents');
-        if (docs) {
-          outDir = docs;
-          try { fs.mkdirSync(outDir, { recursive: true }); } catch (_) {}
-        }
-      } catch (_) {}
-    }
-    if (!fs.existsSync(outDir)) {
-      outDir = app.getPath('userData');
-      try { fs.mkdirSync(outDir, { recursive: true }); } catch (_) {}
-    }
-    if (!fs.existsSync(outDir)) {
-      throw new Error('No writable output folder available for PDF export.');
+    if (!fs.existsSync(desktop)) {
+      throw new Error('Desktop folder does not exist. If you use OneDrive Known Folder Move, sign in to OneDrive and try again.');
     }
     safeName = path.basename(filename || `attendance-${Date.now()}.pdf`).replace(/[<>:"/\\|?*]/g, '_');
-    outPath = path.join(outDir, safeName);
-    const buf = await renderHtmlToPdfBuffer(html);
+    outPath = path.join(desktop, safeName);
+    const buf = await renderHtmlToPdfBuffer(html, { brandingFooter: brandingFooter !== false });
     fs.writeFileSync(outPath, buf);
     console.log('[print-to-pdf] wrote ' + safeName + ' (' + buf.length + ' bytes)');
     return outPath;
@@ -6937,9 +7342,11 @@ ipcMain.handle('export-docx', async (_, { data, settings, filename }) => {
   ].filter(Boolean);
   if (timeRows.length) children.push(new Table({ rows: timeRows, width: { size: 100, type: WidthType.PERCENTAGE } }));
 
-  children.push(new Paragraph({ spacing: { before: 300 }, children: [
-    new TextRun({ text: 'Created with Custody Note \u2014 www.custodynote.com', size: 16, font: 'Segoe UI', color: '94a3b8', italics: true })
-  ] }));
+  if (!(settings && settings.pdfBrandingFooter === 'false')) {
+    children.push(new Paragraph({ spacing: { before: 300 }, children: [
+      new TextRun({ text: 'Prepared with Custody Note \u2014 www.custodynote.com', size: 16, font: 'Segoe UI', color: '94a3b8', italics: true })
+    ] }));
+  }
 
   const doc = new Document({
     creator: 'Custody Note',
@@ -7501,9 +7908,20 @@ function getQuickFileSettingsStatus() {
 
 function applyQuickFileSettingsFromCloud(decrypted, serverUpdatedAt) {
   if (!decrypted) return false;
-  dbRun('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ['quickfileAccountNumber', decrypted.quickfileAccountNumber || '']);
-  dbRun('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ['quickfileApiKey', decrypted.quickfileApiKey || '']);
-  dbRun('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ['quickfileAppId', decrypted.quickfileAppId || '']);
+  const picked = quickfileSettingsSync.pickSyncableSettings(decrypted);
+  const keys = quickfileSettingsSync.SYNCABLE_SETTINGS_KEYS;
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    const incoming = String(picked[key] || '');
+    /* Never wipe a populated local value with an empty cloud value. */
+    if (!incoming.trim()) {
+      try {
+        const existing = dbGet('SELECT value FROM settings WHERE key = ?', [key]);
+        if (existing && String(existing.value || '').trim()) continue;
+      } catch (_) {}
+    }
+    dbRun('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [key, incoming]);
+  }
   if (serverUpdatedAt) {
     dbRun('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ['quickfileSettingsServerUpdatedAt', serverUpdatedAt]);
   }
@@ -7511,10 +7929,16 @@ function applyQuickFileSettingsFromCloud(decrypted, serverUpdatedAt) {
   markDbDirty();
   if (typeof flushDbSync === 'function') {
     try { flushDbSync(); } catch (flushErr) {
-      console.warn('[QuickFile] flushDbSync after cloud pull failed:', flushErr && flushErr.message);
+      console.warn('[SettingsSync] flushDbSync after cloud pull failed:', flushErr && flushErr.message);
     }
   }
   return true;
+}
+
+function collectSyncableSettingsFromDb() {
+  const rows = dbAll('SELECT key, value FROM settings');
+  const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+  return quickfileSettingsSync.pickSyncableSettings(map);
 }
 
 async function ensureQuickFileSettingsFromServer(opts) {
@@ -7522,6 +7946,8 @@ async function ensureQuickFileSettingsFromServer(opts) {
   const force = !!(opts && opts.force);
   const status = getQuickFileSettingsStatus();
   const localComplete = status.missing.length === 0;
+  const localSyncable = collectSyncableSettingsFromDb();
+  const localHasContent = quickfileSettingsSync.hasAnySyncableContent(localSyncable);
   const rows = dbAll('SELECT key, value FROM settings');
   const localMeta = Object.fromEntries(rows.map((r) => [r.key, r.value]));
   const localServerUpdatedAt = String(localMeta.quickfileSettingsServerUpdatedAt || '').trim();
@@ -7529,11 +7955,11 @@ async function ensureQuickFileSettingsFromServer(opts) {
   const apiUrl = getManagedCloudApiUrl();
   const data = readLicenceData();
   if (!apiUrl || !data || !data.key) {
-    return { ok: localComplete, usedLocal: localComplete, reason: reason, skipped: 'no-licence-or-api' };
+    return { ok: localComplete || localHasContent, usedLocal: true, reason: reason, skipped: 'no-licence-or-api' };
   }
 
-  /* Incomplete local credentials: always pull from server (new machine / fresh install). */
-  if (localComplete && !force) {
+  /* Fresh installs always pull; otherwise respect a short local cache. */
+  if (localHasContent && !force) {
     const syncedAt = Date.parse(localMeta.quickfileSettingsSyncedAt || '');
     if (syncedAt && (Date.now() - syncedAt) < 15 * 60 * 1000) {
       return { ok: true, usedLocal: true, reason: reason, skipped: 'recent-local-cache' };
@@ -7549,25 +7975,29 @@ async function ensureQuickFileSettingsFromServer(opts) {
   );
 
   if (!pull.ok) {
-    console.warn('[QuickFile] settings pull failed (' + reason + '):', pull.error || 'unknown');
-    return { ok: localComplete, usedLocal: localComplete, reason: reason, error: pull.error || 'pull failed' };
+    console.warn('[SettingsSync] pull failed (' + reason + '):', pull.error || 'unknown');
+    return { ok: localComplete || localHasContent, usedLocal: true, reason: reason, error: pull.error || 'pull failed' };
   }
 
   const serverUpdatedAt = String(pull.updatedAt || '').trim();
-  if (localComplete && serverUpdatedAt && localServerUpdatedAt && serverUpdatedAt <= localServerUpdatedAt && !force) {
+  if (localHasContent && serverUpdatedAt && localServerUpdatedAt && serverUpdatedAt <= localServerUpdatedAt && !force) {
     dbRun('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ['quickfileSettingsSyncedAt', new Date().toISOString()]);
     markDbDirty();
     return { ok: true, usedLocal: true, reason: reason, skipped: 'server-not-newer' };
   }
 
   const decrypted = quickfileSettingsSync.decryptQuickFileSettings(data.key, pull.blob);
-  if (!decrypted || !decrypted.quickfileAccountNumber || !decrypted.quickfileApiKey || !decrypted.quickfileAppId) {
-    console.warn('[QuickFile] settings pull returned undecryptable or incomplete blob (' + reason + ')');
-    return { ok: localComplete, usedLocal: localComplete, reason: reason, error: 'decrypt failed' };
+  if (!decrypted) {
+    console.warn('[SettingsSync] pull returned undecryptable blob (' + reason + ')');
+    return { ok: localComplete || localHasContent, usedLocal: true, reason: reason, error: 'decrypt failed' };
+  }
+  if (!quickfileSettingsSync.hasAnySyncableContent(decrypted)) {
+    console.warn('[SettingsSync] pull returned empty settings blob (' + reason + ')');
+    return { ok: localComplete || localHasContent, usedLocal: true, reason: reason, error: 'empty blob' };
   }
 
   applyQuickFileSettingsFromCloud(decrypted, serverUpdatedAt);
-  console.info('[QuickFile] settings pulled from server (' + reason + ') updatedAt=' + (serverUpdatedAt || '?'));
+  console.info('[SettingsSync] settings pulled from server (' + reason + ') updatedAt=' + (serverUpdatedAt || '?'));
   return { ok: true, usedLocal: false, reason: reason, updatedAt: serverUpdatedAt };
 }
 
@@ -7577,22 +8007,43 @@ async function pushQuickFileSettingsToCloud(reason) {
   if (!apiUrl || !data || !data.key) {
     return { ok: false, error: 'Licence server not available' };
   }
-  const status = getQuickFileSettingsStatus();
-  if (status.missing.length) {
-    return { ok: false, error: 'QuickFile credentials incomplete' };
+  let payload = collectSyncableSettingsFromDb();
+  if (!quickfileSettingsSync.hasAnySyncableContent(payload)) {
+    return { ok: false, error: 'Nothing to sync yet' };
   }
-  const payload = {
-    quickfileAccountNumber: status.accountNumber,
-    quickfileApiKey: status.apiKey,
-    quickfileAppId: status.applicationId,
-  };
+  /* Merge with server so empty local fields do not wipe other devices. */
+  try {
+    const pull = await quickfileSettingsSync.pullQuickFileSettingsFromServer(
+      httpPost,
+      apiUrl,
+      data.key,
+      getMachineId(),
+      { headers: _getAuthHeaders(), timeout: 15000 },
+    );
+    if (pull && pull.ok && pull.blob) {
+      const existing = quickfileSettingsSync.decryptQuickFileSettings(data.key, pull.blob);
+      if (existing) {
+        const keys = quickfileSettingsSync.SYNCABLE_SETTINGS_KEYS;
+        const merged = {};
+        for (let i = 0; i < keys.length; i++) {
+          const key = keys[i];
+          const localVal = String(payload[key] || '').trim();
+          const remoteVal = String(existing[key] || '').trim();
+          merged[key] = localVal || remoteVal;
+        }
+        payload = merged;
+      }
+    }
+  } catch (mergeErr) {
+    console.warn('[SettingsSync] merge-before-push failed:', mergeErr && mergeErr.message);
+  }
   const push = await quickfileSettingsSync.pushQuickFileSettingsToServer(
     httpPost,
     apiUrl,
     data.key,
     getMachineId(),
     payload,
-    { headers: _getAuthHeaders(), timeout: 15000 }
+    { headers: _getAuthHeaders(), timeout: 20000 }
   );
   if (push.ok) {
     if (push.updatedAt) {
@@ -7603,11 +8054,22 @@ async function pushQuickFileSettingsToCloud(reason) {
         try { flushDbSync(); } catch (_) {}
       }
     }
-    console.info('[QuickFile] settings pushed to server (' + (reason || 'save') + ')');
+    console.info('[SettingsSync] settings pushed to server (' + (reason || 'save') + ')');
   } else {
-    console.warn('[QuickFile] settings push failed:', push.error || 'unknown');
+    console.warn('[SettingsSync] settings push failed:', push.error || 'unknown');
   }
   return push;
+}
+
+let _settingsSyncPushTimer = null;
+function scheduleUserSettingsCloudPush(reason) {
+  if (_settingsSyncPushTimer) clearTimeout(_settingsSyncPushTimer);
+  _settingsSyncPushTimer = setTimeout(function () {
+    _settingsSyncPushTimer = null;
+    pushQuickFileSettingsToCloud(reason || 'settings-change').catch(function (err) {
+      console.warn('[SettingsSync] debounced push failed:', err && err.message);
+    });
+  }, 2000);
 }
 
 function getQuickFileAuth() {
@@ -7670,84 +8132,9 @@ function quickFileRequest(apiPath, bodyContent) {
   });
 }
 
-function quickFileJoinAddress(parts) {
-  return parts.map((part) => String(part || '').trim()).filter(Boolean).join(', ');
-}
-
-function quickFileExtractAddress(client) {
-  if (!client || typeof client !== 'object') return '';
-  const candidates = [
-    client.Address,
-    client.InvoiceAddress,
-    client.DeliveryAddress,
-    client.PostalAddress,
-    client.PrimaryAddress,
-    client.AddressDetails,
-  ];
-  for (const address of candidates) {
-    if (!address) continue;
-    if (typeof address === 'string') {
-      const text = address.trim();
-      if (text) return text;
-      continue;
-    }
-    if (typeof address === 'object') {
-      const joined = quickFileJoinAddress([
-        address.Line1,
-        address.Line2,
-        address.Line3,
-        address.Line4,
-        address.Line5,
-        address.AddressLine1,
-        address.AddressLine2,
-        address.AddressLine3,
-        address.AddressLine4,
-        address.AddressLine5,
-        address.City,
-        address.Town,
-        address.County,
-        address.Postcode,
-        address.PostCode,
-        address.Zip,
-        address.Country,
-      ]);
-      if (joined) return joined;
-    }
-  }
-  return quickFileJoinAddress([
-    client.AddressLine1,
-    client.AddressLine2,
-    client.AddressLine3,
-    client.AddressLine4,
-    client.AddressLine5,
-    client.City,
-    client.Town,
-    client.County,
-    client.Postcode,
-    client.PostCode,
-    client.Zip,
-    client.Country,
-  ]);
-}
-
 function quickFileExtractRecords(body) {
   const clientList = body.Record || body.Records || body.ClientDetails || body.Clients || [];
   return Array.isArray(clientList) ? clientList : [clientList].filter(Boolean);
-}
-
-function quickFileNormaliseClient(client) {
-  const primary = client.PrimaryContact || client.Contact || {};
-  return {
-    clientId: client.ClientID || client.ClientId || '',
-    companyName: client.ClientName || client.CompanyName || client.Name || '',
-    contactName: (
-      client.ContactName ||
-      [primary.FirstName || client.ContactFirstName || '', primary.Surname || client.ContactLastName || ''].filter(Boolean).join(' ')
-    ).trim(),
-    email: client.Email || primary.Email || '',
-    telephone: client.Telephone || primary.Telephone || primary.Phone || '',
-    address: quickFileExtractAddress(client),
-  };
 }
 
 async function quickFileFetchAllClients() {
@@ -7771,13 +8158,80 @@ async function quickFileFetchAllClients() {
   return clients;
 }
 
+/* Client_Get for one client — Address + ClientContacts only. Used to enrich the
+ * thin Client_Search rows before firm import. */
+async function quickFileGetClientDetails(clientId) {
+  const id = String(clientId || '').trim();
+  if (!id) return null;
+  return quickFileRequest('/1_2/client/get', {
+    ClientID: id,
+    ReturnData: {
+      Address: true,
+      ClientContacts: true,
+    },
+  });
+}
+
+const QUICKFILE_GET_CONCURRENCY = 5;
+
+/* Search all clients, then enrich each with Client_Get (concurrency-capped).
+ * A failed get keeps the search-row normalisation so one bad client cannot
+ * abort the whole import. */
+async function quickFileFetchAndEnrichClients() {
+  const records = await quickFileFetchAllClients();
+  const enriched = await quickfileClient.mapWithConcurrency(
+    records,
+    QUICKFILE_GET_CONCURRENCY,
+    async (record) => {
+      const searchNorm = quickfileClient.normaliseQuickFileSearchClient(record);
+      if (!searchNorm.clientId) {
+        return searchNorm;
+      }
+      try {
+        const getBody = await quickFileGetClientDetails(searchNorm.clientId);
+        return quickfileClient.mergeQuickFileClientDetails(searchNorm, getBody);
+      } catch (e) {
+        const msg = (e && e.message) ? e.message : String(e);
+        console.warn('[QuickFile] client/get failed for ClientID=' + searchNorm.clientId + ': ' + msg);
+        return searchNorm;
+      }
+    }
+  );
+  return enriched.filter((client) => client && client.companyName);
+}
+
 ipcMain.handle('quickfile-fetch-clients', async () => {
   await ensureQuickFileSettingsFromServer({ reason: 'fetch-clients' });
-  const records = await quickFileFetchAllClients();
-  const clients = records.map((client) => {
-    return quickFileNormaliseClient(client);
-  }).filter((client) => client.companyName);
+  const clients = await quickFileFetchAndEnrichClients();
   return { clients };
+});
+
+/* Find or create a QuickFile client for a local firm. Used when saving a new
+ * firm so the directory stays in sync before billing. Skips cleanly when
+ * credentials are not configured — never fails local firm save. */
+ipcMain.handle('quickfile-ensure-client', async (_, params) => {
+  const firmName = String((params && params.firmName) || '').trim();
+  const contactEmail = String((params && params.contactEmail) || '').trim();
+  if (!firmName) {
+    return { ok: false, error: 'Firm name is required' };
+  }
+  try {
+    await ensureQuickFileSettingsFromServer({ reason: 'ensure-client' });
+    const status = getQuickFileSettingsStatus();
+    if (status.missing.length) {
+      return { ok: false, skipped: 'not-configured', missing: status.missing };
+    }
+    const clientId = await quickFileFindOrCreateClient(firmName, contactEmail);
+    if (!clientId) {
+      return { ok: false, error: 'Could not find or create QuickFile client for ' + firmName };
+    }
+    console.info('[QuickFile] ensure-client ok firm=' + firmName + ' clientId=' + clientId);
+    return { ok: true, clientId: clientId };
+  } catch (e) {
+    const msg = (e && e.message) ? e.message : String(e);
+    console.warn('[QuickFile] ensure-client failed:', msg);
+    return { ok: false, error: msg };
+  }
 });
 
 /* Persist the outcome of a real QuickFile health check so the connection panel
@@ -7812,14 +8266,11 @@ ipcMain.handle('quickfile-test-connection', async () => {
       },
     });
     const records = quickFileExtractRecords(body);
-    const heal = await healInvoiceNumberSequence({ soft: true, reason: 'test-connection' });
     recordQuickFileConnectionResult(true, '');
     return {
       ok: true,
       sampleCount: records.length,
       checkedAt: new Date().toISOString(),
-      nextInvoiceNumber: (heal && heal.number) || peekNextSequentialInvoiceNumber(),
-      invoiceNumberHeal: heal,
     };
   } catch (err) {
     const msg = err && err.message ? err.message : String(err);
@@ -7950,13 +8401,9 @@ async function quickFileFindOrCreateClient(firmName, contactEmail) {
   });
   if (match) return match.ClientID || match.ClientId;
 
-  const createBody = await quickFileRequest('/1_2/client/create', {
-    ClientDetails: {
-      ClientType: 'Company',
-      CompanyName: firmName,
-      Email: contactEmail || '',
-    },
-  });
+  /* Client_Create: CompanyName only under ClientDetails (no ClientType / Email). */
+  const createPayload = quickfileClient.buildQuickFileClientCreateBody(firmName, contactEmail);
+  const createBody = await quickFileRequest('/1_2/client/create', createPayload);
   return createBody.ClientID || createBody.ClientId || createBody.RecordID || null;
 }
 
@@ -7967,30 +8414,22 @@ function sanitizeQuickFileInvoiceNumber(raw) {
   return s;
 }
 
-function readStoredNextInvoiceNumber() {
+function getNextSequentialInvoiceNumber() {
   const row = dbAll("SELECT value FROM settings WHERE key = 'nextInvoiceNumber'");
   let next = row.length ? parseInt(row[0].value, 10) : NaN;
   if (!Number.isFinite(next) || next < 1) next = 6066;
-  return next;
-}
-
-function setStoredNextInvoiceNumber(n) {
-  const next = Number(n);
-  if (!Number.isFinite(next) || next < 1) return;
-  db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('nextInvoiceNumber', ?)", [String(Math.floor(next))]);
-  saveDb();
-}
-
-function getNextSequentialInvoiceNumber() {
-  const next = readStoredNextInvoiceNumber();
   const formatted = String(next).padStart(6, '0');
-  setStoredNextInvoiceNumber(next + 1);
+  db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('nextInvoiceNumber', ?)", [String(next + 1)]);
+  saveDb();
   return formatted;
 }
 
 /** Next invoice number that would be issued (does not advance the counter). */
 function peekNextSequentialInvoiceNumber() {
-  return String(readStoredNextInvoiceNumber()).padStart(6, '0');
+  const row = dbAll("SELECT value FROM settings WHERE key = 'nextInvoiceNumber'");
+  let next = row.length ? parseInt(row[0].value, 10) : NaN;
+  if (!Number.isFinite(next) || next < 1) next = 6066;
+  return String(next).padStart(6, '0');
 }
 
 /** Largest numeric segment from an invoice reference (handles "006069", "INV-6069", etc.). */
@@ -8014,11 +8453,10 @@ function quickFileExtractInvoiceSearchRecords(body) {
   return arr.filter(Boolean);
 }
 
-/** Numeric max invoice number across a recent QuickFile search page (not string-order first row). */
 async function quickFileGetMaxInvoiceNumberNumeric() {
   const body = await quickFileRequest('/1_2/invoice/search', {
     SearchParameters: {
-      ReturnCount: 100,
+      ReturnCount: 1,
       Offset: 0,
       OrderResultsBy: 'InvoiceNumber',
       OrderDirection: 'DESC',
@@ -8026,81 +8464,30 @@ async function quickFileGetMaxInvoiceNumberNumeric() {
     },
   });
   const records = quickFileExtractInvoiceSearchRecords(body);
-  let max = null;
-  for (let i = 0; i < records.length; i++) {
-    const inv = records[i];
-    const invNum = inv.InvoiceNumber || inv.Invoice_No || inv.InvoiceNo || inv.InvoiceNum || '';
-    const n = parseInvoiceNumberNumericPart(invNum);
-    if (Number.isFinite(n) && (max === null || n > max)) max = n;
-  }
-  return max;
+  if (!records.length) return null;
+  const inv = records[0];
+  const invNum = inv.InvoiceNumber || inv.Invoice_No || inv.InvoiceNo || inv.InvoiceNum || '';
+  const n = parseInvoiceNumberNumericPart(invNum);
+  return Number.isFinite(n) ? n : null;
 }
 
-/**
- * Self-heal: align local nextInvoiceNumber with the QuickFile ledger.
- * soft:true swallows API errors and returns { ok:false }; otherwise rethrows.
- */
-async function healInvoiceNumberSequence(opts) {
-  const reason = (opts && opts.reason) || 'unspecified';
-  const soft = !!(opts && opts.soft);
-  const previousNext = readStoredNextInvoiceNumber();
-  try {
-    const ledgerMax = await quickFileGetMaxInvoiceNumberNumeric();
-    let next = previousNext;
-    let bumped = false;
-    if (ledgerMax !== null && Number.isFinite(ledgerMax)) {
-      const requiredNext = ledgerMax + 1;
-      if (next < requiredNext) {
-        next = requiredNext;
-        setStoredNextInvoiceNumber(next);
-        bumped = true;
-      }
-    }
-    console.warn(
-      '[QuickFile] invoice-number-heal reason=' + reason
-      + ' previous=' + previousNext
-      + ' next=' + next
-      + ' ledgerMax=' + (ledgerMax == null ? 'none' : ledgerMax)
-      + ' bumped=' + bumped
-    );
-    return {
-      ok: true,
-      previousNext,
-      next,
-      ledgerMax,
-      bumped,
-      number: String(next).padStart(6, '0'),
-    };
-  } catch (e) {
-    const msg = e && e.message ? e.message : String(e);
-    console.warn('[QuickFile] invoice-number-heal failed reason=' + reason + ': ' + msg);
-    if (soft) {
-      return {
-        ok: false,
-        previousNext,
-        next: previousNext,
-        ledgerMax: null,
-        bumped: false,
-        number: String(previousNext).padStart(6, '0'),
-        error: msg,
-      };
-    }
-    throw e;
-  }
-}
-
-/** Keep local counter ahead of an invoice number QuickFile just assigned. */
-function bumpLocalNextAfterAssignedInvoiceNumber(assigned) {
-  const n = parseInvoiceNumberNumericPart(assigned);
-  if (!Number.isFinite(n)) return;
-  const stored = readStoredNextInvoiceNumber();
-  const required = n + 1;
-  if (stored < required) setStoredNextInvoiceNumber(required);
-}
-
-/** @deprecated Prefer healInvoiceNumberSequence — soft wrapper for older call sites/tests. */
+/** Align local nextInvoiceNumber so the next issued number is above QuickFile's highest (handles invoices created outside the app). */
 async function syncNextInvoiceNumberFromQuickFileLedger() {
-  return healInvoiceNumberSequence({ soft: true, reason: 'legacy-sync' });
+  try {
+    const max = await quickFileGetMaxInvoiceNumberNumeric();
+    if (max === null || !Number.isFinite(max)) return;
+    const row = dbAll("SELECT value FROM settings WHERE key = 'nextInvoiceNumber'");
+    let storedNext = row.length ? parseInt(row[0].value, 10) : NaN;
+    if (!Number.isFinite(storedNext) || storedNext < 1) storedNext = 6066;
+    const requiredNext = max + 1;
+    if (storedNext < requiredNext) {
+      db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('nextInvoiceNumber', ?)", [String(requiredNext)]);
+      saveDb();
+      console.warn('[QuickFile] Bumped nextInvoiceNumber to ' + requiredNext + ' (QuickFile max invoice # was ' + max + ')');
+    }
+  } catch (e) {
+    console.warn('[QuickFile] syncNextInvoiceNumberFromQuickFileLedger:', e && e.message ? e.message : e);
+  }
 }
 
 function isQuickFileInvoiceNumberDuplicateError(err) {
@@ -8109,35 +8496,13 @@ function isQuickFileInvoiceNumberDuplicateError(err) {
   if (msg.includes('already exists')) return true;
   if (/invoice\s*#?\s*[\d\w-]+\s*already/.test(msg)) return true;
   if (msg.includes('duplicate') && msg.includes('invoice')) return true;
-  if (msg.includes('invoice number') && (msg.includes('taken') || msg.includes('use') || msg.includes('unique') || msg.includes('in use'))) return true;
-  if (msg.includes('must be unique') && msg.includes('invoice')) return true;
-  if (msg.includes('in use') && msg.includes('invoice')) return true;
+  if (msg.includes('invoice number') && (msg.includes('taken') || msg.includes('use'))) return true;
   return false;
 }
 
-ipcMain.handle('quickfile-heal-invoice-number', async () => {
-  await ensureQuickFileSettingsFromServer({ reason: 'heal-invoice-number', force: true });
-  const heal = await healInvoiceNumberSequence({ soft: true, reason: 'ipc-heal' });
-  return {
-    ok: !!heal.ok,
-    number: heal.number || peekNextSequentialInvoiceNumber(),
-    previousNext: heal.previousNext,
-    next: heal.next,
-    ledgerMax: heal.ledgerMax,
-    bumped: !!heal.bumped,
-    error: heal.error || null,
-  };
-});
-
 ipcMain.handle('quickfile-suggest-next-invoice-number', async () => {
-  await ensureQuickFileSettingsFromServer({ reason: 'suggest-next-invoice', force: false });
-  try {
-    const heal = await healInvoiceNumberSequence({ soft: false, reason: 'suggest' });
-    return { ok: true, number: peekNextSequentialInvoiceNumber(), heal };
-  } catch (e) {
-    const msg = e && e.message ? e.message : String(e);
-    return { ok: false, error: msg, number: peekNextSequentialInvoiceNumber() };
-  }
+  await syncNextInvoiceNumberFromQuickFileLedger();
+  return { ok: true, number: peekNextSequentialInvoiceNumber() };
 });
 
 function buildQuickFileItemLine(shortName, description, unitCost, qty, vatRate) {
@@ -8335,52 +8700,22 @@ ipcMain.handle('quickfile-create-invoice', async (_, params) => {
 
     const invDate = invoiceDate || new Date().toISOString().slice(0, 10);
 
-    try {
-      await healInvoiceNumberSequence({ soft: false, reason: 'create-invoice' });
-    } catch (healErr) {
-      throw new Error(
-        'Could not sync next invoice number from QuickFile: '
-        + (healErr && healErr.message ? healErr.message : String(healErr))
-        + '. Check your connection and try again.'
-      );
-    }
-
-    function buildInvoiceCreatePayload(singleInvoiceData) {
-      return {
-        InvoiceData: {
-          InvoiceType: 'INVOICE',
-          ClientID: clientIdNum,
-          Currency: 'GBP',
-          TermDays: 30,
-          Notes: (narrative || '').slice(0, 4000),
-          InvoiceLines: {
-            ItemLines: {
-              ItemLine: lineItems,
-            },
-          },
-          Scheduling: {
-            SingleInvoiceData: singleInvoiceData,
-          },
-          Language: 'en',
-        },
-      };
-    }
+    await syncNextInvoiceNumberFromQuickFileLedger();
 
     const MAX_INVOICE_NUMBER_ATTEMPTS = 35;
     let invoiceBody;
     let lastCreateErr;
-    let lastAttemptedInvNum = '';
-    let exhaustedDuplicateRetries = false;
     for (let attempt = 0; attempt < MAX_INVOICE_NUMBER_ATTEMPTS; attempt++) {
       const invNum = getNextSequentialInvoiceNumber();
-      lastAttemptedInvNum = invNum;
       const singleInvoiceData = { IssueDate: invDate, InvoiceNumber: invNum };
+
       const invoicePayload = {
         InvoiceData: {
           InvoiceType: 'INVOICE',
           ClientID: clientIdNum,
           Currency: 'GBP',
           TermDays: 30,
+          Language: 'en',
           Notes: (narrative || '').slice(0, 4000),
           InvoiceLines: {
             ItemLines: {
@@ -8390,7 +8725,6 @@ ipcMain.handle('quickfile-create-invoice', async (_, params) => {
           Scheduling: {
             SingleInvoiceData: singleInvoiceData,
           },
-          Language: 'en',
         },
       };
       validateQuickFileInvoicePayload(invoicePayload);
@@ -8399,46 +8733,16 @@ ipcMain.handle('quickfile-create-invoice', async (_, params) => {
         break;
       } catch (e) {
         lastCreateErr = e;
-        const dup = isQuickFileInvoiceNumberDuplicateError(e);
-        console.warn(
-          '[QuickFile] invoice/create failed attempt=' + (attempt + 1)
-          + ' number=' + invNum
-          + ' duplicate=' + dup
-          + ': ' + (e && e.message ? e.message : e)
-        );
-        if (!dup) throw e;
-        if (attempt === MAX_INVOICE_NUMBER_ATTEMPTS - 1) {
-          exhaustedDuplicateRetries = true;
-          break;
+        if (!isQuickFileInvoiceNumberDuplicateError(e) || attempt === MAX_INVOICE_NUMBER_ATTEMPTS - 1) {
+          throw e;
         }
-        await healInvoiceNumberSequence({ soft: true, reason: 'create-duplicate-retry' });
         console.warn('[QuickFile] Invoice number conflict, trying next:', e && e.message ? e.message : e);
-      }
-    }
-
-    /* Final fallback: omit InvoiceNumber so QuickFile auto-increments the next free number. */
-    if (!invoiceBody && exhaustedDuplicateRetries) {
-      console.warn('[QuickFile] Exhausted sequential numbers — creating with QuickFile auto-assigned invoice number');
-      await healInvoiceNumberSequence({ soft: true, reason: 'create-auto-assign-fallback' });
-      const autoPayload = buildInvoiceCreatePayload({ IssueDate: invDate });
-      validateQuickFileInvoicePayload(autoPayload);
-      try {
-        invoiceBody = await quickFileRequest('/1_2/invoice/create', autoPayload);
-      } catch (autoErr) {
-        throw lastCreateErr || autoErr;
       }
     }
     if (!invoiceBody) throw lastCreateErr || new Error('QuickFile invoice/create failed');
 
     const invoiceId = invoiceBody.InvoiceID || invoiceBody.InvoiceId || invoiceBody.RecordID || '';
-    const invoiceNumber =
-      invoiceBody.InvoiceNumber
-      || invoiceBody.Invoice_No
-      || invoiceBody.InvoiceNo
-      || invoiceBody.InvoiceNum
-      || lastAttemptedInvNum
-      || '';
-    bumpLocalNextAfterAssignedInvoiceNumber(invoiceNumber);
+    const invoiceNumber = invoiceBody.InvoiceNumber || '';
 
     const subtotal = (attendanceFee || 0) + mileageCost + (parkingAmount || 0);
     const vat = subtotal * vr;
@@ -8583,8 +8887,6 @@ ipcMain.handle('quickfile-create-invoice', async (_, params) => {
       );
       saveDb();
     }
-    /* Best-effort heal so the next Send already uses a free number. */
-    healInvoiceNumberSequence({ soft: true, reason: 'create-failed' }).catch(function () {});
     return { ok: false, error: err.message || String(err) };
   }
 });
@@ -8978,24 +9280,153 @@ ipcMain.handle('officer-email-drafts-compose-url', (_, payload) => {
   const toT = officerEmailDrafts.trimMax(to, officerEmailDrafts.MAX_LENGTHS.toEmail);
   const subT = officerEmailDrafts.trimMax(subject, officerEmailDrafts.MAX_LENGTHS.subject);
   const bodyT = officerEmailDrafts.str(body);
-  const composed = outlookWebCompose.truncateOutlookComposeForShellOpen({
+  const composed = outlookWebCompose.prepareOutlookComposeForOpen({
     to: toT,
     cc: '',
     subject: subT,
     body: bodyT,
-  });
+  }, { preferEmlForBody: false });
+  /* Copy-link returns the OWA URL (with body when it fits). Long drafts that
+     would use .eml for Open still get a subject/to (+ body if short) link. */
   if (typeof isSafeExternalUrl === 'function' && !isSafeExternalUrl(composed.url)) {
     return { ok: false, errors: ['Could not build a safe Outlook Web link.'] };
   }
   return {
     ok: true,
     url: composed.url,
-    truncated: composed.truncated,
+    truncated: composed.method === 'outlook-desktop-eml',
     urlLength: composed.url.length,
+    method: composed.method,
+    bodyPlacedInCompose: composed.bodyPlacedInCompose,
   };
 });
 
-ipcMain.handle('officer-email-drafts-open-outlook', async (_, draftId) => {
+/**
+ * Open Outlook with the current to/subject/body placed IN the compose window.
+ * Non-empty body → X-Unsent .eml via shell.openPath (OWA body= is unreliable).
+ * Empty body → Outlook Web subject/to only. Never opens with an empty body when
+ * body text exists.
+ */
+async function _openOfficerEmailInOutlook(toT, subT, bodyT, logTag) {
+  const composed = outlookWebCompose.prepareOutlookComposeForOpen({
+    to: toT,
+    cc: '',
+    subject: subT,
+    body: bodyT,
+  });
+  if (bodyT.trim() && !composed.bodyPlacedInCompose) {
+    console.warn('[' + logTag + '] refusing to open Outlook with empty body when draft has text');
+    return {
+      ok: false,
+      errors: ['Could not place the email body into Outlook. Please try again or use Copy body.'],
+    };
+  }
+
+  /* E2E / isolated-userdata test hook: record the launch payload without
+     opening a real Outlook GUI (unavailable in CI). Enabled only when
+     CUSTODYNOTE_TEST_USERDATA is set (Playwright Electron specs). */
+  if (process.env.CUSTODYNOTE_TEST_USERDATA) {
+    try {
+      const capturePath = path.join(String(process.env.CUSTODYNOTE_TEST_USERDATA), 'last-outlook-launch.json');
+      fs.writeFileSync(
+        capturePath,
+        JSON.stringify({
+          logTag,
+          method: composed.method,
+          to: toT,
+          subject: subT,
+          body: bodyT,
+          url: composed.url,
+          bodyUsedInUrl: composed.bodyUsedInUrl || '',
+          emlContent: composed.method === 'outlook-desktop-eml' ? composed.emlContent : '',
+          bodyPlacedInCompose: composed.bodyPlacedInCompose,
+          capturedAt: new Date().toISOString(),
+        }),
+        'utf8'
+      );
+      console.info('[' + logTag + '] e2e capture written', { method: composed.method, bodyLength: bodyT.length });
+      return {
+        ok: true,
+        truncated: false,
+        urlLength: composed.urlLength,
+        openMethod: 'e2e-capture',
+        method: composed.method,
+        bodyPlacedInCompose: composed.bodyPlacedInCompose,
+      };
+    } catch (capErr) {
+      console.warn('[' + logTag + '] e2e capture failed', capErr && capErr.message);
+    }
+  }
+
+  let openMethod = null;
+  let urlLength = composed.urlLength;
+
+  if (composed.method === 'outlook-desktop-eml') {
+    try {
+      const draftsDir = path.join(app.getPath('userData'), 'outlook-drafts');
+      fs.mkdirSync(draftsDir, { recursive: true });
+      const stamp = Date.now().toString(36) + '-' + crypto.randomBytes(3).toString('hex');
+      const filePath = path.join(draftsDir, 'draft-' + stamp + '.eml');
+      fs.writeFileSync(filePath, composed.emlContent, { encoding: 'utf8' });
+      console.info('[' + logTag + '] opening .eml draft', {
+        bodyLength: bodyT.length,
+        fileName: path.basename(filePath),
+      });
+      const openErr = await shell.openPath(filePath);
+      if (openErr) {
+        try { fs.unlinkSync(filePath); } catch (_) { /* best effort */ }
+        throw new Error(openErr || 'shell.openPath failed');
+      }
+      openMethod = 'shell-openPath-eml';
+      setTimeout(function () {
+        try { fs.unlinkSync(filePath); } catch (_) { /* best effort */ }
+      }, 5 * 60 * 1000).unref?.();
+    } catch (err) {
+      const msg = (err && err.message) ? err.message : String(err);
+      console.warn('[' + logTag + '] .eml open failed', msg);
+      return {
+        ok: false,
+        errors: [msg || 'Outlook could not be opened. You can still copy the recipient, subject and body manually.'],
+      };
+    }
+  } else {
+    const url = composed.url;
+    if (typeof isSafeExternalUrl === 'function' && !isSafeExternalUrl(url)) {
+      console.warn('[' + logTag + '] isSafeExternalUrl rejected url', { urlLength: url.length });
+      return {
+        ok: false,
+        errors: ['Outlook Web could not be opened. You can still copy the recipient, subject and body manually.'],
+      };
+    }
+    try {
+      console.info('[' + logTag + '] invoking openExternalUrl', {
+        urlLength: url.length,
+        bodyInUrl: !!composed.bodyUsedInUrl,
+      });
+      const openRes = await openExternalUrlModule.openExternalUrl(url, { electronShell: shell });
+      openMethod = openRes && openRes.method ? openRes.method : 'outlook-web';
+      console.info('[' + logTag + '] openExternalUrl resolved', openRes);
+    } catch (err) {
+      const msg = (err && err.message) ? err.message : String(err);
+      console.warn('[' + logTag + '] openExternalUrl failed', msg);
+      return {
+        ok: false,
+        errors: [msg || 'Outlook Web could not be opened. You can still copy the recipient, subject and body manually.'],
+      };
+    }
+  }
+
+  return {
+    ok: true,
+    truncated: false,
+    urlLength,
+    openMethod,
+    method: composed.method,
+    bodyPlacedInCompose: composed.bodyPlacedInCompose,
+  };
+}
+
+ipcMain.handle('officer-email-drafts-open-outlook', async (_, draftId, liveFields) => {
   if (!draftId) return { ok: false, errors: ['draftId required'] };
   const row = dbGet('SELECT * FROM officer_email_drafts WHERE id = ?', [String(draftId)]);
   if (!row) return { ok: false, errors: ['Draft not found'] };
@@ -9004,41 +9435,25 @@ ipcMain.handle('officer-email-drafts-open-outlook', async (_, draftId) => {
   if (!officerEmailDrafts.canTransitionStatus(row.status, 'opened_in_outlook') && row.status !== 'opened_in_outlook') {
     return { ok: false, errors: ['Invalid status transition'] };
   }
-  const ov = officerEmailDrafts.validateOpenOutlookFields(row, {
+  /* Prefer LIVE email-box fields when the renderer passes them (edited textarea),
+     so Open Outlook never uses a stale DB body after a racey save. */
+  const live = liveFields && typeof liveFields === 'object'
+    ? officerEmailDrafts.normaliseOfficerEmailDraft(liveFields)
+    : null;
+  const mergeRow = {
+    to_email: live && live.toEmail ? live.toEmail : row.to_email,
+    subject: live && live.subject != null && String(live.subject).trim() !== '' ? live.subject : row.subject,
+    body: live && live.body != null && String(live.body).trim() !== '' ? live.body : row.body,
+  };
+  const ov = officerEmailDrafts.validateOpenOutlookFields(mergeRow, {
     extraDomains: _officerEmailExtraDomainsFromSettings(),
   });
   if (!ov.ok) return { ok: false, errors: ov.errors };
-  const toT = officerEmailDrafts.trimMax(row.to_email, officerEmailDrafts.MAX_LENGTHS.toEmail);
-  const subT = officerEmailDrafts.trimMax(row.subject, officerEmailDrafts.MAX_LENGTHS.subject);
-  const bodyT = officerEmailDrafts.str(row.body);
-  const { url, truncated, fullPlainTextForClipboard } = outlookWebCompose.truncateOutlookComposeForShellOpen({
-    to: toT,
-    cc: '',
-    subject: subT,
-    body: bodyT,
-  });
-  if (typeof isSafeExternalUrl === 'function' && !isSafeExternalUrl(url)) {
-    console.warn('[officer-email-drafts-open-outlook] isSafeExternalUrl rejected url', { urlLength: url.length });
-    return { ok: false, errors: ['Outlook Web could not be opened. You can still copy the recipient, subject and body manually.'] };
-  }
-  if (truncated) {
-    try {
-      clipboard.writeText(fullPlainTextForClipboard);
-    } catch (clipErr) {
-      console.warn('[officer-email-drafts-open-outlook] clipboard write failed', clipErr);
-    }
-  }
-  let openMethod = null;
-  try {
-    console.info('[officer-email-drafts-open-outlook] invoking openExternalUrl', { urlLength: url.length, truncated: !!truncated });
-    const openRes = await openExternalUrlModule.openExternalUrl(url, { electronShell: shell });
-    openMethod = openRes && openRes.method ? openRes.method : null;
-    console.info('[officer-email-drafts-open-outlook] openExternalUrl resolved', openRes);
-  } catch (err) {
-    const msg = (err && err.message) ? err.message : String(err);
-    console.warn('[officer-email-drafts-open-outlook] openExternalUrl failed', msg);
-    return { ok: false, errors: [msg || 'Outlook Web could not be opened. You can still copy the recipient, subject and body manually.'] };
-  }
+  const toT = officerEmailDrafts.trimMax(mergeRow.to_email, officerEmailDrafts.MAX_LENGTHS.toEmail);
+  const subT = officerEmailDrafts.trimMax(mergeRow.subject, officerEmailDrafts.MAX_LENGTHS.subject);
+  const bodyT = officerEmailDrafts.str(mergeRow.body);
+  const launch = await _openOfficerEmailInOutlook(toT, subT, bodyT, 'officer-email-drafts-open-outlook');
+  if (!launch.ok) return launch;
   const now = new Date().toISOString();
   if (row.status === 'opened_in_outlook') {
     dbRun(`UPDATE officer_email_drafts SET opened_in_outlook_at=?, updated_at=? WHERE id=?`, [now, now, String(draftId)]);
@@ -9053,9 +9468,11 @@ ipcMain.handle('officer-email-drafts-open-outlook', async (_, draftId) => {
   return {
     ok: true,
     draft: _officerDraftRowToApi(dbGet('SELECT * FROM officer_email_drafts WHERE id = ?', [String(draftId)])),
-    truncated,
-    urlLength: url.length,
-    openMethod,
+    truncated: false,
+    urlLength: launch.urlLength,
+    openMethod: launch.openMethod,
+    method: launch.method,
+    bodyPlacedInCompose: launch.bodyPlacedInCompose,
   };
 });
 
@@ -9068,36 +9485,16 @@ ipcMain.handle('officer-email-drafts-open-one-off-outlook', async (_, fields) =>
   const toT = officerEmailDrafts.trimMax(n.toEmail, officerEmailDrafts.MAX_LENGTHS.toEmail);
   const subT = officerEmailDrafts.trimMax(n.subject, officerEmailDrafts.MAX_LENGTHS.subject);
   const bodyT = officerEmailDrafts.str(n.body);
-  const composed = outlookWebCompose.truncateOutlookComposeForShellOpen({
-    to: toT,
-    cc: '',
-    subject: subT,
-    body: bodyT,
-  });
-  const url = composed.url;
-  if (typeof isSafeExternalUrl === 'function' && !isSafeExternalUrl(url)) {
-    console.warn('[officer-email-drafts-open-one-off-outlook] isSafeExternalUrl rejected url', { urlLength: url.length });
-    return { ok: false, errors: ['Outlook Web could not be opened. You can still copy the recipient, subject and body manually.'] };
-  }
-  if (composed.truncated) {
-    try {
-      clipboard.writeText(composed.fullPlainTextForClipboard);
-    } catch (clipErr) {
-      console.warn('[officer-email-drafts-open-one-off-outlook] clipboard fallback failed:', clipErr && clipErr.message);
-    }
-  }
-  let oneOffOpenMethod = null;
-  try {
-    console.info('[officer-email-drafts-open-one-off-outlook] invoking openExternalUrl', { urlLength: url.length, truncated: !!composed.truncated });
-    const openRes = await openExternalUrlModule.openExternalUrl(url, { electronShell: shell });
-    oneOffOpenMethod = openRes && openRes.method ? openRes.method : null;
-    console.info('[officer-email-drafts-open-one-off-outlook] openExternalUrl resolved', openRes);
-  } catch (err) {
-    const msg = (err && err.message) ? err.message : String(err);
-    console.warn('[officer-email-drafts-open-one-off-outlook] openExternalUrl failed', msg);
-    return { ok: false, errors: [msg || 'Outlook Web could not be opened. You can still copy the recipient, subject and body manually.'] };
-  }
-  return { ok: true, truncated: composed.truncated, urlLength: composed.url.length, openMethod: oneOffOpenMethod };
+  const launch = await _openOfficerEmailInOutlook(toT, subT, bodyT, 'officer-email-drafts-open-one-off-outlook');
+  if (!launch.ok) return launch;
+  return {
+    ok: true,
+    truncated: false,
+    urlLength: launch.urlLength,
+    openMethod: launch.openMethod,
+    method: launch.method,
+    bodyPlacedInCompose: launch.bodyPlacedInCompose,
+  };
 });
 
 ipcMain.handle('officer-email-drafts-copy', (_, text) => {
