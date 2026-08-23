@@ -135,7 +135,7 @@ const custodyEmailComposeDraft = (function buildEmailComposeDraft() {
       cc: d.cc,
       subject: d.subject,
       body: d.body,
-    }).url;
+    }, { preferEmlForBody: false }).url;
   }
 
   function savePendingEmailDraft(draft, storage) {
@@ -205,7 +205,7 @@ const custodyEmailComposeDraft = (function buildEmailComposeDraft() {
           cc: d.cc,
           subject: d.subject,
           body: d.body,
-        });
+        }, { preferEmlForBody: false });
         link = prepared.url;
         if (d.body && prepared.method !== 'outlook-web') {
           try {
