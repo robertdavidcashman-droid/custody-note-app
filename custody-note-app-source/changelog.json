@@ -1,9 +1,17 @@
 {
   "releases": [
     {
+      "version": "1.9.80",
+      "date": "2026-08-31",
+      "latest": true,
+      "changes": [
+        "Daily anonymous usage ping (hashed machine id, platform, version, licence tier only) so admin stats can show unique machines in the last 7/30 days — no case data"
+      ]
+    },
+    {
       "version": "1.9.71",
       "date": "2026-08-23",
-      "latest": true,
+      "latest": false,
       "changes": [
         "Open Outlook places the current email-box body into compose via an Outlook draft (.eml) — no more empty compose / clipboard paste",
         "Officer Emails pass live textarea fields into Open Outlook so edited text is never lost to a stale draft save",
