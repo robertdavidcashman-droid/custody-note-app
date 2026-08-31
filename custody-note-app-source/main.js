@@ -2631,6 +2631,7 @@ function createWindow() {
   if (updaterController && updaterController.scheduleDeferredCheck) {
     updaterController.scheduleDeferredCheck(mainWindow);
   }
+  scheduleUsageHeartbeat(mainWindow);
   mainWindow.on('close', (e) => {
     if (!mainWindow || mainWindow._forceClose) return;
     /* Automated tests (isolated userData): allow window to close so Playwright/e2e can exit */
@@ -3944,6 +3945,61 @@ function reportTrialStartedToServer() {
     appVersion: app.getVersion(),
     tier: isFreeTierEnabled() ? 'free' : 'trial',
   }, { timeout: 8000 }).catch(function () {});
+}
+
+const usageHeartbeat = require('./main/usageHeartbeat');
+
+/** Current licence tier for analytics only — free / pro / trial / none. No case data. */
+function getAnalyticsLicenceTier() {
+  try {
+    const data = readLicenceData();
+    if (!data || !data.key) return isFreeTierEnabled() ? 'free' : 'none';
+    const st = computeLicenceStatus(data);
+    return (st && st.tier) || 'none';
+  } catch (_) {
+    return 'none';
+  }
+}
+
+/**
+ * Privacy-safe daily usage heartbeat (packaged only).
+ * Fire-and-forget; rate-limited to once per 24h via userData stamp.
+ * Must never run on the startup critical path.
+ */
+function reportUsageHeartbeatToServer() {
+  if (!app.isPackaged) return;
+  const apiUrl = getManagedCloudApiUrl();
+  if (!apiUrl) return;
+  const stampPath = path.join(app.getPath('userData'), usageHeartbeat.HEARTBEAT_STATE_FILE);
+  let lastAt = null;
+  try {
+    lastAt = usageHeartbeat.readLastHeartbeatAt(stampPath, fs);
+  } catch (_) {}
+  if (!usageHeartbeat.shouldSendHeartbeat(lastAt)) return;
+
+  const payload = usageHeartbeat.buildHeartbeatPayload({
+    machineId: getMachineId(),
+    platform: process.platform,
+    appVersion: app.getVersion(),
+    tier: getAnalyticsLicenceTier(),
+  });
+  // Stamp when sending so relaunches the same day do not ping again (at-most-once / 24h).
+  try {
+    usageHeartbeat.writeLastHeartbeatAt(stampPath, fs, new Date().toISOString());
+  } catch (_) {}
+  httpPost(`${apiUrl}/api/stats/heartbeat`, payload, { timeout: 8000 }).catch(function () {});
+}
+
+/** Defer heartbeat until after first renderer load — same pattern as updater startup-deferred. */
+function scheduleUsageHeartbeat(browserWindow) {
+  if (!browserWindow || browserWindow.isDestroyed()) return;
+  browserWindow.webContents.once('did-finish-load', () => {
+    setTimeout(() => {
+      try {
+        reportUsageHeartbeatToServer();
+      } catch (_) {}
+    }, 3000);
+  });
 }
 
 function buildLocalFreeLicenceData() {
