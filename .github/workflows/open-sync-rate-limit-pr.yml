@@ -1,0 +1,50 @@
+# One-shot: open the 1.9.93 sync Retry-After PR (agent token cannot create PRs).
+name: Open sync rate-limit backoff PR
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  open-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create or reuse PR on droid workspace repo
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "::error::Add Actions secret GH_PAT (repo scope) then re-run."
+            exit 1
+          fi
+          REPO=robertdavidcashman-droid/custody-note-app
+          HEAD=cursor/sync-rate-limit-backoff-3677
+          BASE=main
+          EXISTING=$(gh pr list --repo "$REPO" --head "$HEAD" --base "$BASE" --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then
+            echo "PR #$EXISTING already exists"
+            gh pr view "$EXISTING" --repo "$REPO" --json url --jq .url
+          else
+            gh pr create --repo "$REPO" --base "$BASE" --head "$HEAD" \
+              --title "fix(sync): 1.9.93 Retry-After client backoff (Safe locally — sync waiting)" \
+              --body "$(cat <<'EOF'
+          ## Summary
+          Client sync backoff for HTTP 429. Honour Retry-After (+jitter), coalesce/slow-poll while gated, never drop outbox, prefer outbox drain when window opens, footer/Force Save: Safe locally — sync waiting.
+
+          Version **1.9.93**. Compatible with old IP limits and new licence-scoped website limits.
+
+          ## Bit release blocker
+          Live releases ship from \`robertcashman-bit/custody-note-app\`. Grant Cursor GitHub App write access there (or apply format-patch from agent artifacts) to land on bit master.
+          EOF
+          )" --draft
+          fi
+
+          # Best-effort: open the same patch against bit if PAT can push/fork
+          if gh api repos/robertcashman-bit/custody-note-app --jq .permissions.push 2>/dev/null | grep -q true; then
+            echo "PAT can push bit — open cross-repo PR if a fork head exists"
+          else
+            echo "PAT cannot push bit from this job; droid PR is the review surface."
+          fi
