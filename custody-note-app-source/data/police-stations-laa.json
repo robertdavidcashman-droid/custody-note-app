@@ -3456,7 +3456,7 @@
     "kind": "station"
   },
   {
-    "name": "Central London (Contd) Tottenham Court Road",
+    "name": "Tottenham Court Road",
     "code": "LN066",
     "scheme": "Central London",
     "schemeCode": "1308",
@@ -8706,7 +8706,7 @@
   {
     "name": "Burryport",
     "code": "WA008",
-    "scheme": "Llanelli These Police Station ID codes must be used for Matters starting before 16/11/2023 and on or after 06/12/2024 in the Llanelli Police Station Scheme.",
+    "scheme": "Llanelli",
     "schemeCode": "4003",
     "region": "Wales",
     "kind": "station"
@@ -8714,7 +8714,7 @@
   {
     "name": "Crosshands",
     "code": "WA007",
-    "scheme": "Llanelli These Police Station ID codes must be used for Matters starting before 16/11/2023 and on or after 06/12/2024 in the Llanelli Police Station Scheme.",
+    "scheme": "Llanelli",
     "schemeCode": "4003",
     "region": "Wales",
     "kind": "station"
@@ -8722,7 +8722,7 @@
   {
     "name": "Kidwelly",
     "code": "WA006",
-    "scheme": "Llanelli These Police Station ID codes must be used for Matters starting before 16/11/2023 and on or after 06/12/2024 in the Llanelli Police Station Scheme.",
+    "scheme": "Llanelli",
     "schemeCode": "4003",
     "region": "Wales",
     "kind": "station"
@@ -8730,7 +8730,7 @@
   {
     "name": "Llanelli",
     "code": "WA005",
-    "scheme": "Llanelli These Police Station ID codes must be used for Matters starting before 16/11/2023 and on or after 06/12/2024 in the Llanelli Police Station Scheme.",
+    "scheme": "Llanelli",
     "schemeCode": "4003",
     "region": "Wales",
     "kind": "station"
@@ -8738,7 +8738,7 @@
   {
     "name": "Llanelli (non-police venue)",
     "code": "WA902",
-    "scheme": "Llanelli These Police Station ID codes must be used for Matters starting before 16/11/2023 and on or after 06/12/2024 in the Llanelli Police Station Scheme.",
+    "scheme": "Llanelli",
     "schemeCode": "4003",
     "region": "Wales",
     "kind": "venue"
@@ -12024,9 +12024,9 @@
     "kind": "station"
   },
   {
-    "name": "Sedgemore / Taunton Deane (non-police venue)",
+    "name": "Sedgemoor / Taunton Deane (non-police venue)",
     "code": "BR904",
-    "scheme": "Sedgemore / Taunton Dane",
+    "scheme": "Sedgemoor / Taunton Deane",
     "schemeCode": "2005",
     "region": "Avon & Somerset / Dorset / Devon & Cornwall / Wiltshire / Gloucestershire",
     "kind": "venue"
@@ -15122,6 +15122,14 @@
   {
     "name": "Great Broughton",
     "code": "MA087",
+    "scheme": "Whitehaven / Workington",
+    "schemeCode": "6007",
+    "region": "Greater Manchester / Lancashire / Cheshire / Cumbria",
+    "kind": "station"
+  },
+  {
+    "name": "Great Broughton",
+    "code": "MA100",
     "scheme": "Whitehaven / Workington",
     "schemeCode": "6007",
     "region": "Greater Manchester / Lancashire / Cheshire / Cumbria",

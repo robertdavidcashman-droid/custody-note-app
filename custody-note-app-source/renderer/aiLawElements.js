@@ -550,9 +550,23 @@
     });
   }
 
+  function dismissLawDraftModal() {
+    hideReviewModal();
+    uncheckFillBoxes();
+  }
+
+  function isAiModalOpen(el) {
+    return !!(el && el.style && el.style.display !== 'none');
+  }
+
   function wireModals() {
     setInsertEnabled(false);
     setAskAppendEnabled(false);
+
+    var lawModal = document.getElementById('ai-law-draft-modal');
+    var lawDialog = lawModal && lawModal.querySelector('.ai-dialog');
+    var askModal = document.getElementById('ai-ask-modal');
+    var askDialog = askModal && askModal.querySelector('.ai-dialog');
 
     var copyBtn = document.getElementById('ai-law-draft-copy');
     var insertBtn = document.getElementById('ai-law-draft-insert');
@@ -564,10 +578,17 @@
       });
     }
     if (insertBtn) insertBtn.addEventListener('click', insertIntoLawElements);
-    if (closeBtn) {
-      closeBtn.addEventListener('click', function () {
-        hideReviewModal();
-        uncheckFillBoxes();
+    if (closeBtn) closeBtn.addEventListener('click', dismissLawDraftModal);
+
+    /* Backdrop click-out: only the dimmed overlay, not the dialog panel */
+    if (lawModal) {
+      lawModal.addEventListener('click', function (e) {
+        if (e.target === lawModal) dismissLawDraftModal();
+      });
+    }
+    if (lawDialog) {
+      lawDialog.addEventListener('click', function (e) {
+        e.stopPropagation();
       });
     }
 
@@ -609,6 +630,30 @@
         }
       });
     }
+
+    if (askModal) {
+      askModal.addEventListener('click', function (e) {
+        if (e.target === askModal) closeAskSession();
+      });
+    }
+    if (askDialog) {
+      askDialog.addEventListener('click', function (e) {
+        e.stopPropagation();
+      });
+    }
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== 'Escape') return;
+      if (isAiModalOpen(lawModal)) {
+        e.preventDefault();
+        dismissLawDraftModal();
+        return;
+      }
+      if (isAiModalOpen(askModal)) {
+        e.preventDefault();
+        closeAskSession();
+      }
+    });
   }
 
   window.AiLawElements = {

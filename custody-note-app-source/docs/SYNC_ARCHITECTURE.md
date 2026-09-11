@@ -1,8 +1,13 @@
 # Sync Architecture — Offline-First Model
 
+> **Updated model (v1.9.86):** Local durable DB is the working copy + outbox.
+> The **central account-level sync store** (licence-scoped `/api/sync/*`) is the
+> **Source of Truth**. Generational/offsite backups are an **independent PITR**
+> layer — not the same as SoT. See `docs/data-safety/ARCHITECTURE.md`.
+
 ## Overview
 
-Custody Note uses a **true offline-first** sync model. The local SQLite database is the source of truth. Saves never depend on internet connectivity.
+Custody Note uses an **offline-first** sync model. Saves never depend on internet connectivity for local durability. Central confirmation is separate and must be acknowledged with a `written` count.
 
 ## Flow
 
@@ -13,11 +18,11 @@ Renderer saves to SQLite immediately (IPC → main process)
     ↓
 Main process writes to attendances, sets sync_dirty=1
     ↓
-Main process enqueues sync_queue entry for this record
+Main process enqueues sync_queue entry (mutation_id) for this record
     ↓
-UI updates instantly (no wait for server)
+UI updates: Safe locally · pending central sync (not ambiguous "Saved"/"Synced")
     ↓
-Sync worker (background) pushes changes when API is reachable
+Sync worker (background) pushes changes when API is reachable; ack before clear
 ```
 
 ## Components

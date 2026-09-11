@@ -113,7 +113,52 @@ const initSqlJs = require('sql.js');
 const { parseCasenotePdfTextToRecordData } = require('./importers/casenote-pdf-import');
 const adminAuth = require('./main/adminAuth');
 const { createSyncWorker } = require('./main/syncWorker');
+const {
+  detectEmptyLargeDb,
+  detectLocalFullCloudEmpty,
+  shouldSuppressSyncedFooter,
+  deriveSyncPhase,
+  nextCloudInventoryCount,
+  buildEmptyCloudAlarmMessage,
+  isSyncStatusHealthy,
+} = require('./lib/syncRecoveryHints');
+const { normalizeLicenceKeyForSync } = require('./lib/licenceKeyNormalize');
+const { buildLocalCloudHealth, buildEmergencyRecordIndex } = require('./lib/syncHealth');
+const { buildAttendanceSaveLog } = require('./lib/attendanceSaveResult');
+const {
+  emptyCloudPullPolicy,
+  assertPullBatchNonDestructive,
+  fullResyncMayDestroyLocalOnly,
+  evaluateTombstoneApply,
+} = require('./lib/syncLocalPreserve');
+const {
+  SYNC_SKIP_REASONS,
+  describeSkipReason,
+} = require('./lib/syncCycleAudit');
+const {
+  shouldProbeCloudFromEpoch,
+  shouldAutoHealEmptyCloud,
+  buildHealState,
+  markHealAttemptStarted,
+  markHealSuccess,
+  markHealFailure,
+} = require('./lib/emptyCloudAutoHeal');
+const { verifyEncryptedBackupFile } = require('./lib/backupVerify');
+const { buildLocalCloudIntegrityReport } = require('./lib/localCloudIntegrity');
+const {
+  detectRevisionGoingBackwards,
+  detectSuddenLocalCountDrop,
+} = require('./lib/dataSafetyMonitors');
+const { appendRecordRevision } = require('./lib/recordRevisions');
+const {
+  assessBackupPathUsability,
+  planBackupFolderReset,
+} = require('./lib/backupPathSanitize');
 const { runMigrations: runDbMigrations } = require('./main/dbMigrations');
+const {
+  normalizeMileageForStorage,
+  mergeStationsPreservingMileage,
+} = require('./lib/stationMileage');
 const syncConflicts = require('./main/syncConflicts');
 const errorReporting = require('./main/errorReporting');
 const dbCrypto = require('./lib/dbCrypto');
@@ -222,59 +267,46 @@ function buildDbPersistenceDetails(extra = {}) {
   }, extra);
 }
 
+const masterKeyLib = require('./lib/masterKey');
+
 function getOrCreateMasterKey(options = {}) {
   const allowCreate = options.allowCreate !== false;
   if (_masterKey) return _masterKey;
-  const keyPath = getKeyFilePath();
-  const fallbackPath = getFallbackKeyPath();
 
-  if (safeStorage.isEncryptionAvailable()) {
-    // Primary path: OS-protected safeStorage
-    if (fs.existsSync(keyPath)) {
-      try {
-        _masterKey = safeStorage.decryptString(fs.readFileSync(keyPath));
-        return _masterKey;
-      } catch (err) {
-        console.warn('[Encryption] Cannot decrypt safeStorage key (new machine?):', err.message);
-        if (!allowCreate && !fs.existsSync(fallbackPath)) return null;
-        // Fall through to fallback below
-      }
-    }
-    if (!allowCreate && !fs.existsSync(fallbackPath)) return null;
-    _masterKey = crypto.randomBytes(32).toString('hex');
-    saveMasterKeyToSafeStorage(_masterKey);
-    return _masterKey;
-  }
-
-  // safeStorage not available â€” use obfuscated fallback file so the key persists across restarts.
-  // The key is encrypted with a machine-derived key (not truly secure against a determined local
-  // attacker, but prevents casual exposure). Users should set a recovery password ASAP.
-  console.warn('[Encryption] safeStorage unavailable; using obfuscated fallback. Set a recovery password in Settings.');
-  if (fs.existsSync(fallbackPath)) {
-    try {
-      const raw = fs.readFileSync(fallbackPath);
+  const result = masterKeyLib.resolveMasterKey({
+    allowCreate,
+    keyPath: getKeyFilePath(),
+    fallbackPath: getFallbackKeyPath(),
+    safeStorage,
+    fs,
+    decryptFallbackKey: (raw) => {
       const k = _decryptFallbackKey(raw);
-      if (k && k.length === 64) {
-        _masterKey = k;
+      if (masterKeyLib.isValidMasterKeyHex(k)) {
         _needsFallbackMigration = true;
-        return _masterKey;
+        return k;
       }
-      // Legacy plaintext fallback (pre-obfuscation upgrade)
-      const plaintext = raw.toString('utf8').trim();
-      if (plaintext && plaintext.length === 64 && /^[0-9a-f]+$/.test(plaintext)) {
-        _masterKey = plaintext;
-        _needsFallbackMigration = true;
-        _writeFallbackKeyEncrypted(fallbackPath, _masterKey);
-        return _masterKey;
-      }
-    } catch (err) {
-      console.warn('[Encryption] Cannot read fallback key:', err.message);
+      return null;
+    },
+    createRandomKey: () => crypto.randomBytes(32).toString('hex'),
+    persistNewKey: (hexKey) => {
+      saveMasterKeyToSafeStorage(hexKey);
+    },
+    logger: console,
+  });
+
+  if (result.key) {
+    _masterKey = result.key;
+    if (result.reason === 'fallback' || result.reason === 'fallback_after_unreadable_key'
+        || result.reason === 'fallback_no_safeStorage') {
+      _needsFallbackMigration = true;
+    }
+    // Legacy plaintext master.fallback must be rewritten obfuscated at rest
+    // (same behaviour as pre-extract getOrCreateMasterKey).
+    if (result.legacyPlaintextFallback) {
+      _writeFallbackKeyEncrypted(getFallbackKeyPath(), result.key);
     }
   }
-  if (!allowCreate) return null;
-  _masterKey = crypto.randomBytes(32).toString('hex');
-  _writeFallbackKeyEncrypted(fallbackPath, _masterKey);
-  return _masterKey;
+  return result.key || null;
 }
 
 function _getMachineObfuscationKey() {
@@ -464,16 +496,17 @@ async function ensureCanonicalSyncKeyNow() {
   const apiUrl = getManagedCloudApiUrl();
   if (!apiUrl) return { ok: false, action: 'no_api' };
   const data = readLicenceData();
+  const licenceKey = data && data.key ? normalizeLicenceKeyForSync(data.key) : null;
   const result = await ensureCanonicalSyncKey({
-    getLicenceKey: () => (data && data.key ? data.key : null),
+    getLicenceKey: () => licenceKey,
     getLocalKeyHex: () => getOrCreateMasterKey({ allowCreate: false }),
     fetchEscrow: () => httpPost(`${apiUrl}/api/recovery`, {
-      key: data.key,
+      key: licenceKey,
       machineId: getMachineId(),
     }, { headers: _getAuthHeaders() }),
     uploadEscrow: async (blob) => {
       const resp = await httpPost(`${apiUrl}/api/recovery`, {
-        key: data.key,
+        key: licenceKey,
         machineId: getMachineId(),
         blob,
       }, { headers: _getAuthHeaders() });
@@ -536,20 +569,18 @@ function decryptBuffer(buf) {
 }
 
 async function decryptBufferWithRecovery(buf) {
-  if (!buf || buf.length < 4) return buf;
-  if (buf.slice(0, 4).toString() !== MAGIC) return buf;
-  let masterKeyHex = getOrCreateMasterKey({ allowCreate: false });
-  if (!masterKeyHex && hasRecoveryPassword()) {
-    masterKeyHex = await promptForRecoveryPassword();
-    if (masterKeyHex) {
-      _masterKey = masterKeyHex;
-      saveMasterKeyToSafeStorage(masterKeyHex);
-    }
-  }
-  if (!masterKeyHex) {
-    throw new Error('Cannot decrypt database: no key available. If you have a recovery password, ensure the recovery.dat file is present.');
-  }
-  return dbCrypto.decryptBuffer(buf, masterKeyHex);
+  return masterKeyLib.decryptBufferWithRecoveryFlow({
+    buf,
+    magic: MAGIC,
+    getMasterKey: () => getOrCreateMasterKey({ allowCreate: false }),
+    hasRecoveryPassword,
+    promptForRecoveryPassword,
+    persistRecoveredKey: (hexKey) => {
+      _masterKey = hexKey;
+      saveMasterKeyToSafeStorage(hexKey);
+    },
+    decryptBuffer: (encrypted, keyHex) => dbCrypto.decryptBuffer(encrypted, keyHex),
+  });
 }
 
 async function promptForRecoveryPassword() {
@@ -996,6 +1027,90 @@ function flushDbSync() {
   _saveDbInProgress = false;
 }
 
+/* Bound flush for quit / OS-lock paths. Sync writeFileSync can wedge the main
+ * process on a stuck disk/AV lock and block Cmd+Q forever. This path uses
+ * async IO so a timeout can still fire and force the process out. */
+const FLUSH_BOUND_DEFAULT_MS = 2500;
+
+function flushDbAsyncBounded(timeoutMs, label) {
+  const ms = (typeof timeoutMs === 'number' && timeoutMs > 0) ? timeoutMs : FLUSH_BOUND_DEFAULT_MS;
+  const tag = label ? String(label) : 'flush';
+  if (!db) return Promise.resolve({ ok: true, skipped: true });
+  const { shouldRestoreDirtyAfterFlush } = require('./lib/flushDirtyPolicy');
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (result) => {
+      if (settled) return;
+      settled = true;
+      try { clearTimeout(timer); } catch (_) {}
+      // Timeout / failure must restore dirty — never claim durable after an unconfirmed write.
+      try {
+        const policy = shouldRestoreDirtyAfterFlush(result || {});
+        if (policy.restoreDirty) {
+          _dbDirty = true;
+          _cachedDbExportDirty = true;
+        }
+      } catch (_) {
+        _dbDirty = true;
+        _cachedDbExportDirty = true;
+      }
+      resolve(result);
+    };
+    const timer = setTimeout(() => {
+      console.error('[flushDbAsyncBounded] timed out after', ms, 'ms (' + tag + ') — continuing without waiting');
+      finish({ ok: false, timedOut: true });
+    }, ms);
+
+    try {
+      if (_dbSaveTimer) { clearTimeout(_dbSaveTimer); _dbSaveTimer = null; }
+      _dbDirty = false;
+      _dbSaveRequestedWhileBusy = false;
+      _dbWriteGeneration++;
+      const staleTmp = _dbInFlightTempPath;
+      _dbInFlightTempPath = null;
+      let encrypted = null;
+      try {
+        encrypted = getEncryptedDbExport();
+      } catch (err) {
+        console.error('[flushDbAsyncBounded] Encryption failed (' + tag + '):', err && err.message ? err.message : err);
+        _dbDirty = true;
+        _cachedDbExportDirty = true;
+        _saveDbInProgress = false;
+        finish({ ok: false, error: err && err.message ? err.message : String(err) });
+        return;
+      }
+      if (staleTmp) {
+        try { if (fs.existsSync(staleTmp)) fs.unlinkSync(staleTmp); } catch (_) {}
+      }
+      if (!encrypted) {
+        _saveDbInProgress = false;
+        finish({ ok: true, skipped: true, wroteBytes: 0 });
+        return;
+      }
+      writeFileAtomicAsync(getDbPath(), encrypted).then(() => {
+        _saveDbInProgress = false;
+        finish({ ok: true, wroteBytes: encrypted.length });
+      }).catch((err) => {
+        console.error('[flushDbAsyncBounded] Write failed (' + tag + '):', err && err.message ? err.message : err);
+        _dbDirty = true;
+        _cachedDbExportDirty = true;
+        _saveDbInProgress = false;
+        finish({ ok: false, error: err && err.message ? err.message : String(err) });
+      });
+    } catch (err) {
+      console.error('[flushDbAsyncBounded] Failed (' + tag + '):', err && err.message ? err.message : err);
+      _dbDirty = true;
+      _cachedDbExportDirty = true;
+      finish({ ok: false, error: err && err.message ? err.message : String(err) });
+    }
+  });
+}
+
+/* Quit lifecycle flags — declared early so createWindow close-guard can read them. */
+let _appIsQuitting = false;
+let _quitFlushState = 'idle'; /* idle | flushing | done */
+
 function dbRun(sql, params = []) {
   db.run(sql, params);
   markDbDirtyForSave();
@@ -1334,6 +1449,123 @@ function _defaultBackupFolder() {
     return app.getPath('desktop');
   }
 }
+
+function _tryEnsureWritableDir(dir) {
+  if (!dir) return false;
+  try {
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    const probe = path.join(dir, '.cn-backup-write-probe');
+    fs.writeFileSync(probe, 'ok');
+    try { fs.unlinkSync(probe); } catch (_) {}
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+/** Last time we auto-corrected a foreign-OS / unusable backupFolder. */
+let _backupPathCorrectionNotice = null;
+
+function _loadBackupPathCorrectionNotice() {
+  try {
+    if (!db) return null;
+    const row = dbGet("SELECT value FROM settings WHERE key='backupPathCorrectionNotice'");
+    if (!row || !row.value) return null;
+    const parsed = JSON.parse(String(row.value));
+    if (parsed && typeof parsed === 'object') return parsed;
+  } catch (_) {}
+  return null;
+}
+
+function _persistBackupPathCorrectionNotice(notice) {
+  _backupPathCorrectionNotice = notice || null;
+  if (!db) return;
+  try {
+    if (notice) {
+      dbRun(
+        "INSERT OR REPLACE INTO settings (key, value) VALUES ('backupPathCorrectionNotice', ?)",
+        [JSON.stringify(notice)]
+      );
+    } else {
+      dbRun("DELETE FROM settings WHERE key='backupPathCorrectionNotice'");
+    }
+  } catch (_) {}
+}
+
+/**
+ * After Mac↔Windows restore, settings.backupFolder may hold a path that cannot
+ * work on this OS. Reset to userData/Backups and remember a one-time notice.
+ * Offsite paths that are foreign are cleared (not deleted on disk).
+ */
+function ensureBackupPathsSane(opts = {}) {
+  const notices = [];
+  if (!db) return notices;
+  if (!_backupPathCorrectionNotice) {
+    _backupPathCorrectionNotice = _loadBackupPathCorrectionNotice();
+  }
+  const defaultPath = _defaultBackupFolder();
+  const storedRow = dbGet("SELECT value FROM settings WHERE key = 'backupFolder'");
+  const stored = storedRow && storedRow.value ? String(storedRow.value) : '';
+  const plan = planBackupFolderReset({
+    storedPath: stored || null,
+    defaultPath,
+    platform: process.platform,
+    canCreate: (p) => _tryEnsureWritableDir(p),
+  });
+  if (plan.reset && plan.next) {
+    dbRun("INSERT OR REPLACE INTO settings (key, value) VALUES ('backupFolder', ?)", [plan.next]);
+    _tryEnsureWritableDir(plan.next);
+    const notice = {
+      at: new Date().toISOString(),
+      kind: 'backupFolder',
+      reason: plan.reason,
+      previous: plan.previous,
+      next: plan.next,
+      message: 'Local backup folder was reset to this computer’s default because the saved path was not usable here (often after restoring a Mac database onto Windows, or the reverse).',
+    };
+    notices.push(notice);
+    _persistBackupPathCorrectionNotice(notice);
+    console.warn('[Backup] Reset unusable backupFolder:', plan.reason, plan.previous, '→', plan.next);
+    markDbDirty();
+  } else if (stored) {
+    _tryEnsureWritableDir(stored);
+  } else {
+    dbRun("INSERT OR REPLACE INTO settings (key, value) VALUES ('backupFolder', ?)", [defaultPath]);
+    _tryEnsureWritableDir(defaultPath);
+  }
+
+  const offsiteRow = dbGet("SELECT value FROM settings WHERE key = 'offsiteBackupFolder'");
+  const offsite = offsiteRow && offsiteRow.value ? String(offsiteRow.value).trim() : '';
+  if (offsite) {
+    const offAssess = assessBackupPathUsability(offsite, { platform: process.platform });
+    if (!offAssess.usable) {
+      // Preserve-first: do not delete offsite files; only clear the unusable setting.
+      dbRun("INSERT OR REPLACE INTO settings (key, value) VALUES ('offsiteBackupFolder', ?)", ['']);
+      const notice = {
+        at: new Date().toISOString(),
+        kind: 'offsiteBackupFolder',
+        reason: offAssess.reason,
+        previous: offsite,
+        next: null,
+        message: 'Off-site backup folder path was cleared because it is not usable on this computer. Choose a local cloud-sync folder in Settings. Existing files were not deleted.',
+      };
+      notices.push(notice);
+      if (!_backupPathCorrectionNotice || _backupPathCorrectionNotice.kind !== 'backupFolder') {
+        _persistBackupPathCorrectionNotice(notice);
+      }
+      console.warn('[Backup] Cleared unusable offsiteBackupFolder:', offAssess.reason, offsite);
+      markDbDirty();
+    }
+  }
+
+  if (opts.emit !== false && notices.length && mainWindow && !mainWindow.isDestroyed()) {
+    try {
+      mainWindow.webContents.send('backup-path-corrected', notices[0]);
+    } catch (_) {}
+  }
+  return notices;
+}
+
 function getBackupFolder() {
   try {
     const row = dbGet("SELECT value FROM settings WHERE key = 'backupFolder'");
@@ -1380,9 +1612,19 @@ function uploadToCloudIfConfigured(buffer) {
   } catch (e) {}
 }
 
+/* Cold-start timing (ms since process start). Always-on, PII-free. */
+const _bootT0 = Date.now();
+function _bootMark(name) {
+  try {
+    console.log('[Boot] ' + name + ' ' + (Date.now() - _bootT0));
+  } catch (_) {}
+}
+
 async function initDb() {
+  _bootMark('initDb-start');
   cleanStaleDbTempFiles();
   const SQL = await initSqlJs();
+  _bootMark('initDb-sqlJs-ready');
   const dbPath = getDbPath();
   if (fs.existsSync(dbPath)) {
     const rawBuf = fs.readFileSync(dbPath);
@@ -1397,17 +1639,25 @@ async function initDb() {
       if (!buf) throw new Error('No database bytes were returned during decryption');
       db = new SQL.Database(buf);
     } catch (err) {
+      const causeMsg = err && err.message ? err.message : String(err);
+      const needsRecoveryHint = /recovery password/i.test(causeMsg)
+        || err.code === 'CN_RECOVERY_REQUIRED'
+        || err.code === 'CN_RECOVERY_CANCELLED'
+        || err.code === 'CN_DECRYPT_FAILED';
       throw new PersistenceStartupError(
-        'Custody Note could not load the existing attendance database. To protect your records, the app has stopped instead of opening a blank database.',
+        needsRecoveryHint
+          ? 'Custody Note could not unlock the existing attendance database. Your records have not been deleted. Enter your recovery password on the next launch (ensure recovery.dat is present), or restore from a backup in Settings.'
+          : 'Custody Note could not load the existing attendance database. To protect your records, the app has stopped instead of opening a blank database.',
         buildDbPersistenceDetails({
           dbSizeBytes: rawBuf.length,
-          cause: err && err.message ? err.message : String(err),
+          cause: causeMsg,
         })
       );
     }
   } else {
     db = new SQL.Database();
   }
+  _bootMark('initDb-db-open');
 
   // H17 â€” enable foreign-key enforcement on every open. sql.js opens with
   // FKs disabled by default (matching the SQLite C API). Without this any
@@ -1450,22 +1700,43 @@ async function initDb() {
     // H20 — default to userData\Backups instead of Desktop (often OneDrive).
     db.run("INSERT INTO settings (key, value) VALUES (?, ?)", ['backupFolder', _defaultBackupFolder()]);
   }
+  // After Mac↔Windows restore, foreign OS paths silently disable local backups.
+  try { ensureBackupPathsSane({ emit: false }); } catch (e) {
+    console.warn('[Backup] ensureBackupPathsSane failed:', e && e.message ? e.message : e);
+  }
   // Fresh installs previously only stored the path and never mkdir'd it, so
   // scheduled backups silently skipped via isBackupFolderReady(). Create now.
   try { ensureBackupFolderExists(); } catch (_) {}
 
   loadStationsFromFile();
+  _bootMark('initDb-stations-loaded');
   try { migrateSchemeIdsToSchemeCodes(); } catch (e) { console.error('[migrateSchemeIdsToSchemeCodes] failed:', e && e.message); }
   // Bound audit_log row growth before any user activity (defaults to 90 days,
   // tunable via settings.auditLogRetentionDays).
   try { pruneOldAuditLog(); } catch (_) {}
   saveDb();
+  _bootMark('initDb-done');
   return db;
 }
 
 function loadStationsFromFile() {
   const stationsPath = path.join(__dirname, 'data', 'police-stations-laa.json');
   if (!fs.existsSync(stationsPath)) return;
+
+  /* Skip re-parse + 2k-row upsert when the bundled stations file has not
+     changed since the last successful load. On a warm DB this alone saved
+     ~300ms+ of sql.js work every cold start. */
+  let fileStamp = '';
+  try {
+    const st = fs.statSync(stationsPath);
+    fileStamp = String(st.mtimeMs) + ':' + String(st.size);
+  } catch (_) {}
+  const stampRow = dbGet("SELECT value FROM settings WHERE key = 'stationsFileStamp'");
+  const countRow = dbGet('SELECT COUNT(*) as c FROM police_stations');
+  if (fileStamp && stampRow && stampRow.value === fileStamp && countRow && countRow.c > 0) {
+    return;
+  }
+
   let stations;
   try {
     stations = JSON.parse(fs.readFileSync(stationsPath, 'utf8'));
@@ -1488,6 +1759,17 @@ function loadStationsFromFile() {
     } catch (_) {}
   }
   try { db.run('COMMIT'); } catch (_) {}
+  if (fileStamp) {
+    try {
+      if (stampRow) {
+        dbRun("UPDATE settings SET value = ? WHERE key = 'stationsFileStamp'", [fileStamp]);
+      } else {
+        dbRun("INSERT INTO settings (key, value) VALUES ('stationsFileStamp', ?)", [fileStamp]);
+      }
+    } catch (e) {
+      console.warn('[loadStationsFromFile] stamp save failed:', e && e.message);
+    }
+  }
 }
 
 // One-shot migration: legacy records had data.schemeId set to the station code
@@ -1541,15 +1823,19 @@ let dbDirtySinceQuickBackup = false;
 let dbDirtySinceHourlyBackup = false;
 const MAX_HOURLY_BACKUPS = 24; /* last 24 hourly archives (~1 working day) */
 const MAX_DAILY_BACKUPS  = 7;  /* one representative per day for 7 days */
+const MAX_QUICK_BACKUPS  = 48; /* generational quick snapshots (~1.5h at 2‑min cadence) */
 
 let _backupScheduler = null;
 
 function getBackupScheduler() {
   if (_backupScheduler) return _backupScheduler;
   _backupScheduler = createBackupScheduler({
-    quickMinIntervalMs: 30 * 60 * 1000,
-    userIdleGraceMs: 90 * 1000,
-    periodicCheckMs: 10 * 60 * 1000,
+    // Framework12 incident: 30-minute quick interval + single overwrite left a large
+    // crash window and empty local Backups when the folder path was wrong.
+    // Target ~every couple of minutes; idle grace still avoids mid-keystroke IO.
+    quickMinIntervalMs: 2 * 60 * 1000,
+    userIdleGraceMs: 45 * 1000,
+    periodicCheckMs: 60 * 1000,
     runBackup: (kind, reason) => {
       console.log('[Backup] Scheduler triggered:', kind, reason);
       if (kind === 'hourly') {
@@ -1566,34 +1852,89 @@ function getBackupScheduler() {
   return _backupScheduler;
 }
 
+function _verifyBackupOrThrow(dest, expectedBytes, kind) {
+  const verified = verifyEncryptedBackupFile(dest, { expectedBytes });
+  if (!verified.ok) {
+    const msg = 'Backup verify failed (' + (kind || 'backup') + '): ' + (verified.reason || 'unknown');
+    console.error('[Backup]', msg);
+    const err = new Error(msg);
+    err.code = 'BACKUP_VERIFY_FAILED';
+    err.verify = verified;
+    throw err;
+  }
+  return verified;
+}
+
 function _runQuickBackupAsync() {
   if (!db) return Promise.resolve({ skipped: true, reason: 'db-missing' });
-  if (!isBackupFolderReady()) return Promise.resolve({ skipped: true, reason: 'backup-folder-missing' });
-  const dest = path.join(getBackupFolder(), 'attendance-latest.db');
+  if (!isBackupFolderReady()) {
+    _notifyBackupDegraded('backup-folder-missing');
+    return Promise.resolve({ skipped: true, reason: 'backup-folder-missing' });
+  }
+  const backupDir = getBackupFolder();
+  const latestDest = path.join(backupDir, 'attendance-latest.db');
+  const quickName = `attendance-quick-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.db`;
+  const quickDest = path.join(backupDir, quickName);
   const start = Date.now();
   try {
     const encrypted = getEncryptedDbExport();
-    if (!encrypted) return Promise.resolve({ skipped: true, reason: 'export-failed' });
+    if (!encrypted) {
+      _notifyBackupDegraded('export-failed');
+      return Promise.resolve({ skipped: true, reason: 'export-failed' });
+    }
     return new Promise((resolve, reject) => {
-      writeFileAtomic(dest, encrypted, (err) => {
-        if (err) { console.error('[Backup] Quick backup write failed:', err.message); return reject(err); }
-        console.log('[Backup] Quick backup saved (encrypted), took', Date.now() - start, 'ms,', encrypted.length, 'bytes');
-        copyToOffsiteBackup(dest);
+      writeFileAtomic(latestDest, encrypted, (err) => {
+        if (err) {
+          console.error('[Backup] Quick backup write failed:', err.message);
+          _notifyBackupDegraded('write-failed', err.message);
+          return reject(err);
+        }
+        let verified;
+        try {
+          verified = _verifyBackupOrThrow(latestDest, encrypted.length, 'quick');
+        } catch (verifyErr) {
+          _notifyBackupDegraded('verify-failed', verifyErr && verifyErr.message);
+          return reject(verifyErr);
+        }
+        // Generational copy — do not rely on a single overwriteable latest file.
+        try {
+          fs.copyFileSync(latestDest, quickDest);
+          _verifyBackupOrThrow(quickDest, encrypted.length, 'quick-gen');
+        } catch (copyErr) {
+          console.error('[Backup] Generational quick copy failed:', copyErr && copyErr.message);
+          _notifyBackupDegraded('generational-copy-failed', copyErr && copyErr.message);
+          return reject(copyErr);
+        }
+        try { pruneOldQuickBackups(backupDir); } catch (_) {}
+        console.log('[Backup] Quick backup saved+verified (encrypted), took', Date.now() - start, 'ms,', encrypted.length, 'bytes', 'gen=', quickName);
+        copyToOffsiteBackup(latestDest);
+        copyToOffsiteBackup(quickDest);
         uploadToCloudIfConfigured(encrypted);
         uploadToS3IfConfigured(encrypted, 'attendance-latest.db');
         uploadToManagedCloudIfEnabled(encrypted, 'attendance-latest.db');
-        resolve({ durationMs: Date.now() - start, bytes: encrypted.length });
+        resolve({
+          durationMs: Date.now() - start,
+          bytes: encrypted.length,
+          verified: true,
+          verifiedAt: verified.verifiedAt || new Date().toISOString(),
+          path: latestDest,
+          generationalPath: quickDest,
+        });
       });
     });
   } catch (err) {
     console.error('[Backup] Quick backup failed:', err.message);
+    _notifyBackupDegraded('quick-failed', err.message);
     return Promise.reject(err);
   }
 }
 
 function _runHourlyBackupAsync() {
   if (!db) return Promise.resolve({ skipped: true, reason: 'db-missing' });
-  if (!isBackupFolderReady()) return Promise.resolve({ skipped: true, reason: 'backup-folder-missing' });
+  if (!isBackupFolderReady()) {
+    _notifyBackupDegraded('backup-folder-missing');
+    return Promise.resolve({ skipped: true, reason: 'backup-folder-missing' });
+  }
   const backupDir = getBackupFolder();
   const name = `attendance-backup-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.db`;
   const dest = path.join(backupDir, name);
@@ -1604,7 +1945,13 @@ function _runHourlyBackupAsync() {
     return new Promise((resolve, reject) => {
       writeFileAtomic(dest, encrypted, (err) => {
         if (err) { console.error('[Backup] Hourly write failed:', err.message); return reject(err); }
-        console.log('[Backup] Hourly archive saved (encrypted):', name, 'took', Date.now() - start, 'ms');
+        let verified;
+        try {
+          verified = _verifyBackupOrThrow(dest, encrypted.length, 'hourly');
+        } catch (verifyErr) {
+          return reject(verifyErr);
+        }
+        console.log('[Backup] Hourly archive saved+verified (encrypted):', name, 'took', Date.now() - start, 'ms');
         pruneOldBackups(backupDir);
         copyToOffsiteBackup(dest);
         uploadToCloudIfConfigured(encrypted);
@@ -1612,7 +1959,14 @@ function _runHourlyBackupAsync() {
         uploadToManagedCloudIfEnabled(encrypted, name);
         const offsiteDir = getOffsiteBackupFolder();
         if (offsiteDir && fs.existsSync(offsiteDir)) pruneOldBackups(offsiteDir);
-        resolve({ durationMs: Date.now() - start, bytes: encrypted.length });
+        resolve({
+          durationMs: Date.now() - start,
+          bytes: encrypted.length,
+          verified: true,
+          verifiedAt: verified.verifiedAt || new Date().toISOString(),
+          path: dest,
+          name,
+        });
       });
     });
   } catch (err) {
@@ -1624,6 +1978,9 @@ function _runHourlyBackupAsync() {
 function markDbDirty() {
   dbDirtySinceQuickBackup = true;
   dbDirtySinceHourlyBackup = true;
+  // Ensure Backups exists before the scheduler tries a write — otherwise the
+  // footer can sit on "Backup queued" while skips leave no folder on disk.
+  try { ensureBackupFolderExists(); } catch (_) {}
   const bs = _backupScheduler;
   if (bs) bs.markDirty('db-change');
   scheduleSyncSoon();
@@ -1694,6 +2051,44 @@ function pruneOldBackups(backupDir) {
     });
     if (pruned > 0) console.log('[Backup] Pruned', pruned, 'old archives; keeping', keep.size);
   } catch (_) {}
+}
+
+function pruneOldQuickBackups(backupDir) {
+  try {
+    const files = fs.readdirSync(backupDir)
+      .filter(f => f.startsWith('attendance-quick-') && f.endsWith('.db'))
+      .map(f => ({ name: f, path: path.join(backupDir, f), time: fs.statSync(path.join(backupDir, f)).mtimeMs }))
+      .sort((a, b) => b.time - a.time);
+    let pruned = 0;
+    files.slice(MAX_QUICK_BACKUPS).forEach(f => {
+      try { fs.unlinkSync(f.path); pruned++; } catch (_) {}
+    });
+    if (pruned > 0) console.log('[Backup] Pruned', pruned, 'old quick snapshots; keeping', Math.min(files.length, MAX_QUICK_BACKUPS));
+  } catch (_) {}
+}
+
+let _lastBackupDegradedAt = 0;
+let _lastBackupDegradedReason = null;
+
+function _notifyBackupDegraded(reason, detail) {
+  _lastBackupDegradedAt = Date.now();
+  _lastBackupDegradedReason = reason || 'unknown';
+  const payload = {
+    at: new Date().toISOString(),
+    reason: _lastBackupDegradedReason,
+    detail: detail || null,
+    message: 'Local backup protection is degraded. Open Settings → Backup and confirm the Backups folder path.',
+  };
+  console.error('[Backup] DEGRADED:', payload.reason, detail || '');
+  try {
+    const bs = _backupScheduler;
+    if (bs && typeof bs.getStatus === 'function') {
+      // Status already carries lastSkipReason via scheduler when skipped.
+    }
+  } catch (_) {}
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    try { mainWindow.webContents.send('backup-degraded', payload); } catch (_) {}
+  }
 }
 
 /** POST encrypted backup buffer to a cloud URL. Returns Promise<void> or rejects with error message. */
@@ -2132,6 +2527,586 @@ function rebuildSyncQueueForDirtyRecords() {
   }
 }
 
+/**
+ * Force every local attendance back onto the upload queue.
+ * Needed after a raw attendances.db file-swap (which does NOT mark dirty) and
+ * when this machine has records but the cloud is empty so other devices pull 0.
+ * Bumps sync_version so remotes accept the re-push.
+ */
+function markAllLocalRecordsForCloudReupload() {
+  if (!db) return { ok: false, error: 'Database not ready', marked: 0, queued: 0 };
+  try {
+    const countRow = dbGet('SELECT COUNT(*) as c FROM attendances WHERE deleted_at IS NULL');
+    const marked = countRow ? (countRow.c || 0) : 0;
+    if (marked === 0) {
+      return { ok: false, error: 'No local records to re-upload', marked: 0, queued: 0 };
+    }
+    dbRun(
+      'UPDATE attendances SET sync_dirty=1, sync_version=COALESCE(sync_version,1)+1 WHERE deleted_at IS NULL'
+    );
+    const queued = rebuildSyncQueueForDirtyRecords();
+    saveDb();
+    if (queued !== marked) {
+      console.warn('[Sync] Re-upload queue mismatch: marked=' + marked + ' queued=' + queued);
+    }
+    console.info('[Sync] Re-upload all local records: marked=' + marked + ' queued=' + queued);
+    return { ok: true, marked, queued };
+  } catch (e) {
+    console.warn('[Sync] markAllLocalRecordsForCloudReupload failed:', e && e.message ? e.message : e);
+    return { ok: false, error: e && e.message ? e.message : 'Re-upload mark failed', marked: 0, queued: 0 };
+  }
+}
+
+/**
+ * Run sync worker cycles until dirty/pending are drained or we hit a stop
+ * condition. One runCycle only pushes MAX_RECORDS_PER_CYCLE (100); Mac restore
+ * of ~66 fits one cycle, but larger DBs and partial failures need a loop.
+ * Never treats a single cycle as "everything reached the cloud".
+ */
+async function drainPendingSyncUploads(options = {}) {
+  const maxCycles = options.maxCycles != null ? options.maxCycles : 40;
+  const w = getSyncWorker();
+  if (!w) return { cycles: 0, stoppedReason: 'no_worker', pending: 0, dirty: 0 };
+  let cycles = 0;
+  for (; cycles < maxCycles; cycles++) {
+    migrateSyncDirtyToQueue();
+    const pendingRow = dbGet("SELECT COUNT(*) as c FROM sync_queue WHERE status IN ('pending','syncing','failed')");
+    const dirtyRow = dbGet('SELECT COUNT(*) as c FROM attendances WHERE sync_dirty=1');
+    const pending = pendingRow ? (pendingRow.c || 0) : 0;
+    const dirty = dirtyRow ? (dirtyRow.c || 0) : 0;
+    if (pending === 0 && dirty === 0) {
+      return { cycles, stoppedReason: 'drained', pending: 0, dirty: 0 };
+    }
+    w.forceRetryAll();
+    await w.runCycle({ skipHeal: true });
+    const diag = w.getDiagnostics() || {};
+    if (diag.rateLimit && diag.rateLimit.blocked) {
+      return {
+        cycles: cycles + 1,
+        stoppedReason: 'rate_limited',
+        pending,
+        dirty,
+        lastError: diag.lastError || null,
+      };
+    }
+  }
+  const pendingRow = dbGet("SELECT COUNT(*) as c FROM sync_queue WHERE status IN ('pending','syncing','failed')");
+  const dirtyRow = dbGet('SELECT COUNT(*) as c FROM attendances WHERE sync_dirty=1');
+  return {
+    cycles,
+    stoppedReason: 'max_cycles',
+    pending: pendingRow ? (pendingRow.c || 0) : 0,
+    dirty: dirtyRow ? (dirtyRow.c || 0) : 0,
+    lastError: w.getDiagnostics().lastError || null,
+  };
+}
+
+function getAttendanceDbFileBytes() {
+  try {
+    const dbPath = getDbPath();
+    if (!dbPath || !fs.existsSync(dbPath)) return 0;
+    return fs.statSync(dbPath).size || 0;
+  } catch (_) {
+    return 0;
+  }
+}
+
+function getLastVerifiedCloudInventory() {
+  if (!db) return null;
+  try {
+    const row = dbGet("SELECT value FROM settings WHERE key='lastVerifiedCloudInventory'");
+    if (!row || row.value == null || row.value === '') return null;
+    const n = Number(row.value);
+    return Number.isFinite(n) ? n : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function setLastVerifiedCloudInventory(count) {
+  if (!db) return;
+  const n = count == null ? null : Number(count);
+  if (n == null || !Number.isFinite(n)) {
+    try { dbRun("DELETE FROM settings WHERE key='lastVerifiedCloudInventory'"); } catch (_) {}
+    try { dbRun("DELETE FROM settings WHERE key='lastVerifiedCloudInventoryAt'"); } catch (_) {}
+    return;
+  }
+  dbRun(
+    "INSERT OR REPLACE INTO settings (key, value) VALUES ('lastVerifiedCloudInventory', ?)",
+    [String(n)]
+  );
+  dbRun(
+    "INSERT OR REPLACE INTO settings (key, value) VALUES ('lastVerifiedCloudInventoryAt', ?)",
+    [new Date().toISOString()]
+  );
+}
+
+function persistCloudInventoryAfterPull({ pulledFromEpoch, receivedCount }) {
+  const previous = getLastVerifiedCloudInventory();
+  const next = nextCloudInventoryCount({
+    previousInventory: previous,
+    pulledFromEpoch: !!pulledFromEpoch,
+    receivedCount: receivedCount || 0,
+  });
+  if (next === previous) return next;
+  // Only write when from-epoch (authoritative, including 0) or when proving non-empty.
+  if (pulledFromEpoch || (receivedCount || 0) > 0) {
+    setLastVerifiedCloudInventory(next);
+  }
+  return next;
+}
+
+/** Persist every sync cycle outcome (including skips) so diagnostics never go silent. */
+function persistSyncCycle(heartbeat) {
+  if (!db || !heartbeat) return;
+  try {
+    if (heartbeat.lastSyncCycleAt) {
+      dbRun(
+        "INSERT OR REPLACE INTO settings (key, value) VALUES ('lastSyncCycleAt', ?)",
+        [String(heartbeat.lastSyncCycleAt)]
+      );
+    }
+    if (heartbeat.lastSyncSkipReason != null) {
+      dbRun(
+        "INSERT OR REPLACE INTO settings (key, value) VALUES ('lastSyncSkipReason', ?)",
+        [String(heartbeat.lastSyncSkipReason)]
+      );
+    }
+    if (heartbeat.lastSyncSkipDetail != null) {
+      dbRun(
+        "INSERT OR REPLACE INTO settings (key, value) VALUES ('lastSyncSkipDetail', ?)",
+        [String(heartbeat.lastSyncSkipDetail).slice(0, 500)]
+      );
+    } else {
+      try { dbRun("DELETE FROM settings WHERE key='lastSyncSkipDetail'"); } catch (_) {}
+    }
+    // Flush skip heartbeats promptly — these are the only evidence when push/pull never run.
+    flushDbSync();
+  } catch (e) {
+    console.warn('[Sync] persistSyncCycle failed:', e && e.message ? e.message : e);
+  }
+}
+
+function getPersistedSyncCycle() {
+  if (!db) return { lastSyncCycleAt: null, lastSyncSkipReason: null, lastSyncSkipDetail: null };
+  try {
+    const at = dbGet("SELECT value FROM settings WHERE key='lastSyncCycleAt'");
+    const reason = dbGet("SELECT value FROM settings WHERE key='lastSyncSkipReason'");
+    const detail = dbGet("SELECT value FROM settings WHERE key='lastSyncSkipDetail'");
+    return {
+      lastSyncCycleAt: at && at.value ? at.value : null,
+      lastSyncSkipReason: reason && reason.value ? reason.value : null,
+      lastSyncSkipDetail: detail && detail.value ? detail.value : null,
+    };
+  } catch (_) {
+    return { lastSyncCycleAt: null, lastSyncSkipReason: null, lastSyncSkipDetail: null };
+  }
+}
+
+const EMPTY_CLOUD_HEAL_SETTINGS_KEY = 'emptyCloudHealState';
+
+function getEmptyCloudHealState() {
+  if (!db) return buildHealState();
+  try {
+    const row = dbGet("SELECT value FROM settings WHERE key=?", [EMPTY_CLOUD_HEAL_SETTINGS_KEY]);
+    if (!row || !row.value) return buildHealState();
+    const parsed = JSON.parse(row.value);
+    return buildHealState(parsed);
+  } catch (_) {
+    return buildHealState();
+  }
+}
+
+function setEmptyCloudHealState(state) {
+  if (!db) return;
+  try {
+    dbRun(
+      "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
+      [EMPTY_CLOUD_HEAL_SETTINGS_KEY, JSON.stringify(buildHealState(state))]
+    );
+    flushDbSync();
+  } catch (e) {
+    console.warn('[Sync] setEmptyCloudHealState failed:', e && e.message ? e.message : e);
+  }
+}
+
+/**
+ * Auto empty-cloud heal: probe from epoch when local looks synced but cloud
+ * inventory is unknown/empty; if verified empty, re-upload all with written ack
+ * + verify pull. Never deletes local notes. Backoff-capped.
+ */
+async function maybeEmptyCloudAutoHeal(_opts = {}) {
+  if (!db || !getSyncApiUrl()) {
+    return { ran: false, skipped: true, reason: 'no_db_or_api' };
+  }
+  const data = readLicenceData();
+  if (!data || !data.key) {
+    return { ran: false, skipped: true, reason: 'auth_required' };
+  }
+
+  const totalRow = dbGet('SELECT COUNT(*) as c FROM attendances WHERE deleted_at IS NULL');
+  const localCount = totalRow ? (totalRow.c || 0) : 0;
+  const dirtyRow = dbGet('SELECT COUNT(*) as c FROM attendances WHERE sync_dirty=1');
+  const pendingRow = dbGet("SELECT COUNT(*) as c FROM sync_queue WHERE status IN ('pending','syncing','failed','blocked')");
+  const dirtyCount = dirtyRow ? (dirtyRow.c || 0) : 0;
+  const pendingCount = pendingRow ? (pendingRow.c || 0) : 0;
+  const inventory = getLastVerifiedCloudInventory();
+  const healState = getEmptyCloudHealState();
+  const diag = getSyncWorker() ? getSyncWorker().getDiagnostics() : {};
+  const now = Date.now();
+
+  const probeDecision = shouldProbeCloudFromEpoch({
+    localCount,
+    dirtyCount,
+    pendingCount,
+    lastVerifiedCloudInventory: inventory,
+    lastVerifiedCloudPushAt: diag.lastVerifiedCloudPushAt || null,
+    lastProbeAt: healState.lastProbeAt,
+    healInProgress: healState.status === 'running',
+    healBackoffUntil: healState.backoffUntil,
+    now,
+  });
+
+  if (!probeDecision.probe) {
+    return { ran: false, skipped: true, reason: probeDecision.reason };
+  }
+
+  console.info('[Sync] Empty-cloud probe from epoch:', probeDecision.reason, {
+    localCount,
+    inventory,
+    dirtyCount,
+    pendingCount,
+  });
+
+  // From-epoch probe — merge only; empty cloud never wipes local (emptyCloudPullPolicy).
+  resetSyncPullCursor();
+  saveDb();
+  let probePull;
+  try {
+    probePull = await syncPull({ correlationId: generateCorrelationId() });
+  } catch (e) {
+    const msg = e && e.message ? e.message : String(e);
+    setEmptyCloudHealState(markHealFailure(healState, {
+      nowIso: new Date().toISOString(),
+      error: msg,
+      code: 'PROBE_FAILED',
+      nowMs: now,
+    }));
+    return { ran: true, ok: false, code: 'PROBE_FAILED', error: msg, reason: 'probe_failed' };
+  }
+
+  setEmptyCloudHealState(buildHealState(healState, {
+    lastProbeAt: new Date().toISOString(),
+    lastResult: 'probed',
+  }));
+
+  const received = probePull && probePull.received != null ? probePull.received : 0;
+  const healDecision = shouldAutoHealEmptyCloud({
+    localCount,
+    cloudReceivedFromEpoch: received,
+    pulledFromEpoch: true,
+    healAttemptCount: healState.attemptCount,
+    healInProgress: false,
+    healBackoffUntil: healState.backoffUntil,
+    now: Date.now(),
+  });
+
+  if (!healDecision.heal) {
+    if (healDecision.reason === 'cloud_nonempty') {
+      // Cloud has records — clear any prior empty-heal failure status.
+      setEmptyCloudHealState(buildHealState(healState, {
+        status: 'idle',
+        lastResult: 'cloud_nonempty',
+        lastError: null,
+        backoffUntil: null,
+        lastProbeAt: new Date().toISOString(),
+        verifyReceived: received,
+      }));
+    }
+    return { ran: true, ok: true, skipped: true, reason: healDecision.reason, received };
+  }
+
+  console.info('[Sync] Empty-cloud auto-heal starting — re-upload all local records', {
+    localCount,
+    received,
+    attempt: (healState.attemptCount || 0) + 1,
+  });
+
+  let running = markHealAttemptStarted(healState, {
+    nowIso: new Date().toISOString(),
+    localCount,
+  });
+  setEmptyCloudHealState(running);
+
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    try {
+      mainWindow.webContents.send('sync-status-changed', {
+        status: 'syncing',
+        emptyCloudHeal: true,
+        lastSyncSkipReason: SYNC_SKIP_REASONS.HEAL_RUNNING,
+      });
+    } catch (_) {}
+  }
+
+  const mark = markAllLocalRecordsForCloudReupload();
+  if (!mark.ok) {
+    running = markHealFailure(running, {
+      nowIso: new Date().toISOString(),
+      error: mark.error || 'Mark failed',
+      code: 'MARK_FAILED',
+      nowMs: Date.now(),
+    });
+    setEmptyCloudHealState(running);
+    return { ran: true, ok: false, code: 'MARK_FAILED', error: mark.error, reason: 'mark_failed' };
+  }
+
+  const drain = await drainPendingSyncUploads({ maxCycles: 40 });
+  if (drain.stoppedReason === 'rate_limited') {
+    // Keep dirty so we retry after cooldown; do not clear local.
+    markAllLocalRecordsForCloudReupload();
+    running = markHealFailure(running, {
+      nowIso: new Date().toISOString(),
+      error: drain.lastError || 'Rate limited during heal',
+      code: 'RATE_LIMITED',
+      nowMs: Date.now(),
+    });
+    setEmptyCloudHealState(running);
+    return {
+      ran: true,
+      ok: false,
+      code: 'RATE_LIMITED',
+      error: drain.lastError || 'Rate limited',
+      reason: 'rate_limited',
+      drain,
+    };
+  }
+
+  resetSyncPullCursor();
+  saveDb();
+  let verify;
+  try {
+    verify = await syncPull({ correlationId: generateCorrelationId() }) || { received: 0 };
+  } catch (pullErr) {
+    markAllLocalRecordsForCloudReupload();
+    running = markHealFailure(running, {
+      nowIso: new Date().toISOString(),
+      error: pullErr && pullErr.message ? pullErr.message : 'Verify pull failed',
+      code: 'VERIFY_PULL_FAILED',
+      nowMs: Date.now(),
+    });
+    setEmptyCloudHealState(running);
+    return {
+      ran: true,
+      ok: false,
+      code: 'VERIFY_PULL_FAILED',
+      error: pullErr && pullErr.message ? pullErr.message : 'Verify failed',
+      reason: 'verify_failed',
+    };
+  }
+
+  if ((verify.received || 0) === 0 && mark.marked > 0) {
+    markAllLocalRecordsForCloudReupload();
+    running = markHealFailure(running, {
+      nowIso: new Date().toISOString(),
+      error: 'Cloud still empty after re-upload',
+      code: 'CLOUD_EMPTY_AFTER_PUSH',
+      nowMs: Date.now(),
+    });
+    setEmptyCloudHealState(running);
+    return {
+      ran: true,
+      ok: false,
+      code: 'CLOUD_EMPTY_AFTER_PUSH',
+      error: 'Cloud still empty after auto-heal re-upload',
+      reason: 'still_empty',
+      verifyReceived: 0,
+    };
+  }
+
+  const dirtyLeft = dbGet('SELECT COUNT(*) as c FROM attendances WHERE sync_dirty=1');
+  if (dirtyLeft && dirtyLeft.c > 0) {
+    running = markHealFailure(running, {
+      nowIso: new Date().toISOString(),
+      error: dirtyLeft.c + ' still dirty after heal',
+      code: 'UPLOAD_INCOMPLETE',
+      nowMs: Date.now(),
+    });
+    setEmptyCloudHealState(running);
+    return {
+      ran: true,
+      ok: false,
+      code: 'UPLOAD_INCOMPLETE',
+      error: 'Heal incomplete — dirty remaining',
+      reason: 'incomplete',
+      dirtyRemaining: dirtyLeft.c,
+      verifyReceived: verify.received || 0,
+    };
+  }
+
+  running = markHealSuccess(running, {
+    nowIso: new Date().toISOString(),
+    verifyReceived: verify.received || 0,
+  });
+  setEmptyCloudHealState(running);
+  console.info('[Sync] Empty-cloud auto-heal verified', {
+    localCount,
+    verifyReceived: verify.received || 0,
+  });
+  return {
+    ran: true,
+    ok: true,
+    reason: 'healed',
+    marked: mark.marked,
+    verifyReceived: verify.received || 0,
+    drain,
+  };
+}
+
+function buildSyncRecoveryHints(statusBase) {
+  const totalRecords = statusBase && statusBase.totalRecords != null ? statusBase.totalRecords : 0;
+  const pendingChanges = statusBase && statusBase.pendingChanges != null ? statusBase.pendingChanges : 0;
+  const dirtyPushCount = statusBase && statusBase.dirtyPushCount != null ? statusBase.dirtyPushCount : 0;
+  const lastPull = (statusBase && statusBase.lastPull) || {};
+  const dbFileBytes = getAttendanceDbFileBytes();
+  const emptyLargeDb = detectEmptyLargeDb({
+    dbFileBytes,
+    activeAttendanceCount: totalRecords,
+  });
+  const pullEverCompleted = !!(lastPull && lastPull.at);
+  const lastVerifiedCloudInventory = getLastVerifiedCloudInventory();
+  const localFullCloudEmpty = detectLocalFullCloudEmpty({
+    totalRecords,
+    lastPullReceived: lastPull.received || 0,
+    pullEverCompleted,
+    pulledFromEpoch: !!(lastPull && lastPull.pulledFromEpoch),
+    lastVerifiedCloudInventory,
+  });
+  const diag = statusBase && statusBase._diag ? statusBase._diag : {};
+  const lastVerifiedCloudPushAt = diag.lastVerifiedCloudPushAt || null;
+  const rateLimited = !!(diag.rateLimit && diag.rateLimit.blocked);
+  const lastPush = diag.lastPush || null;
+  const lastPushOk = lastPush && typeof lastPush.ok === 'boolean' ? lastPush.ok : null;
+  const authRequired = (statusBase && statusBase.connectivity === 'auth_required') ||
+    (diag.connectivity === 'auth_required') ||
+    (diag.lastSyncSkipReason === 'auth_required');
+  const healState = statusBase && statusBase._healState ? statusBase._healState : getEmptyCloudHealState();
+  const emptyCloudHealPending = !!(
+    healState &&
+    (healState.status === 'running' ||
+      healState.status === 'failed' ||
+      (localFullCloudEmpty && healState.status !== 'verified'))
+  );
+  const suppressSyncedFooter = shouldSuppressSyncedFooter({
+    totalRecords,
+    pendingChanges,
+    dirtyPushCount,
+    lastPullReceived: lastPull.received || 0,
+    pullEverCompleted,
+    lastVerifiedCloudPushAt,
+    pulledFromEpoch: !!(lastPull && lastPull.pulledFromEpoch),
+    lastVerifiedCloudInventory,
+    rateLimited,
+    lastPushOk,
+    authRequired,
+    emptyCloudHealPending,
+  });
+  const syncPhase = deriveSyncPhase({
+    inProgress: !!(statusBase && statusBase.inProgress),
+    pendingChanges,
+    dirtyPushCount,
+    failedCount: statusBase && statusBase.failedCount,
+    rateLimited,
+    lastError: statusBase && statusBase.lastError,
+    totalRecords,
+    lastPullReceived: lastPull.received || 0,
+    pullEverCompleted,
+    lastVerifiedCloudPushAt,
+    pulledFromEpoch: !!(lastPull && lastPull.pulledFromEpoch),
+    lastVerifiedCloudInventory,
+    lastPushOk,
+    authRequired,
+    emptyCloudHealPending,
+    healStatus: healState && healState.status,
+  });
+  const schemaVersion = getDbSchemaVersion();
+  const health = buildLocalCloudHealth({
+    localCount: totalRecords,
+    lastPullReceived: lastPull.received || 0,
+    pulledFromEpoch: !!(lastPull && lastPull.pulledFromEpoch),
+    dirtyPushCount,
+    pendingChanges,
+    lastVerifiedCloudPushAt,
+    lastVerifiedCloudInventory,
+    syncPhase,
+    schemaVersion,
+    rateLimited,
+    lastPushOk,
+    pullEverCompleted,
+    authRequired,
+    emptyCloudHealPending,
+  });
+  const syncHealthy = isSyncStatusHealthy({
+    totalRecords,
+    pendingChanges,
+    dirtyPushCount,
+    lastPullReceived: lastPull.received || 0,
+    pullEverCompleted,
+    lastVerifiedCloudPushAt,
+    pulledFromEpoch: !!(lastPull && lastPull.pulledFromEpoch),
+    lastVerifiedCloudInventory,
+    rateLimited,
+    lastPushOk,
+    failedCount: statusBase && statusBase.failedCount,
+    lastError: statusBase && statusBase.lastError,
+    inProgress: !!(statusBase && statusBase.inProgress),
+    authRequired,
+    emptyCloudHealPending,
+  });
+  const persistedCycle = getPersistedSyncCycle();
+  const lastSyncCycleAt = diag.lastSyncCycleAt || persistedCycle.lastSyncCycleAt || null;
+  const lastSyncSkipReason = diag.lastSyncSkipReason || persistedCycle.lastSyncSkipReason || null;
+  const lastSyncSkipDetail = diag.lastSyncSkipDetail || persistedCycle.lastSyncSkipDetail || null;
+  return {
+    dbFileBytes,
+    emptyLargeDb,
+    localFullCloudEmpty,
+    emptyCloudAlarm: localFullCloudEmpty,
+    emptyCloudAlarmMessage: localFullCloudEmpty ? buildEmptyCloudAlarmMessage() : null,
+    suggestReuploadAll: localFullCloudEmpty,
+    suppressSyncedFooter,
+    syncPhase,
+    syncHealthy,
+    schemaVersion,
+    health,
+    lastVerifiedCloudPushAt,
+    lastVerifiedCloudInventory,
+    lastPush,
+    rateLimit: diag.rateLimit || null,
+    rateLimited,
+    rateLimitRemainingMs: rateLimited && diag.rateLimit ? diag.rateLimit.remainingMs : 0,
+    authRequired: !!authRequired,
+    emptyCloudHeal: healState,
+    emptyCloudHealPending,
+    lastSyncCycleAt,
+    lastSyncSkipReason,
+    lastSyncSkipDetail,
+    lastSyncSkipLabel: describeSkipReason(lastSyncSkipReason, {
+      rateLimitRemainingMs: rateLimited && diag.rateLimit ? diag.rateLimit.remainingMs : 0,
+      detail: lastSyncSkipDetail,
+    }),
+  };
+}
+
+function getDbSchemaVersion() {
+  if (!db) return 0;
+  try {
+    const row = dbGet('SELECT MAX(version) as v FROM schema_version');
+    return row && row.v != null ? Number(row.v) || 0 : 0;
+  } catch (_) {
+    return 0;
+  }
+}
+
 function clearOpenSyncConflicts(attendanceId, resolutionNote) {
   if (!db || !attendanceId) return;
   const existing = dbGet('SELECT COUNT(*) as c FROM sync_conflicts WHERE attendance_id=? AND resolved_at IS NULL', [attendanceId]);
@@ -2231,6 +3206,7 @@ let _lastPullStats = {
   decryptFailed: 0,
   noMasterKeySkipped: 0,
   cursorAdvanced: false,
+  pulledFromEpoch: false,
   at: null,
 };
 
@@ -2240,10 +3216,21 @@ function getLastPullStats() {
 
 async function syncPull(opts) {
   const apiUrl = getSyncApiUrl();
-  if (!apiUrl) return { pulled: 0 };
+  if (!apiUrl) {
+    logSyncAttempt(opts && opts.correlationId, 'pull', 0, false, 'offline:no_api_url');
+    return { pulled: 0 };
+  }
 
   const data = readLicenceData();
-  if (!data || !data.key) return { pulled: 0 };
+  if (!data || !data.key) {
+    logSyncAttempt(opts && opts.correlationId, 'pull', 0, false, 'auth_required');
+    return { pulled: 0 };
+  }
+  const licenceKey = normalizeLicenceKeyForSync(data.key);
+  if (!licenceKey) {
+    logSyncAttempt(opts && opts.correlationId, 'pull', 0, false, 'auth_required');
+    return { pulled: 0 };
+  }
 
   const localCountRow = dbGet('SELECT COUNT(*) as c FROM attendances WHERE deleted_at IS NULL');
   const localCount = localCountRow ? localCountRow.c : 0;
@@ -2263,12 +3250,15 @@ async function syncPull(opts) {
   let cursorAdvanced = true;
   let iterations = 0;
   const MAX_PULL_ITERATIONS = 50;
+  // Capture before the loop: only a from-epoch pull can prove the cloud is empty.
+  // Incremental since-cursor pulls with received=0 are normal steady state.
+  const pullStartedFromEpoch = getLastSyncTimestamp() === '1970-01-01T00:00:00.000Z';
 
   while (iterations < MAX_PULL_ITERATIONS) {
     iterations++;
     const since = getLastSyncTimestamp();
     const resp = await httpPost(`${apiUrl}/api/sync/pull`, {
-      key: data.key,
+      key: licenceKey,
       machineId: getMachineId(),
       since,
     }, syncOpts);
@@ -2279,6 +3269,61 @@ async function syncPull(opts) {
 
     const masterKeyHex = getOrCreateMasterKey({ allowCreate: false });
     const remoteRecords = resp.records || [];
+    // Local-first: empty cloud / empty batch must never wipe local-only rows.
+    const preservePolicy = emptyCloudPullPolicy({
+      remoteRecords,
+      localActiveCount: localCount,
+    });
+    if (preservePolicy.reason === 'empty_cloud_keeps_local') {
+      console.info('[SYNC-PULL] Empty cloud batch with local records — preserving local (no wipe)', {
+        localCount,
+        received: remoteRecords.length,
+        mayWipeLocal: preservePolicy.mayWipeLocal,
+      });
+    }
+    try {
+      const { emptyOrFailedResponsePolicy } = require('./lib/serverPitrContract');
+      const { enforceMonitorFailClosed } = require('./lib/monitorFailClosed');
+      const respPolicy = emptyOrFailedResponsePolicy({
+        ok: true,
+        statusCode: 200,
+        records: remoteRecords,
+        pulledFromEpoch: pullStartedFromEpoch,
+      });
+      if (respPolicy.mayWipeLocal) {
+        throw new Error('REFUSING_DESTRUCTIVE_PULL: response policy forbids wipe');
+      }
+      const gate = enforceMonitorFailClosed(
+        {
+          localActiveCount: localCount,
+          lastPullReceived: remoteRecords.length,
+          pulledFromEpoch: pullStartedFromEpoch,
+          lastVerifiedCloudInventory: getLastVerifiedCloudInventory(),
+          pullEverCompleted: true,
+        },
+        {
+          intendedAction:
+            remoteRecords.length === 0 && localCount > 0
+              ? 'accept_empty_cloud_as_wipe'
+              : 'merge',
+        }
+      );
+      if (!gate.allowed) {
+        console.warn('[SYNC-PULL] Monitor fail-closed refused destructive empty-cloud wipe; preserving local');
+      }
+    } catch (gateErr) {
+      if (gateErr && /REFUSING_DESTRUCTIVE_PULL/.test(String(gateErr.message || ''))) {
+        throw gateErr;
+      }
+      console.warn('[SYNC-PULL] Monitor gate error (non-fatal, preserve local):', gateErr && gateErr.message);
+    }
+    // Explicit guard — pull path must remain merge-only (insert/update/soft-tombstone by sync_id).
+    assertPullBatchNonDestructive(
+      remoteRecords.map((r) => ({
+        operation: 'upsert',
+        hasMatchingSyncId: !!(r && (r.syncId || r.sync_id)),
+      }))
+    );
     let batchMerged = 0;
     let batchConflicts = 0;
     let batchDecryptFailed = 0;
@@ -2338,6 +3383,33 @@ async function syncPull(opts) {
       const localVersion = local.sync_version || 1;
       const remoteVersion = remote.version || 1;
 
+      const revGate = detectRevisionGoingBackwards({
+        localVersion,
+        remoteVersion,
+        localDirty: local.sync_dirty === 1,
+        applyingRemote: remoteVersion < localVersion,
+      });
+      if (revGate.triggered) {
+        console.warn('[SYNC-PULL] Refusing revision-backwards apply for', remote.syncId);
+        recordSyncConflict(local.id, local, remote, 'revision_backwards');
+        batchConflicts++;
+        continue;
+      }
+
+      // Soft-delete only when remote carries an explicit tombstone for this sync_id.
+      if (remote.deletedAt) {
+        const tomb = evaluateTombstoneApply({
+          hasMatchingSyncId: true,
+          remoteDeletedAt: remote.deletedAt,
+          localExists: true,
+          remotePresent: true,
+        });
+        if (!tomb.mayDeleteLocal) {
+          console.warn('[SYNC-PULL] Tombstone gate blocked soft-delete', tomb.reason);
+          continue;
+        }
+      }
+
       const localStatus = (() => {
         const s = dbGet('SELECT status FROM attendances WHERE id=?', [local.id]);
         return s ? s.status : null;
@@ -2378,6 +3450,16 @@ async function syncPull(opts) {
            remote.supervisorApprovedAt || null, remote.supervisorNote || '', remote.archivedAt || null,
            remoteVersion, local.id]
         );
+        try {
+          appendRecordRevision({ dbRun, dbGet, dbAll }, {
+            id: local.id,
+            sync_id: remote.syncId,
+            sync_version: remoteVersion,
+            status: remote.status,
+            data: remote.data,
+            deleted_at: remote.deletedAt || null,
+          }, { source: 'remote_pull' });
+        } catch (_) {}
         batchMerged++;
       }
     }
@@ -2409,8 +3491,21 @@ async function syncPull(opts) {
     decryptFailed,
     noMasterKeySkipped,
     cursorAdvanced,
+    pulledFromEpoch: pullStartedFromEpoch,
     at: new Date().toISOString(),
   };
+
+  // Persist proven cloud inventory so incremental received=0 cannot hide an
+  // empty-cloud alarm, and received>0 can clear a prior empty proof.
+  const inventoryBefore = getLastVerifiedCloudInventory();
+  const cloudInventory = persistCloudInventoryAfterPull({
+    pulledFromEpoch: pullStartedFromEpoch,
+    receivedCount,
+  });
+  _lastPullStats.cloudInventory = cloudInventory;
+  const inventoryWritten =
+    (pullStartedFromEpoch || receivedCount > 0) &&
+    cloudInventory !== inventoryBefore;
 
   const correlationId = opts && opts.correlationId;
   logSyncAttempt(
@@ -2425,6 +3520,10 @@ async function syncPull(opts) {
 
   if (merged > 0 || conflicts > 0) {
     saveDb();
+  } else if (inventoryWritten) {
+    // Empty from-epoch (or inventory-clearing) pulls merge nothing — flush now
+    // so lastVerifiedCloudInventory survives a crash before the 30s debounce.
+    flushDbSync();
   }
   return {
     pulled: merged,
@@ -2443,25 +3542,67 @@ function resetSyncPullCursor() {
 
 async function runFullSyncFromCloud() {
   if (!db) throw new Error('Database not ready');
+  // Full re-sync resets the pull cursor and merges remotes. It must never
+  // destroy local-only rows (empty cloud is an alarm + re-upload path).
+  if (fullResyncMayDestroyLocalOnly()) {
+    throw new Error('REFUSING_DESTRUCTIVE_FULL_RESYNC');
+  }
   migrateSyncDirtyToQueue();
+  const w = getSyncWorker();
+  // Wait out any in-flight poll cycle so we do not race the pull cursor, then
+  // clear the 429 gate so an explicit Full re-sync is not a silent no-op.
+  if (w && typeof w.waitUntilIdle === 'function') {
+    await w.waitUntilIdle(90000);
+  }
+  if (w && typeof w.forceRetryAll === 'function') {
+    w.forceRetryAll();
+  }
   resetSyncPullCursor();
   saveDb();
-  const w = getSyncWorker();
+  // Canonical key before from-epoch pull so envelopes can decrypt on secondary devices.
+  await ensureCanonicalSyncKeyNow().catch((e) => {
+    console.warn('[Sync] Canonical key before full re-sync:', e && e.message ? e.message : e);
+  });
+  // Authoritative path: call syncPull directly. Do NOT rely on worker.runCycle()
+  // alone — that can return immediately when _inProgress, or skip pull after a
+  // push 429, while IPC still returned { ok: true } (Windows empty UI class).
+  const pullResult = await syncPull({ correlationId: generateCorrelationId() });
   if (w) {
-    w.forceRetryAll();
-    await w.runCycle();
+    try { w.scheduleSoon(); } catch (_) {}
   }
+  if (pullResult && pullResult.pulled > 0 && mainWindow && !mainWindow.isDestroyed()) {
+    try {
+      mainWindow.webContents.send('records-updated-from-sync', { count: pullResult.pulled });
+    } catch (_) {}
+  }
+  if (pullResult && (pullResult.decryptFailed > 0 || pullResult.noMasterKeySkipped > 0) && mainWindow && !mainWindow.isDestroyed()) {
+    try {
+      mainWindow.webContents.send('sync-pull-warning', {
+        decryptFailed: pullResult.decryptFailed || 0,
+        noMasterKeySkipped: pullResult.noMasterKeySkipped || 0,
+        received: pullResult.received || 0,
+        merged: pullResult.pulled || 0,
+      });
+    } catch (_) {}
+  }
+  return pullResult || { pulled: 0, received: 0, decryptFailed: 0, noMasterKeySkipped: 0 };
 }
 
-/** Secondary devices with no local records: auto full re-sync once network is up. */
+/** Secondary devices with no local records: auto full re-sync once network is up.
+ *  Also runs when the DB file is large but COUNT(attendances)=0 (Windows empty-UI class).
+ */
 function scheduleAutoFullResyncIfEmpty() {
   if (!db || !getSyncApiUrl()) return;
   const data = readLicenceData();
   if (!data || !data.key) return;
   const countRow = dbGet('SELECT COUNT(*) as c FROM attendances WHERE deleted_at IS NULL');
   const total = countRow ? countRow.c : 0;
-  if (total > 0) return;
-  console.info('[Sync] No local records — scheduling automatic full re-sync from cloud');
+  const emptyLarge = detectEmptyLargeDb({
+    dbFileBytes: getAttendanceDbFileBytes(),
+    activeAttendanceCount: total,
+  });
+  if (total > 0 && !emptyLarge) return;
+  console.info('[Sync] No local records' + (emptyLarge ? ' (large empty DB)' : '') + ' — scheduling automatic full re-sync from cloud');
   setTimeout(() => {
     ensureCanonicalSyncKeyNow().then(() => {
       return runFullSyncFromCloud();
@@ -2489,12 +3630,36 @@ function getSyncWorker() {
       httpGetWithTimeout,
       syncPull: () => syncPull({ correlationId: generateCorrelationId() }),
       ensureCanonicalKey: () => ensureCanonicalSyncKeyNow(),
+      logSyncAttempt,
+      persistSyncCycle,
+      maybeEmptyCloudAutoHeal,
       resolveSyncConflictsForRecord: (recordId, resolutionNote) => clearOpenSyncConflicts(Number(recordId), resolutionNote),
       onStatusChange: () => {},
       sendToRenderer: (channel, data) => { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(channel, data); },
     });
   }
   return _syncWorker;
+}
+
+/**
+ * After swapping the in-memory sql.js Database (local/cloud restore), tear down
+ * the sync worker so an in-flight markSynced from the pre-restore cycle cannot
+ * clear dirty flags on the new DB (Mac CDP dirty=11 mid-drain class).
+ */
+function resetSyncWorkerAfterDbSwap(reason) {
+  try {
+    if (_syncWorker) {
+      try { _syncWorker.stop(); } catch (_) {}
+      try { _syncWorker.resetRuntimeState(reason || 'db-swap'); } catch (_) {}
+    }
+  } catch (_) {}
+  _syncWorker = null;
+  try {
+    const w = getSyncWorker();
+    if (w) w.start();
+  } catch (e) {
+    console.warn('[Sync] Failed to restart worker after DB swap:', e && e.message ? e.message : e);
+  }
 }
 
 function enqueueSyncForRecord(recordId, operation = 'upsert') {
@@ -2527,8 +3692,11 @@ function retrySyncQueueAfterLicenceSuccess() {
     if (!apiUrl) return;
     const w = getSyncWorker();
     if (!w) return;
+    if (typeof w.notifyAuthRecovered === 'function') {
+      w.notifyAuthRecovered();
+    }
     const n = w.forceRetryAll();
-    if (n > 0) w.scheduleSoon();
+    if (n > 0 || typeof w.scheduleSoon === 'function') w.scheduleSoon();
   } catch (_) {}
 }
 
@@ -2561,9 +3729,13 @@ function createWindow() {
     );
   }
   mainWindow.once('ready-to-show', () => {
+    _bootMark('ready-to-show');
     if (!isCaptureMode) {
+      /* Maximize while still hidden, then show — avoids an OS-visible
+         restore→maximize jump that looks like a frozen launch. */
+      try { mainWindow.maximize(); } catch (_) {}
       mainWindow.show();
-      mainWindow.maximize();
+      _bootMark('window-shown');
     }
     setTimeout(() => {
       if (db) {
@@ -2586,10 +3758,24 @@ function createWindow() {
   const _startupIndexPath = path.join(__dirname, 'index.html');
   const _startupIndexFileUrl = require('url').pathToFileURL(_startupIndexPath).href;
   console.log('[Startup] Loading desktop entry:', _startupIndexFileUrl);
+  _bootMark('loadFile-start');
   mainWindow.loadFile('index.html');
   const ses = mainWindow.webContents.session;
-  ses.clearCache().catch(() => {});
-  ses.clearStorageData({ storages: ['serviceworkers', 'cachestorage'] }).catch(() => {});
+  /* Do NOT clear Chromium HTTP cache / Cache Storage on every launch — that
+     forced a cold disk cache and made both Windows and Mac starts feel like
+     "ages". Stale service workers (legacy PWA leftovers) are unregistered in
+     the renderer (init-events.js) only when registrations actually exist.
+     CUSTODYNOTE_BOOT_CLEAR_CACHE=1 re-enables the old behaviour for A/B timing. */
+  if (process.env.CUSTODYNOTE_BOOT_CLEAR_CACHE === '1') {
+    const _cc0 = Date.now();
+    Promise.all([
+      ses.clearCache().catch(() => {}),
+      ses.clearStorageData({ storages: ['serviceworkers', 'cachestorage'] }).catch(() => {}),
+    ]).finally(() => {
+      _bootMark('clearCache-done');
+      console.log('[Boot] clearCache-ms ' + (Date.now() - _cc0));
+    });
+  }
 
   /* Surface preload bundling failures. Without this hook, a missing /
      mistyped `require()` inside preload.js silently disables every
@@ -2631,15 +3817,19 @@ function createWindow() {
   if (updaterController && updaterController.scheduleDeferredCheck) {
     updaterController.scheduleDeferredCheck(mainWindow);
   }
+  scheduleUsageHeartbeat(mainWindow);
   mainWindow.on('close', (e) => {
     if (!mainWindow || mainWindow._forceClose) return;
     /* Automated tests (isolated userData): allow window to close so Playwright/e2e can exit */
     if (process.env.CUSTODYNOTE_TEST_USERDATA) return;
+    /* App is quitting (Cmd+Q / Quit menu / app-quit) — never block close. */
+    if (_appIsQuitting) return;
     e.preventDefault();
     mainWindow.webContents.send('check-unsaved-changes');
   });
-  ipcMain.once('close-confirmed', () => {
-    if (mainWindow) {
+  /* Use on (not once): Quit from blanker / repeated close confirms must always work. */
+  ipcMain.on('close-confirmed', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow._forceClose = true;
       mainWindow.close();
     }
@@ -3946,6 +5136,61 @@ function reportTrialStartedToServer() {
   }, { timeout: 8000 }).catch(function () {});
 }
 
+const usageHeartbeat = require('./main/usageHeartbeat');
+
+/** Current licence tier for analytics only — free / pro / trial / none. No case data. */
+function getAnalyticsLicenceTier() {
+  try {
+    const data = readLicenceData();
+    if (!data || !data.key) return isFreeTierEnabled() ? 'free' : 'none';
+    const st = computeLicenceStatus(data);
+    return (st && st.tier) || 'none';
+  } catch (_) {
+    return 'none';
+  }
+}
+
+/**
+ * Privacy-safe daily usage heartbeat (packaged only).
+ * Fire-and-forget; rate-limited to once per 24h via userData stamp.
+ * Must never run on the startup critical path.
+ */
+function reportUsageHeartbeatToServer() {
+  if (!app.isPackaged) return;
+  const apiUrl = getManagedCloudApiUrl();
+  if (!apiUrl) return;
+  const stampPath = path.join(app.getPath('userData'), usageHeartbeat.HEARTBEAT_STATE_FILE);
+  let lastAt = null;
+  try {
+    lastAt = usageHeartbeat.readLastHeartbeatAt(stampPath, fs);
+  } catch (_) {}
+  if (!usageHeartbeat.shouldSendHeartbeat(lastAt)) return;
+
+  const payload = usageHeartbeat.buildHeartbeatPayload({
+    machineId: getMachineId(),
+    platform: process.platform,
+    appVersion: app.getVersion(),
+    tier: getAnalyticsLicenceTier(),
+  });
+  // Stamp when sending so relaunches the same day do not ping again (at-most-once / 24h).
+  try {
+    usageHeartbeat.writeLastHeartbeatAt(stampPath, fs, new Date().toISOString());
+  } catch (_) {}
+  httpPost(`${apiUrl}/api/stats/heartbeat`, payload, { timeout: 8000 }).catch(function () {});
+}
+
+/** Defer heartbeat until after first renderer load — same pattern as updater startup-deferred. */
+function scheduleUsageHeartbeat(browserWindow) {
+  if (!browserWindow || browserWindow.isDestroyed()) return;
+  browserWindow.webContents.once('did-finish-load', () => {
+    setTimeout(() => {
+      try {
+        reportUsageHeartbeatToServer();
+      } catch (_) {}
+    }, 3000);
+  });
+}
+
 function buildLocalFreeLicenceData() {
   const now = new Date().toISOString();
   return {
@@ -4222,6 +5467,8 @@ function httpPost(url, body, opts) {
           try { const j = JSON.parse(data); if (j.error) errMsg = j.error; } catch (_) {}
           const err = new Error(errMsg);
           err.statusCode = res.statusCode;
+          const retryAfter = res.headers && (res.headers['retry-after'] || res.headers['Retry-After']);
+          if (retryAfter != null) err.retryAfter = retryAfter;
           return done(reject, err);
         }
         try { done(resolve, JSON.parse(data)); } catch (_) { done(reject, new Error('Invalid response from server')); }
@@ -4389,7 +5636,7 @@ ipcMain.handle('licence:activate', async (_, { key, email }) => {
   if (result.valid === false) return { success: false, message: result.message || 'Licence key is not valid' };
   const now = new Date().toISOString();
   const data = {
-    key: key.trim(),
+    key: normalizeLicenceKeyForSync(key),
     email: result.email || email || '',
     activatedAt: now,
     lastValidated: now,
@@ -4666,6 +5913,7 @@ app.on('second-instance', () => {
 });
 
 app.whenReady().then(async () => {
+  _bootMark('whenReady');
   console.log(`[Startup] Custody Note v${app.getVersion()} â€” packaged=${app.isPackaged}, platform=${process.platform}, arch=${process.arch}, portable=${IS_PORTABLE_BUILD}`);
   /* Extra startup diagnostics. Deliberately NOTHING client-sensitive: no
      custody data, no client identifiers, no licence key, no email body — only
@@ -4770,12 +6018,14 @@ app.whenReady().then(async () => {
   }
 
   /* â”€â”€â”€ Licence store (admin DB) init â”€â”€â”€ */
+  _bootMark('licenceStore-start');
   try {
     const licenceStoreKey = require('./main/licenceStoreKey').getLicenceStoreKey(app, safeStorage);
     await require('./main/licenceStore').initStore(app.getPath('userData'), licenceStoreKey);
   } catch (e) {
     console.warn('[LicenceStore] Init failed:', e.message);
   }
+  _bootMark('licenceStore-done');
   // Register licence IPC regardless of whether the admin encrypted store could init.
   // E2E and non-admin flows (forgot-key, admin password checks, etc.) must not
   // crash with "No handler registered" just because safeStorage is unavailable.
@@ -4790,7 +6040,10 @@ app.whenReady().then(async () => {
     return;
   }
 
-  /* Pull QuickFile credentials from Custody Note account when licence is present. */
+  /* Pull QuickFile credentials from Custody Note account when licence is present.
+     Never block first window paint on this network call — home/lock/first-launch
+     do not need QuickFile. Missing credentials used to await the pull and made
+     cold start feel hung on slow networks. */
   try {
     const qfStatus = getQuickFileSettingsStatus();
     const qfStartup = ensureQuickFileSettingsFromServer({
@@ -4801,19 +6054,16 @@ app.whenReady().then(async () => {
       const tag = r && r.skipped ? r.skipped : (r && r.usedLocal ? 'cached' : 'pulled');
       console.info('[QuickFile] startup pull: ' + tag);
     };
-    if (qfStatus.missing.length > 0) {
-      logQfStartup(await qfStartup);
-    } else {
-      qfStartup.then(logQfStartup).catch(function (e) {
-        console.warn('[QuickFile] startup pull failed:', e && e.message);
-      });
-    }
+    qfStartup.then(logQfStartup).catch(function (e) {
+      console.warn('[QuickFile] startup pull failed:', e && e.message);
+    });
   } catch (qfErr) {
     console.warn('[QuickFile] startup pull error:', qfErr && qfErr.message);
   }
 
   // Normal app mode: create the window only after persistent data is available.
   if (!cliImportPath && !cliListRecords && !cliDumpId) {
+    _bootMark('createWindow-call');
     createWindow();
     runLaaEnsureTemplates({}).catch(function (e) {
       console.warn('[LAA] startup template check failed:', e && e.message);
@@ -4966,6 +6216,14 @@ app.whenReady().then(async () => {
   cleanupAccidentalDuplicateDrafts();
   dedupeDraftsByCaseKeys();
   getBackupScheduler();
+  try {
+    const notices = ensureBackupPathsSane({ emit: true });
+    if (notices && notices.length) {
+      console.warn('[Backup] Path correction on ready:', notices[0].reason, notices[0].previous, '→', notices[0].next);
+    }
+  } catch (e) {
+    console.warn('[Backup] ensureBackupPathsSane on ready failed:', e && e.message ? e.message : e);
+  }
   // Check cloud backup on startup; retry a few times in case network isn't ready
   checkCloudBackupEntitlement().catch(() => {});
   setTimeout(() => checkCloudBackupEntitlement().catch(() => {}), 5000);
@@ -4991,19 +6249,73 @@ app.whenReady().then(async () => {
 app.on('window-all-closed', () => {
   console.log('[App] window-all-closed event');
   try { stopSyncTimer(); } catch (_) {}
-  try { if (db) { flushDbSync(); db.close(); db = null; } } catch (_) {}
-  app.quit();
+  /* Prefer bounded async flush; do not wedge quit on sync disk IO. */
+  const finishQuit = () => {
+    try { if (db) { db.close(); db = null; } } catch (_) {}
+    app.quit();
+  };
+  try {
+    flushDbAsyncBounded(FLUSH_BOUND_DEFAULT_MS, 'window-all-closed').finally(finishQuit);
+  } catch (_) {
+    try { if (db) { flushDbSync(); db.close(); db = null; } } catch (_) {}
+    app.quit();
+  }
 });
 
-app.on('before-quit', () => {
+/* Quit must never wedge on flush (Mac Cmd+Q / menu Quit / Windows Alt+F4 app quit).
+ * before-quit sets _forceClose immediately, then bounded async flush, then app.exit. */
+app.on('before-quit', (e) => {
   console.log('[App] before-quit event');
-  if (mainWindow) mainWindow._forceClose = true;
-  try { if (db) flushDbSync(); } catch (_) {}
+  _appIsQuitting = true;
+  try {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow._forceClose = true;
+  } catch (_) {}
+
+  if (_quitFlushState === 'done') return;
+  if (_quitFlushState === 'flushing') {
+    e.preventDefault();
+    return;
+  }
+
+  e.preventDefault();
+  _quitFlushState = 'flushing';
+
+  const forceExit = () => {
+    _quitFlushState = 'done';
+    try { app.exit(0); } catch (_) {
+      try { process.exit(0); } catch (_) {}
+    }
+  };
+
+  const deadline = setTimeout(() => {
+    console.error('[App] quit flush deadline exceeded — forcing exit');
+    forceExit();
+  }, FLUSH_BOUND_DEFAULT_MS + 500);
+
+  flushDbAsyncBounded(FLUSH_BOUND_DEFAULT_MS, 'before-quit')
+    .catch(() => {})
+    .finally(() => {
+      try { clearTimeout(deadline); } catch (_) {}
+      forceExit();
+    });
 });
 
 ipcMain.handle('get-settings', () => {
+  // Settings load is a sanitize checkpoint (covers Mac↔Windows restore leftovers).
+  try { ensureBackupPathsSane({ emit: true }); } catch (_) {}
   const rows = dbAll('SELECT key, value FROM settings');
-  return Object.fromEntries(rows.map((r) => [r.key, r.value]));
+  const settings = Object.fromEntries(rows.map((r) => [r.key, r.value]));
+  settings.effectiveBackupFolder = getBackupFolder();
+  settings.effectiveOffsiteBackupFolder = getOffsiteBackupFolder();
+  settings.defaultBackupFolder = _defaultBackupFolder();
+  if (!_backupPathCorrectionNotice) _backupPathCorrectionNotice = _loadBackupPathCorrectionNotice();
+  settings.backupPathCorrection = _backupPathCorrectionNotice;
+  settings.backupDegraded = _lastBackupDegradedReason
+    ? { reason: _lastBackupDegradedReason, at: _lastBackupDegradedAt }
+    : null;
+  settings.backupQuickMinIntervalMs = 2 * 60 * 1000;
+  settings.backupHourlyIntervalMs = 60 * 60 * 1000;
+  return settings;
 });
 
 /* ── Freemium: firm workspace, Anywhere bridge; opt-in OpenAI law fill ── */
@@ -5491,13 +6803,111 @@ ipcMain.handle('attendance-check-duplicate', (_, { dsccRef, clientName, attendan
   return results;
 });
 
+function coerceAttendanceIdArg(id) {
+  if (id == null || id === '') return null;
+  if (typeof id === 'number' && Number.isFinite(id)) return id;
+  if (typeof id === 'string' && String(id).trim() !== '') {
+    const n = Number(id);
+    return Number.isFinite(n) ? n : null;
+  }
+  if (typeof id === 'object' && id.id != null) return coerceAttendanceIdArg(id.id);
+  return null;
+}
+
 ipcMain.handle('attendance-get', (_, id) => {
-  return dbGet('SELECT id, data, status, supervisor_approved_at, supervisor_note, archived_at FROM attendances WHERE id = ?', [id]) || null;
+  const coerced = coerceAttendanceIdArg(id);
+  if (coerced == null) return null;
+  return dbGet('SELECT id, data, status, supervisor_approved_at, supervisor_note, archived_at FROM attendances WHERE id = ?', [coerced]) || null;
 });
+
+/**
+ * Persist attendance DB to disk before the UI claims "Saved locally".
+ * Returns a structured result so the renderer can distinguish durable local
+ * save vs pending cloud sync without treating IPC success as synced.
+ */
+function finishAttendanceSaveResult(id, status, op) {
+  let durable = false;
+  if (id != null) {
+    try {
+      flushDbSync();
+      durable = !_dbDirty;
+    } catch (err) {
+      console.error('[SAVE] flushDbSync failed:', err && err.message ? err.message : err);
+      durable = false;
+      _dbDirty = true;
+    }
+  }
+  if (durable && id != null) {
+    try {
+      const row = dbGet(
+        'SELECT id, sync_id, sync_version, status, data, deleted_at FROM attendances WHERE id=?',
+        [id]
+      );
+      if (row) {
+        appendRecordRevision({ dbRun, dbGet, dbAll }, row, { source: op || 'local_save' });
+        flushDbSync();
+        durable = !_dbDirty;
+      }
+    } catch (revErr) {
+      console.warn('[SAVE] revision append skipped:', revErr && revErr.message ? revErr.message : revErr);
+    }
+  }
+  // Fail-safe baseline: track active count for sudden-drop detection.
+  try {
+    const countRow = dbGet('SELECT COUNT(*) as c FROM attendances WHERE deleted_at IS NULL');
+    const curr = countRow ? Number(countRow.c) || 0 : 0;
+    const prevRow = dbGet("SELECT value FROM settings WHERE key='dataSafetyLastActiveCount'");
+    const prev = prevRow && prevRow.value != null ? Number(prevRow.value) : null;
+    const drop = detectSuddenLocalCountDrop({ previousActiveCount: prev, currentActiveCount: curr });
+    if (drop.triggered) {
+      console.error('[INTEGRITY]', JSON.stringify({
+        tag: 'DATA_SAFETY',
+        code: drop.code,
+        previous: drop.previous,
+        current: drop.current,
+        failSafe: drop.failSafe,
+      }));
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('data-safety-alert', {
+          code: drop.code,
+          severity: drop.severity,
+          message: drop.message,
+        });
+      }
+    } else {
+      dbRun(
+        "INSERT OR REPLACE INTO settings (key, value) VALUES ('dataSafetyLastActiveCount', ?)",
+        [String(curr)]
+      );
+    }
+  } catch (_) {}
+  const pendingSync = true;
+  const syncDirty = true;
+  try {
+    console.info('[SAVE]', JSON.stringify(buildAttendanceSaveLog({
+      id,
+      status: status || 'draft',
+      durable,
+      syncDirty,
+      pendingSync,
+      op: op || 'attendance-save',
+    })));
+  } catch (_) {}
+  return {
+    id,
+    durable,
+    pendingSync,
+    syncDirty,
+    status: status || 'draft',
+  };
+}
 
 ipcMain.handle('attendance-save', (_, { id, data, status, unlock }) => {
   const now = new Date().toISOString();
   const st = status || 'draft';
+  // Callers/tests sometimes pass a prior save-result object as id — coerce first
+  // so sql.js never binds [object Object].
+  id = coerceAttendanceIdArg(id);
 
   /* Unlock: change status back to draft without overwriting data */
   if (id && unlock && !data) {
@@ -5508,8 +6918,9 @@ ipcMain.handle('attendance-save', (_, { id, data, status, unlock }) => {
       db.run('INSERT INTO audit_log (attendance_id, action, timestamp) VALUES (?,?,?)', [id, 'unlocked_for_amendment', now]);
       markDbDirty();
       enqueueSyncForRecord(id);
+      return finishAttendanceSaveResult(id, 'draft', 'unlock');
     }
-    return id;
+    return { id: null, durable: false, pendingSync: false, syncDirty: false, error: 'not_found' };
   }
 
   const dataStr = typeof data === 'string' ? data : JSON.stringify(data);
@@ -5596,11 +7007,11 @@ ipcMain.handle('attendance-save', (_, { id, data, status, unlock }) => {
       }
     }
     markDbDirty();
-    // Durability: finalise/complete must hit disk before the UI reports saved.
-    // flushDb() only kicks an async save; flushDbSync writes immediately.
-    if (st === 'finalised' || st === 'completed') flushDbSync();
+    // Durability: every attendance-save must hit disk before the UI reports
+    // "Saved locally". Finalise/complete previously flushed; drafts also need
+    // this (crash between in-memory write and 30s debounce was a loss window).
     enqueueSyncForRecord(id, st === 'finalised' ? 'finalise' : 'upsert');
-    return id;
+    return finishAttendanceSaveResult(id, st, st === 'finalised' ? 'finalise' : 'update');
   }
 
   // One copy per case: if a draft already exists for this case (same DSCC or client+date+station), update it instead of creating a new row.
@@ -5619,7 +7030,7 @@ ipcMain.handle('attendance-save', (_, { id, data, status, unlock }) => {
       );
       markDbDirty();
       enqueueSyncForRecord(existingId);
-      return existingId;
+      return finishAttendanceSaveResult(existingId, st, 'draft-case-key-update');
     }
     // Guard against burst duplicate inserts (double-click / repeated handler firing):
     // if we just created the same draft payload in the last 30s, reuse it.
@@ -5646,7 +7057,7 @@ ipcMain.handle('attendance-save', (_, { id, data, status, unlock }) => {
           );
           markDbDirty();
           enqueueSyncForRecord(row.id);
-          return row.id;
+          return finishAttendanceSaveResult(row.id, st, 'draft-burst-dedupe');
         }
       }
     } catch (e) {
@@ -5685,7 +7096,7 @@ ipcMain.handle('attendance-save', (_, { id, data, status, unlock }) => {
     );
     enqueueSyncForRecord(newId);
   }
-  return newId;
+  return finishAttendanceSaveResult(newId, st, 'create');
 });
 
 ipcMain.handle('attendance-force-status', (_, { id, status }) => {
@@ -5700,9 +7111,10 @@ ipcMain.handle('attendance-force-status', (_, { id, status }) => {
     [id, status === 'finalised' ? 'force_finalised' : 'force_status_change', now, 'Forced status update to ' + status]);
   markDbDirty();
   enqueueSyncForRecord(id, status === 'finalised' ? 'finalise' : 'upsert');
+  const saveResult = finishAttendanceSaveResult(id, status, 'force-status');
   const verify = dbGet('SELECT status FROM attendances WHERE id = ?', [id]);
-  console.log('[FORCE-STATUS] id=' + id + ' set to ' + status + ', verified=' + (verify ? verify.status : 'MISSING'));
-  return { ok: true, status: verify ? verify.status : status };
+  console.log('[FORCE-STATUS] id=' + id + ' set to ' + status + ', verified=' + (verify ? verify.status : 'MISSING') + ', durable=' + !!saveResult.durable);
+  return { ok: true, status: verify ? verify.status : status, durable: !!saveResult.durable };
 });
 
 ipcMain.handle('attendance-archive', (_, id) => {
@@ -5714,6 +7126,7 @@ ipcMain.handle('attendance-archive', (_, id) => {
   db.run('INSERT INTO audit_log (attendance_id, action, timestamp) VALUES (?,?,?)', [id, 'archived', now]);
   markDbDirty();
   enqueueSyncForRecord(id);
+  flushDbSync();
   return true;
 });
 
@@ -5742,7 +7155,8 @@ ipcMain.handle('attendance-delete', (_, { id, reason } = {}) => {
     );
     markDbDirty();
     enqueueSyncForRecord(id);
-    return { soft: true };
+    flushDbSync();
+    return { soft: true, durable: true };
   }
   return false;
 });
@@ -5756,6 +7170,7 @@ ipcMain.handle('attendance-undelete', (_, id) => {
   db.run('INSERT INTO audit_log (attendance_id, action, timestamp, user_note) VALUES (?,?,?,?)', [id, 'restored', now, 'Restored from deleted']);
   markDbDirty();
   enqueueSyncForRecord(id);
+  flushDbSync();
   return true;
 });
 
@@ -5850,10 +7265,25 @@ ipcMain.handle('stations-replace', (_, stations) => {
   if (!Array.isArray(stations)) throw new Error('stations must be an array');
   try {
     db.run('BEGIN');
+    const existingRows = dbAll(
+      'SELECT name, code, mileage_from_base, postcode FROM police_stations'
+    );
+    const merged = mergeStationsPreservingMileage(existingRows, stations);
     db.run('DELETE FROM police_stations');
-    for (const s of stations) {
-      db.run('INSERT INTO police_stations (name, code, scheme, region, scheme_code, kind) VALUES (?, ?, ?, ?, ?, ?)',
-        [s.name || '', s.code || '', s.scheme || '', s.region || '', s.schemeCode || '', s.kind || 'station']);
+    for (const s of merged) {
+      db.run(
+        'INSERT INTO police_stations (name, code, scheme, region, scheme_code, kind, mileage_from_base, postcode) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [
+          s.name || '',
+          s.code || '',
+          s.scheme || '',
+          s.region || '',
+          s.schemeCode || '',
+          s.kind || 'station',
+          s.mileage_from_base != null ? s.mileage_from_base : null,
+          s.postcode || '',
+        ]
+      );
     }
     db.run('COMMIT');
   } catch (e) {
@@ -5940,52 +7370,495 @@ ipcMain.handle('load-magistrates-courts', () => {
   }
 });
 
+async function runManualVerifiedBackup() {
+  ensureBackupPathsSane({ emit: true });
+  const backupDir = getBackupFolder();
+  if (!backupDir) {
+    const err = new Error('No backup folder configured');
+    err.code = 'backup-folder-missing';
+    throw err;
+  }
+  if (!_tryEnsureWritableDir(backupDir)) {
+    const err = new Error('Backup folder is not writable: ' + backupDir);
+    err.code = 'backup-folder-unwritable';
+    _notifyBackupDegraded('backup-folder-unwritable', backupDir);
+    throw err;
+  }
+  const name = `attendance-backup-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.db`;
+  const dest = path.join(backupDir, name);
+  _cachedDbExportDirty = true;
+  const encData = getEncryptedDbExport();
+  if (!encData) throw new Error('Database export failed');
+  await writeFileAtomicAsync(dest, encData);
+  const latestDest = path.join(backupDir, 'attendance-latest.db');
+  await writeFileAtomicAsync(latestDest, encData);
+  const quickName = `attendance-quick-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.db`;
+  const quickDest = path.join(backupDir, quickName);
+  await writeFileAtomicAsync(quickDest, encData);
+  const verifiedDest = _verifyBackupOrThrow(dest, encData.length, 'manual');
+  _verifyBackupOrThrow(latestDest, encData.length, 'manual-latest');
+  _verifyBackupOrThrow(quickDest, encData.length, 'manual-quick');
+  dbDirtySinceQuickBackup = false;
+  dbDirtySinceHourlyBackup = false;
+  pruneOldBackups(backupDir);
+  try { pruneOldQuickBackups(backupDir); } catch (_) {}
+  copyToOffsiteBackup(dest);
+  copyToOffsiteBackup(latestDest);
+  copyToOffsiteBackup(quickDest);
+  uploadToCloudIfConfigured(encData);
+  uploadToS3IfConfigured(encData, 'attendance-latest.db');
+  uploadToS3IfConfigured(encData, path.basename(dest));
+  uploadToManagedCloudIfEnabled(encData, 'attendance-latest.db');
+  uploadToManagedCloudIfEnabled(encData, path.basename(dest));
+  const offsiteDir = getOffsiteBackupFolder();
+  if (offsiteDir && fs.existsSync(offsiteDir)) pruneOldBackups(offsiteDir);
+  const bs = _backupScheduler;
+  if (bs) {
+    bs.recordCompleted('quick', 'manual', {
+      bytes: encData.length,
+      verified: true,
+      verifiedAt: verifiedDest.verifiedAt || new Date().toISOString(),
+    }, true);
+  }
+  _lastBackupDegradedReason = null;
+  _lastBackupDegradedAt = 0;
+  return {
+    path: dest,
+    latestPath: latestDest,
+    quickPath: quickDest,
+    folder: backupDir,
+    offsiteFolder: offsiteDir || null,
+    bytes: encData.length,
+    verified: true,
+    verifiedAt: verifiedDest.verifiedAt || new Date().toISOString(),
+  };
+}
+
 ipcMain.handle('backup-now', async () => {
   try {
-    const backupDir = getBackupFolder();
-    if (!fs.existsSync(backupDir)) {
-      fs.mkdirSync(backupDir, { recursive: true });
-    }
-    const name = `attendance-backup-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.db`;
-    const dest = path.join(backupDir, name);
-    _cachedDbExportDirty = true;
-    const encData = getEncryptedDbExport();
-    if (!encData) throw new Error('Database export failed');
-    await writeFileAtomicAsync(dest, encData);
-    const latestDest = path.join(backupDir, 'attendance-latest.db');
-    await writeFileAtomicAsync(latestDest, encData);
-    dbDirtySinceQuickBackup = false;
-    dbDirtySinceHourlyBackup = false;
-    pruneOldBackups(backupDir);
-    copyToOffsiteBackup(dest);
-    copyToOffsiteBackup(latestDest);
-    uploadToCloudIfConfigured(encData);
-    uploadToS3IfConfigured(encData, 'attendance-latest.db');
-    uploadToS3IfConfigured(encData, path.basename(dest));
-    uploadToManagedCloudIfEnabled(encData, 'attendance-latest.db');
-    uploadToManagedCloudIfEnabled(encData, path.basename(dest));
-    const offsiteDir = getOffsiteBackupFolder();
-    if (offsiteDir && fs.existsSync(offsiteDir)) pruneOldBackups(offsiteDir);
-    const bs = _backupScheduler;
-    if (bs) bs.recordCompleted('quick', 'manual', { bytes: encData.length }, true);
-    return dest;
+    const result = await runManualVerifiedBackup();
+    return result.path;
   } catch (e) {
     const msg = e && e.message ? e.message : String(e);
     console.error('[backup-now] Backup failed:', msg);
+    _notifyBackupDegraded(e && e.code ? e.code : 'backup-failed', msg);
     throw new Error('Backup failed: ' + msg);
   }
 });
 
+/**
+ * Durable Save now checkpoint:
+ * 1) flush attendances.db (verified dirty clear)
+ * 2) verified generational backup
+ * 3) attempt immediate central sync drain (outbox ack)
+ * 4) return Force Save status distinguishing local vs central confirmation
+ * Never claims ambiguous "Saved" / never claims backup success on silent skip.
+ */
+ipcMain.handle('persist-and-backup', async () => {
+  const { buildSaveNowUserMessage } = require('./lib/saveNowResult');
+  const { buildForceSaveResult } = require('./lib/forceSaveStatus');
+  const { evaluateBackupSeriesIntegrity, inspectBackupFolder, countActiveAttendancesInPlainDb } = require('./lib/backupIntegrityGate');
+  const { verifyEncryptedBackupFile } = require('./lib/backupVerify');
+  const { evaluatePostFlushDurability } = require('./lib/flushDirtyPolicy');
+  try { ensureBackupPathsSane({ emit: true }); } catch (_) {}
+  const folder = getBackupFolder();
+  const deviceId = (() => { try { return getMachineId(); } catch (_) { return null; } })();
+  let noteDurable = false;
+  let durableError = null;
+  const lastLocalSaveAt = new Date().toISOString();
+  try {
+    flushDbSync();
+    const dbPath = getDbPath();
+    const pathExists = !!dbPath && fs.existsSync(dbPath);
+    let magicOk = false;
+    let bytes = null;
+    if (pathExists) {
+      const verified = verifyEncryptedBackupFile(dbPath, { minBytes: 4 });
+      magicOk = !!(verified && verified.ok && verified.magicOk);
+      bytes = verified && verified.bytes != null ? verified.bytes : null;
+      if (!verified.ok) durableError = 'Post-flush DB verify failed: ' + (verified.reason || 'unknown');
+    }
+    const durability = evaluatePostFlushDurability({
+      dirty: !!_dbDirty,
+      pathExists,
+      magicOk,
+      bytes,
+      minBytes: 4,
+    });
+    noteDurable = durability.durable === true;
+    if (!noteDurable && !durableError) {
+      durableError = 'Database not durable after flush (' + durability.reason + ')';
+    }
+  } catch (err) {
+    durableError = err && err.message ? err.message : String(err);
+    noteDurable = false;
+  }
+  if (!noteDurable) {
+    _notifyBackupDegraded('flush-failed', durableError);
+    const fail = buildForceSaveResult({
+      noteDurable: false,
+      backupOk: false,
+      centralConfirmed: false,
+      pendingCount: 0,
+      lastLocalSaveAt: null,
+      deviceId,
+      syncError: durableError || 'Disk flush failed',
+    });
+    fail.error = durableError || 'Disk flush failed';
+    fail.effectiveBackupFolder = folder;
+    fail.offsiteBackupFolder = getOffsiteBackupFolder();
+    fail.dbPath = getDbPath();
+    fail.userMessage = buildSaveNowUserMessage(fail);
+    return fail;
+  }
+
+  let backupOk = false;
+  let backupPath = null;
+  let backupBytes = null;
+  let backupError = null;
+  let offsiteFolder = getOffsiteBackupFolder();
+  try {
+    const backup = await runManualVerifiedBackup();
+    backupOk = true;
+    backupPath = backup.path;
+    backupBytes = backup.bytes;
+    offsiteFolder = backup.offsiteFolder;
+  } catch (err) {
+    backupError = err && err.message ? err.message : String(err);
+    _notifyBackupDegraded(err && err.code ? err.code : 'backup-failed', backupError);
+  }
+
+  // Independent PITR integrity snapshot (metadata + newest-file active count).
+  let backupIntegrity = null;
+  try {
+    const SQL = await initSqlJs();
+    const files = inspectBackupFolder(
+      folder,
+      (p) => verifyEncryptedBackupFile(p),
+      (p) => {
+        const raw = fs.readFileSync(p);
+        const plain = decryptBuffer(raw);
+        if (!plain) return null;
+        return countActiveAttendancesInPlainDb(SQL, plain);
+      }
+    );
+    let liveActive = null;
+    try {
+      const c = dbGet('SELECT COUNT(*) as c FROM attendances WHERE deleted_at IS NULL');
+      liveActive = c ? c.c : null;
+    } catch (_) {}
+    backupIntegrity = evaluateBackupSeriesIntegrity({
+      backupFiles: files,
+      liveActiveCount: liveActive,
+    });
+  } catch (_) {}
+
+  // Enqueue is already done on attendance-save; Force Save attempts immediate central sync.
+  let syncAttempted = false;
+  let centralConfirmed = false;
+  let pendingCount = 0;
+  let dirtyCount = 0;
+  let syncError = null;
+  let offline = false;
+  let rateLimited = false;
+  let authRequired = false;
+  let lastCentralSyncAt = null;
+  let syncing = false;
+  try {
+    migrateSyncDirtyToQueue();
+    const pendingRow = dbGet("SELECT COUNT(*) as c FROM sync_queue WHERE status IN ('pending','syncing','failed')");
+    const dirtyRow = dbGet('SELECT COUNT(*) as c FROM attendances WHERE sync_dirty=1');
+    pendingCount = pendingRow ? (pendingRow.c || 0) : 0;
+    dirtyCount = dirtyRow ? (dirtyRow.c || 0) : 0;
+    const w = getSyncWorker();
+    const conn = w && w.getConnectivity ? w.getConnectivity() : null;
+    if (conn === 'offline') offline = true;
+    if (conn === 'auth_required') authRequired = true;
+    if (pendingCount > 0 || dirtyCount > 0) {
+      syncAttempted = true;
+      syncing = true;
+      const { computeForceSaveMaxCycles, interpretForceSaveDrain, shouldPersistDrainContinuation } =
+        require('./lib/forceSaveDrainPolicy');
+      const maxCycles = computeForceSaveMaxCycles({
+        pendingCount,
+        dirtyCount,
+      });
+      const drain = await drainPendingSyncUploads({ maxCycles });
+      syncing = false;
+      const interpreted = interpretForceSaveDrain(drain, {
+        offline,
+        authRequired,
+      });
+      pendingCount = interpreted.pendingCount || 0;
+      dirtyCount = 0;
+      centralConfirmed = !!interpreted.centralConfirmed;
+      rateLimited = !!interpreted.rateLimited;
+      authRequired = !!interpreted.authRequired || authRequired;
+      offline = !!interpreted.offline || offline;
+      syncing = !!interpreted.syncing;
+      syncError = interpreted.syncError || null;
+      if (centralConfirmed) {
+        lastCentralSyncAt = new Date().toISOString();
+      }
+      try {
+        if (shouldPersistDrainContinuation(interpreted)) {
+          dbRun(
+            "INSERT OR REPLACE INTO settings (key, value) VALUES ('forceSaveDrainPending', ?)",
+            ['1']
+          );
+          dbRun(
+            "INSERT OR REPLACE INTO settings (key, value) VALUES ('forceSaveDrainPendingAt', ?)",
+            [new Date().toISOString()]
+          );
+        } else {
+          dbRun("DELETE FROM settings WHERE key='forceSaveDrainPending'");
+          dbRun("DELETE FROM settings WHERE key='forceSaveDrainPendingAt'");
+        }
+      } catch (_) {}
+      try {
+        const diag = w && w.getDiagnostics ? w.getDiagnostics() : {};
+        if (diag && diag.rateLimit && diag.rateLimit.blocked) rateLimited = true;
+        if (diag && diag.lastVerifiedCloudPushAt && centralConfirmed) {
+          lastCentralSyncAt = diag.lastVerifiedCloudPushAt;
+        }
+        if (diag && diag.connectivity === 'offline') offline = true;
+        if (diag && diag.connectivity === 'auth_required') authRequired = true;
+      } catch (_) {}
+    } else {
+      // Empty outbox is NOT a server written ack. Only claim central confirmed when
+      // this process has a verified cloud push timestamp (real ack), otherwise stay safe-locally.
+      try {
+        const diag = w && w.getDiagnostics ? w.getDiagnostics() : {};
+        if (diag && diag.lastVerifiedCloudPushAt) {
+          centralConfirmed = true;
+          lastCentralSyncAt = diag.lastVerifiedCloudPushAt;
+        }
+      } catch (_) {}
+    }
+  } catch (syncErr) {
+    syncAttempted = true;
+    syncError = syncErr && syncErr.message ? syncErr.message : String(syncErr);
+  }
+
+  const result = buildForceSaveResult({
+    noteDurable: true,
+    backupOk,
+    backupPath,
+    centralConfirmed,
+    pendingCount: pendingCount + dirtyCount,
+    syncAttempted,
+    syncing,
+    offline,
+    waitingForInternet: offline,
+    rateLimited,
+    authRequired,
+    syncError,
+    lastLocalSaveAt,
+    lastCentralSyncAt,
+    deviceId,
+  });
+  result.backupPath = backupPath;
+  result.bytes = backupBytes;
+  result.verified = backupOk;
+  result.effectiveBackupFolder = folder;
+  result.offsiteBackupFolder = offsiteFolder;
+  result.dbPath = getDbPath();
+  result.backupIntegrity = backupIntegrity;
+  result.dirtyCount = dirtyCount;
+  if (backupError) result.backupError = backupError;
+  result.userMessage = buildSaveNowUserMessage(result);
+  console.info('[SAVE-NOW]', JSON.stringify({
+    noteDurable: true,
+    backupOk,
+    centralConfirmed,
+    forceSaveState: result.forceSaveState,
+    pendingCount: result.pendingCount,
+    folder,
+    bytes: backupBytes,
+    at: lastLocalSaveAt,
+  }));
+  return result;
+});
+
 ipcMain.handle('flush-and-backup', async () => {
-  flushDb();
-  await new Promise(r => setTimeout(r, 200));
-  return 'flushed';
+  // Legacy alias used by older UI — same durable checkpoint as Save now.
+  const { buildSaveNowUserMessage } = require('./lib/saveNowResult');
+  const { evaluatePostFlushDurability } = require('./lib/flushDirtyPolicy');
+  const { verifyEncryptedBackupFile } = require('./lib/backupVerify');
+  try { ensureBackupPathsSane({ emit: true }); } catch (_) {}
+  const folder = getBackupFolder();
+  let noteDurable = false;
+  let durableError = null;
+  try {
+    flushDbSync();
+    const dbPath = getDbPath();
+    const pathExists = !!dbPath && fs.existsSync(dbPath);
+    let magicOk = false;
+    let bytes = null;
+    if (pathExists) {
+      const verified = verifyEncryptedBackupFile(dbPath, { minBytes: 4 });
+      magicOk = !!(verified && verified.ok && verified.magicOk);
+      bytes = verified && verified.bytes != null ? verified.bytes : null;
+      if (!verified.ok) durableError = 'Post-flush DB verify failed: ' + (verified.reason || 'unknown');
+    }
+    const durability = evaluatePostFlushDurability({
+      dirty: !!_dbDirty,
+      pathExists,
+      magicOk,
+      bytes,
+      minBytes: 4,
+    });
+    noteDurable = durability.durable === true;
+    if (!noteDurable && !durableError) {
+      durableError = 'Database not durable after flush (' + durability.reason + ')';
+    }
+  } catch (err) {
+    durableError = err && err.message ? err.message : String(err);
+    noteDurable = false;
+  }
+  if (!noteDurable) {
+    _notifyBackupDegraded('flush-failed', durableError);
+    return {
+      ok: false,
+      noteDurable: false,
+      backupOk: false,
+      error: durableError || 'Disk flush failed',
+      effectiveBackupFolder: folder,
+    };
+  }
+  try {
+    const backup = await runManualVerifiedBackup();
+    return {
+      ok: true,
+      noteDurable: true,
+      backupOk: true,
+      backupPath: backup.path,
+      effectiveBackupFolder: backup.folder,
+      path: backup.path,
+    };
+  } catch (err) {
+    const msg = err && err.message ? err.message : String(err);
+    _notifyBackupDegraded(err && err.code ? err.code : 'backup-failed', msg);
+    return {
+      ok: false,
+      noteDurable: true,
+      backupOk: false,
+      error: msg,
+      effectiveBackupFolder: folder,
+      message: 'Note is on disk but backup failed',
+      userMessage: buildSaveNowUserMessage({
+        noteDurable: true,
+        backupOk: false,
+        error: msg,
+        effectiveBackupFolder: folder,
+      }),
+    };
+  }
 });
 
 ipcMain.handle('backup-status', () => {
   const bs = _backupScheduler;
   if (!bs) return { state: 'not-initialised' };
-  return bs.getStatus();
+  const status = bs.getStatus();
+  const folder = getBackupFolder();
+  let latestVerify = null;
+  let quickCount = 0;
+  try {
+    const latestPath = path.join(folder, 'attendance-latest.db');
+    if (fs.existsSync(latestPath)) {
+      latestVerify = verifyEncryptedBackupFile(latestPath);
+    }
+    if (fs.existsSync(folder)) {
+      quickCount = fs.readdirSync(folder).filter((f) => f.startsWith('attendance-quick-') && f.endsWith('.db')).length;
+    }
+  } catch (_) {}
+  return {
+    ...status,
+    backupFolder: folder,
+    offsiteBackupFolder: getOffsiteBackupFolder(),
+    defaultBackupFolder: _defaultBackupFolder(),
+    lastSuccessAt: status.lastBackupAt || null,
+    lastFailure: status.lastError || _lastBackupDegradedReason || null,
+    lastDegradedReason: _lastBackupDegradedReason,
+    lastDegradedAt: _lastBackupDegradedAt || null,
+    latestFileVerified: latestVerify ? !!latestVerify.ok : null,
+    latestFileVerifyReason: latestVerify && !latestVerify.ok ? latestVerify.reason : null,
+    multiGeneration: true,
+    generationalQuick: true,
+    quickGenerationCount: quickCount,
+    includesDirtyRecords: true,
+    pathCorrection: _backupPathCorrectionNotice,
+    quickMinIntervalMs: status.quickMinIntervalMs || (2 * 60 * 1000),
+  };
+});
+
+ipcMain.handle('backup-open-folder', async (_, which) => {
+  const target = which === 'offsite' ? getOffsiteBackupFolder() : getBackupFolder();
+  if (!target) return { ok: false, error: 'No folder configured' };
+  try {
+    ensureBackupFolderExists();
+    if (!fs.existsSync(target)) {
+      return { ok: false, error: 'Folder does not exist: ' + target };
+    }
+    const err = await shell.openPath(target);
+    if (err) return { ok: false, error: err };
+    return { ok: true, path: target };
+  } catch (e) {
+    return { ok: false, error: e && e.message ? e.message : String(e) };
+  }
+});
+
+ipcMain.handle('backup-acknowledge-path-correction', () => {
+  _persistBackupPathCorrectionNotice(null);
+  return { ok: true };
+});
+
+ipcMain.handle('session-unlock', (_, password) => {
+  if (!_ipcChannelAllow('session-unlock', 5, 60 * 1000)) {
+    return { ok: false, code: 'rate_limited', error: 'Too many unlock attempts. Please wait a minute.' };
+  }
+  const result = verifySensitiveActionCredential(password, 'session-unlock');
+  if (result && result.ok) {
+    try {
+      ensureBackupPathsSane({ emit: true });
+    } catch (e) {
+      console.warn('[Backup] ensureBackupPathsSane after unlock failed:', e && e.message ? e.message : e);
+    }
+  }
+  return result;
+});
+
+ipcMain.handle('sync-integrity-check', () => {
+  if (!db) return { ok: false, error: 'Database not ready', autoDelete: false };
+  const rows = dbAll(
+    `SELECT id, sync_id, status, sync_dirty, deleted_at, updated_at, client_name, station_name, attendance_date
+     FROM attendances`
+  ) || [];
+  const index = buildEmergencyRecordIndex(rows);
+  const inventory = getLastVerifiedCloudInventory();
+  const pull = getLastPullStats();
+  const report = buildLocalCloudIntegrityReport({
+    localRows: index.map((r) => ({
+      syncId: r.syncId,
+      syncDirty: r.syncDirty,
+      status: r.status,
+      deletedAt: r.deletedAt,
+    })),
+    cloudInventoryCount: inventory,
+    cloudSyncIds: null,
+    pulledFromEpoch: !!(pull && pull.pulledFromEpoch),
+  });
+  try {
+    console.info('[INTEGRITY]', JSON.stringify({
+      localActive: report.localActive,
+      localDirty: report.localDirty,
+      cloudInventoryCount: report.cloudInventoryCount,
+      cloudEmptyProven: report.cloudEmptyProven,
+      discrepancyCount: (report.discrepancies || []).length,
+      autoDelete: false,
+    }));
+  } catch (_) {}
+  return { ok: true, ...report };
 });
 
 ipcMain.on('editor-activity', () => {
@@ -6096,6 +7969,31 @@ ipcMain.handle('cloud-backup-list', async () => {
   }
 });
 
+/**
+ * Refuse empty/corrupt candidate restore over a live DB with records (PITR gate).
+ * @returns {{ allowed: boolean, reason: string, error?: string }}
+ */
+function gateRestoreBackupOverLive(SQL, decryptedPlain) {
+  const { mayRestoreBackupOverLive, countActiveAttendancesInPlainDb } = require('./lib/backupIntegrityGate');
+  const candActive = countActiveAttendancesInPlainDb(SQL, decryptedPlain);
+  let liveActive = 0;
+  try {
+    const c = dbGet('SELECT COUNT(*) as c FROM attendances WHERE deleted_at IS NULL');
+    liveActive = c ? Number(c.c) || 0 : 0;
+  } catch (_) {}
+  const gate = mayRestoreBackupOverLive(
+    { readable: true, magicOk: true, verified: true, activeCount: candActive },
+    { activeCount: liveActive }
+  );
+  if (gate.allowed) return gate;
+  return {
+    ...gate,
+    error: gate.reason === 'refuse_empty_over_live'
+      ? 'Refusing to restore an empty backup over a database that has records.'
+      : 'Backup restore refused: ' + gate.reason,
+  };
+}
+
 ipcMain.handle('cloud-backup-restore', async (_, { backupKey }) => {
   const data = readLicenceData();
   if (!data || (!data.key && !data.authToken)) return { ok: false, error: 'No licence key' };
@@ -6128,6 +8026,12 @@ ipcMain.handle('cloud-backup-restore', async (_, { backupKey }) => {
     if (!decrypted) return { ok: false, error: 'Could not decrypt the backup. Check your recovery password.' };
 
     const SQL = await initSqlJs();
+    const gate = gateRestoreBackupOverLive(SQL, decrypted);
+    if (!gate.allowed) {
+      return { ok: false, error: gate.error, gateReason: gate.reason };
+    }
+    // Stop any in-flight sync against the old DB before swapping.
+    try { if (_syncWorker) _syncWorker.stop(); } catch (_) {}
     const newDb = new SQL.Database(decrypted);
     db = newDb;
     // Ensure sync columns exist in restored DB and mark all records for re-sync
@@ -6139,16 +8043,21 @@ ipcMain.handle('cloud-backup-restore', async (_, { backupKey }) => {
     db.run(`CREATE TABLE IF NOT EXISTS sync_queue (id TEXT PRIMARY KEY, record_id TEXT, operation TEXT, payload TEXT, created_at INTEGER, retry_count INTEGER, last_attempt INTEGER, status TEXT, error TEXT)`);
     db.run(`CREATE TABLE IF NOT EXISTS sync_conflicts (id INTEGER PRIMARY KEY AUTOINCREMENT, attendance_id INTEGER, sync_id TEXT, reason TEXT, local_version INTEGER DEFAULT 0, remote_version INTEGER DEFAULT 0, local_updated_at TEXT, remote_updated_at TEXT, remote_status TEXT, local_snapshot TEXT, remote_snapshot TEXT, created_at TEXT DEFAULT (datetime('now')), resolved_at TEXT DEFAULT NULL, resolution_note TEXT DEFAULT '')`);
     backfillSyncIds();
-    dbRun("UPDATE attendances SET sync_dirty=1");
-    rebuildSyncQueueForDirtyRecords();
+    dbRun('UPDATE attendances SET sync_dirty=1, sync_version=COALESCE(sync_version,1)+1 WHERE deleted_at IS NULL');
+    const queued = rebuildSyncQueueForDirtyRecords();
+    const markedRow = dbGet('SELECT COUNT(*) as c FROM attendances WHERE sync_dirty=1 AND deleted_at IS NULL');
+    const marked = markedRow ? (markedRow.c || 0) : 0;
     resetSyncPullCursor();
     saveDb();
+    resetSyncWorkerAfterDbSwap('cloud-restore');
+    try { ensureBackupFolderExists(); } catch (_) {}
+    try { ensureBackupPathsSane({ emit: true }); } catch (_) {}
     /* Suppress scheduler for 60s so the restored DB is not immediately overwritten,
        then trigger one quick backup of the restored state as the new baseline. */
     if (_backupScheduler) _backupScheduler.suppressNext(60000);
     setTimeout(() => { _runQuickBackupAsync().catch(() => {}); }, 3000);
-    console.log('[Restore] Database restored from cloud backup:', backupKey);
-    return { ok: true };
+    console.log('[Restore] Database restored from cloud backup:', backupKey, 'marked=' + marked + ' queued=' + queued);
+    return { ok: true, marked, queued };
   } catch (e) {
     console.error('[Restore] Cloud restore failed:', e && e.message ? e.message : e);
     return { ok: false, error: e && e.message ? e.message : 'Restore failed' };
@@ -6209,6 +8118,11 @@ ipcMain.handle('local-backup-restore', async (_, { filePath }) => {
     const decrypted = await decryptBufferWithRecovery(rawBuf);
     if (!decrypted) return { ok: false, error: 'Could not decrypt the backup. Check your recovery password.' };
     const SQL = await initSqlJs();
+    const gate = gateRestoreBackupOverLive(SQL, decrypted);
+    if (!gate.allowed) {
+      return { ok: false, error: gate.error, gateReason: gate.reason };
+    }
+    try { if (_syncWorker) _syncWorker.stop(); } catch (_) {}
     const newDb = new SQL.Database(decrypted);
     db = newDb;
     _safeAddColumn('attendances', "sync_id TEXT DEFAULT NULL");
@@ -6219,16 +8133,24 @@ ipcMain.handle('local-backup-restore', async (_, { filePath }) => {
     db.run(`CREATE TABLE IF NOT EXISTS sync_queue (id TEXT PRIMARY KEY, record_id TEXT, operation TEXT, payload TEXT, created_at INTEGER, retry_count INTEGER, last_attempt INTEGER, status TEXT, error TEXT)`);
     db.run(`CREATE TABLE IF NOT EXISTS sync_conflicts (id INTEGER PRIMARY KEY AUTOINCREMENT, attendance_id INTEGER, sync_id TEXT, reason TEXT, local_version INTEGER DEFAULT 0, remote_version INTEGER DEFAULT 0, local_updated_at TEXT, remote_updated_at TEXT, remote_status TEXT, local_snapshot TEXT, remote_snapshot TEXT, created_at TEXT DEFAULT (datetime('now')), resolved_at TEXT DEFAULT NULL, resolution_note TEXT DEFAULT '')`);
     backfillSyncIds();
-    dbRun("UPDATE attendances SET sync_dirty=1");
-    rebuildSyncQueueForDirtyRecords();
+    dbRun('UPDATE attendances SET sync_dirty=1, sync_version=COALESCE(sync_version,1)+1 WHERE deleted_at IS NULL');
+    const queued = rebuildSyncQueueForDirtyRecords();
+    const markedRow = dbGet('SELECT COUNT(*) as c FROM attendances WHERE sync_dirty=1 AND deleted_at IS NULL');
+    const marked = markedRow ? (markedRow.c || 0) : 0;
     resetSyncPullCursor();
     saveDb();
+    resetSyncWorkerAfterDbSwap('local-restore');
+    try { ensureBackupFolderExists(); } catch (_) {}
+    try { ensureBackupPathsSane({ emit: true }); } catch (_) {}
     /* Suppress scheduler for 60s so the restored DB is not immediately overwritten,
        then trigger one quick backup of the restored state as the new baseline. */
     if (_backupScheduler) _backupScheduler.suppressNext(60000);
     setTimeout(() => { _runQuickBackupAsync().catch(() => {}); }, 3000);
-    console.log('[Restore] Database restored from local backup:', resolved);
-    return { ok: true };
+    console.log('[Restore] Database restored from local backup:', resolved, 'marked=' + marked + ' queued=' + queued);
+    if (marked !== queued) {
+      console.warn('[Restore] Mark/queue mismatch after local restore: marked=' + marked + ' queued=' + queued);
+    }
+    return { ok: true, marked, queued, totalRecords: marked };
   } catch (e) {
     console.error('[Restore] Local restore failed:', e && e.message ? e.message : e);
     return { ok: false, error: e && e.message ? e.message : 'Restore failed' };
@@ -6252,10 +8174,122 @@ ipcMain.handle('sync-now', async () => {
 
 ipcMain.handle('sync-full-resync', async () => {
   try {
-    await runFullSyncFromCloud();
-    return { ok: true };
+    const result = await runFullSyncFromCloud();
+    return {
+      ok: true,
+      received: result && result.received != null ? result.received : 0,
+      merged: result && result.pulled != null ? result.pulled : 0,
+      decryptFailed: result && result.decryptFailed != null ? result.decryptFailed : 0,
+      noMasterKeySkipped: result && result.noMasterKeySkipped != null ? result.noMasterKeySkipped : 0,
+      conflicts: result && result.conflicts != null ? result.conflicts : 0,
+    };
   } catch (e) {
-    return { ok: false, error: e && e.message ? e.message : 'Full re-sync failed' };
+    const msg = e && e.message ? e.message : 'Full re-sync failed';
+    const rateLimited = /too many requests|rate limit/i.test(msg) || (e && e.statusCode === 429);
+    return { ok: false, error: msg, rateLimited };
+  }
+});
+
+ipcMain.handle('sync-export-record-index', async () => {
+  try {
+    if (!db) return { ok: false, error: 'Database not ready', records: [] };
+    const rows = dbAll(
+      `SELECT id, sync_id, client_name, station_name, dscc_ref, attendance_date, status,
+              updated_at, deleted_at, sync_dirty, sync_version
+         FROM attendances
+        ORDER BY updated_at DESC`
+    ) || [];
+    const records = buildEmergencyRecordIndex(rows);
+    return {
+      ok: true,
+      exportedAt: new Date().toISOString(),
+      schemaVersion: getDbSchemaVersion(),
+      totalRecords: records.filter((r) => !r.deletedAt).length,
+      recordCountIncludingDeleted: records.length,
+      records,
+      note: 'Metadata only — note body / data JSON intentionally omitted for safe incident export.',
+    };
+  } catch (e) {
+    return { ok: false, error: e && e.message ? e.message : 'Export failed', records: [] };
+  }
+});
+
+ipcMain.handle('sync-reupload-all', async () => {
+  try {
+    const mark = markAllLocalRecordsForCloudReupload();
+    if (!mark.ok) return mark;
+    const drain = await drainPendingSyncUploads({ maxCycles: 40 });
+    const w = getSyncWorker();
+    if (drain.stoppedReason === 'rate_limited') {
+      markAllLocalRecordsForCloudReupload();
+      return {
+        ok: false,
+        code: 'RATE_LIMITED',
+        error: 'Re-upload paused after Too many requests. Local records kept dirty — retry in a few minutes.',
+        marked: mark.marked,
+        queued: mark.queued,
+        drain,
+        lastError: drain.lastError || null,
+      };
+    }
+    // Prove the cloud actually has records after a supposed successful push.
+    // Mac CDP (2026-09): dirty drained to 0 / lastSuccessfulPushAt set while
+    // pull received=0 — Windows Full re-sync then stays empty.
+    resetSyncPullCursor();
+    saveDb();
+    let verify = { received: 0, pulled: 0 };
+    try {
+      verify = await syncPull({ correlationId: generateCorrelationId() }) || verify;
+    } catch (pullErr) {
+      // Re-queue so a transient pull error does not look like a finished upload.
+      markAllLocalRecordsForCloudReupload();
+      return {
+        ok: false,
+        code: 'VERIFY_PULL_FAILED',
+        error: pullErr && pullErr.message ? pullErr.message : 'Verify pull failed after re-upload',
+        marked: mark.marked,
+        queued: mark.queued,
+        drain,
+      };
+    }
+    if ((verify.received || 0) === 0 && mark.marked > 0) {
+      markAllLocalRecordsForCloudReupload();
+      const diag = w ? w.getDiagnostics() : {};
+      return {
+        ok: false,
+        code: 'CLOUD_EMPTY_AFTER_PUSH',
+        error: 'Cloud still has no records after re-upload. Local records were kept dirty for retry. Check licence key and try again shortly if rate-limited.',
+        marked: mark.marked,
+        queued: mark.queued,
+        drain,
+        verifyReceived: 0,
+        lastError: diag.lastError || null,
+      };
+    }
+    const dirtyLeft = dbGet('SELECT COUNT(*) as c FROM attendances WHERE sync_dirty=1');
+    if (dirtyLeft && dirtyLeft.c > 0) {
+      return {
+        ok: false,
+        code: 'UPLOAD_INCOMPLETE',
+        error: 'Re-upload finished verify but ' + dirtyLeft.c + ' local records are still dirty. Retry Re-upload all.',
+        marked: mark.marked,
+        queued: mark.queued,
+        drain,
+        verifyReceived: verify.received || 0,
+        dirtyRemaining: dirtyLeft.c,
+      };
+    }
+    return {
+      ok: true,
+      marked: mark.marked,
+      queued: mark.queued,
+      drain,
+      verifyReceived: verify.received || 0,
+      verifyMerged: verify.pulled || 0,
+      lastError: w ? (w.getDiagnostics().lastError || null) : null,
+    };
+  } catch (e) {
+    return { ok: false, error: e && e.message ? e.message : 'Re-upload failed' };
   }
 });
 
@@ -6288,7 +8322,8 @@ ipcMain.handle('sync-status', () => {
   const pending = pendingCount + failedCount + blockedCount;
   const dirtyPushCount = dirtyCount ? dirtyCount.c : 0;
   const lastPull = getLastPullStats();
-  return {
+  const healState = getEmptyCloudHealState();
+  const statusBase = {
     enabled: !!apiUrl,
     inProgress: diag.inProgress || false,
     lastSync: lastSync !== '1970-01-01T00:00:00.000Z' ? lastSync : diag.lastSyncAt || null,
@@ -6302,7 +8337,14 @@ ipcMain.handle('sync-status', () => {
     lastAttempts,
     connectivity: diag.connectivity,
     lastError: diag.lastError,
+    lastSuccessfulPushAt: diag.lastSuccessfulPushAt || null,
+    _diag: diag,
+    _healState: healState,
   };
+  const recovery = buildSyncRecoveryHints(statusBase);
+  delete statusBase._diag;
+  delete statusBase._healState;
+  return Object.assign(statusBase, recovery);
 });
 
 ipcMain.handle('sync-schedule-on-reconnect', () => {
@@ -6375,6 +8417,8 @@ ipcMain.handle('sync-get-diagnostics', () => {
     const k = String(data.key);
     licenceKeyMasked = k.length > 8 ? k.slice(0, 4) + '-****-****-' + k.slice(-4) : '****';
   }
+  const persistedCycle = getPersistedSyncCycle();
+  const healState = getEmptyCloudHealState();
   return {
     ...diag,
     apiUrl: apiUrl || null,
@@ -6387,6 +8431,11 @@ ipcMain.handle('sync-get-diagnostics', () => {
     dataSource: 'sqlite-backend-sync',
     canonicalKeyAction: _lastCanonicalKeyAction,
     canonicalKeyCheckedAt: _lastCanonicalKeyAt,
+    lastSyncCycleAt: diag.lastSyncCycleAt || persistedCycle.lastSyncCycleAt || null,
+    lastSyncSkipReason: diag.lastSyncSkipReason || persistedCycle.lastSyncSkipReason || null,
+    lastSyncSkipDetail: diag.lastSyncSkipDetail || persistedCycle.lastSyncSkipDetail || null,
+    lastVerifiedCloudInventory: getLastVerifiedCloudInventory(),
+    emptyCloudHeal: healState,
   };
 });
 
@@ -6504,24 +8553,59 @@ function verifySensitiveActionCredential(password, purpose) {
 
 ipcMain.handle('session-lock-status', () => getSecurityCredentialStatus());
 
+/* Quit from credential-free blanker (and similar controlled exits).
+   Sets _forceClose so the close-guard does not re-prompt, then app.quit()
+   (bounded before-quit flush). Safety net: app.exit(0) if quit stalls. */
+ipcMain.handle('app-quit', () => {
+  _appIsQuitting = true;
+  try {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow._forceClose = true;
+    }
+  } catch (_) {}
+  setImmediate(() => {
+    try { app.quit(); } catch (_) {}
+  });
+  setTimeout(() => {
+    try {
+      if (_quitFlushState !== 'done') {
+        console.error('[app-quit] quit still pending — forcing app.exit(0)');
+        _quitFlushState = 'done';
+        app.exit(0);
+      }
+    } catch (_) {
+      try { process.exit(0); } catch (_) {}
+    }
+  }, FLUSH_BOUND_DEFAULT_MS + 1500);
+  return { ok: true };
+});
+
 // Lock the renderer immediately when the OS reports lock-screen, suspend,
 // shutdown, or screen lock events. Treats those as "user has stepped away,
-// the session is no longer trusted". Persist the DB first so a power-loss
-// after "Saved" cannot drop the last debounce window (~30s).
+// the session is no longer trusted". Persist the DB with a bound so a wedged
+// disk write cannot delay the blanker or later Cmd+Q.
 function _broadcastForceLock(reason) {
+  /* Playwright / isolated-userdata runs: OS lock-screen events on CI runners
+     (esp. Windows) must not raise the credential-free blanker — it blocks
+     Open Outlook and other UI clicks and flakes e2e. Production unchanged. */
+  if (process.env.CUSTODYNOTE_TEST_USERDATA) return;
   try {
-    try { if (typeof flushDbSync === 'function') flushDbSync(); } catch (flushErr) {
-      console.error('[security] flushDbSync on force-lock failed:', flushErr && flushErr.message ? flushErr.message : flushErr);
-    }
-    const wins = BrowserWindow.getAllWindows ? BrowserWindow.getAllWindows() : [];
-    for (const w of wins) {
-      if (w && !w.isDestroyed() && w.webContents) {
-        try { w.webContents.send('session-force-lock', { reason: reason || 'os-event' }); }
-        catch (_) {}
+    const sendLock = () => {
+      const wins = BrowserWindow.getAllWindows ? BrowserWindow.getAllWindows() : [];
+      for (const w of wins) {
+        if (w && !w.isDestroyed() && w.webContents) {
+          try { w.webContents.send('session-force-lock', { reason: reason || 'os-event' }); }
+          catch (_) {}
+        }
       }
-    }
-    try { _securityLog && _securityLog.record && _securityLog.record('power_lock_triggered', { reason: reason || 'os-event' }); }
-    catch (_) {}
+      try { _securityLog && _securityLog.record && _securityLog.record('power_lock_triggered', { reason: reason || 'os-event' }); }
+      catch (_) {}
+    };
+    /* Obscure UI immediately; flush in parallel with a timeout. */
+    sendLock();
+    flushDbAsyncBounded(FLUSH_BOUND_DEFAULT_MS, 'force-lock').catch((flushErr) => {
+      console.error('[security] flushDbAsyncBounded on force-lock failed:', flushErr && flushErr.message ? flushErr.message : flushErr);
+    });
   } catch (_) {}
 }
 try {
@@ -6552,13 +8636,6 @@ function _ipcChannelAllow(channel, max, windowMs) {
   bucket.push(now);
   return true;
 }
-
-ipcMain.handle('session-unlock', (_, password) => {
-  if (!_ipcChannelAllow('session-unlock', 5, 60 * 1000)) {
-    return { ok: false, code: 'rate_limited', error: 'Too many unlock attempts. Please wait a minute.' };
-  }
-  return verifySensitiveActionCredential(password, 'session-unlock');
-});
 
 ipcMain.handle('recover-key-from-cloud', async () => {
   const result = await ensureCanonicalSyncKeyNow();
@@ -7415,6 +9492,7 @@ const laaFormsSync = require('./lib/laaFormsSync');
 const laaFormsManifest = require('./lib/laaFormsManifest');
 const quickfileClient = require('./lib/quickfileClient');
 const quickfileSettingsSync = require('./lib/quickfileSettingsSync');
+const quickfileInvoiceNumber = require('./lib/quickfileInvoiceNumber');
 
 const QUICKFILE_CREDENTIAL_KEYS = new Set(['quickfileAccountNumber', 'quickfileApiKey', 'quickfileAppId']);
 
@@ -8414,17 +10492,11 @@ function sanitizeQuickFileInvoiceNumber(raw) {
   return s;
 }
 
-function getNextSequentialInvoiceNumber() {
-  const row = dbAll("SELECT value FROM settings WHERE key = 'nextInvoiceNumber'");
-  let next = row.length ? parseInt(row[0].value, 10) : NaN;
-  if (!Number.isFinite(next) || next < 1) next = 6066;
-  const formatted = String(next).padStart(6, '0');
-  db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('nextInvoiceNumber', ?)", [String(next + 1)]);
-  saveDb();
-  return formatted;
-}
-
-/** Next invoice number that would be issued (does not advance the counter). */
+/**
+ * Next CN→QuickFile invoice number that would be issued (peek-only).
+ * Does NOT advance the counter — advancement happens only via
+ * bumpNextInvoiceNumberPast after a confirmed occupied number or successful issue.
+ */
 function peekNextSequentialInvoiceNumber() {
   const row = dbAll("SELECT value FROM settings WHERE key = 'nextInvoiceNumber'");
   let next = row.length ? parseInt(row[0].value, 10) : NaN;
@@ -8432,43 +10504,51 @@ function peekNextSequentialInvoiceNumber() {
   return String(next).padStart(6, '0');
 }
 
-/** Largest numeric segment from an invoice reference (handles "006069", "INV-6069", etc.). */
-function parseInvoiceNumberNumericPart(raw) {
-  const digits = String(raw || '').replace(/\D/g, '');
-  if (!digits) return NaN;
-  const n = parseInt(digits, 10);
-  return Number.isFinite(n) ? n : NaN;
-}
+const parseInvoiceNumberNumericPart = quickfileInvoiceNumber.parseInvoiceNumberNumericPart;
+const quickFileExtractInvoiceSearchRecords = quickfileInvoiceNumber.quickFileExtractInvoiceSearchRecords;
+const isQuickFileInvoiceNumberDuplicateError = quickfileInvoiceNumber.isQuickFileInvoiceNumberDuplicateError;
 
-function quickFileExtractInvoiceSearchRecords(body) {
-  if (!body || typeof body !== 'object') return [];
-  const list =
-    body.Record ||
-    body.Records ||
-    body.InvoiceDetails ||
-    body.Invoices ||
-    body.InvoiceList ||
-    [];
-  const arr = Array.isArray(list) ? list : [list];
-  return arr.filter(Boolean);
+/**
+ * Ensure nextInvoiceNumber is strictly above a known occupied/issued number
+ * (ledger sync max, duplicate conflict on the attempted number, or successful create).
+ * Never jumps past numbers we have not observed as occupied.
+ */
+function bumpNextInvoiceNumberPast(rawOccupied) {
+  const n = parseInvoiceNumberNumericPart(rawOccupied);
+  if (!Number.isFinite(n) || n < 1) return;
+  const requiredNext = n + 1;
+  const row = dbAll("SELECT value FROM settings WHERE key = 'nextInvoiceNumber'");
+  let storedNext = row.length ? parseInt(row[0].value, 10) : NaN;
+  if (!Number.isFinite(storedNext) || storedNext < 1) storedNext = 6066;
+  if (storedNext < requiredNext) {
+    db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('nextInvoiceNumber', ?)", [String(requiredNext)]);
+    saveDb();
+    console.warn('[QuickFile] Bumped nextInvoiceNumber to ' + requiredNext + ' (past occupied #' + n + ')');
+  }
 }
 
 async function quickFileGetMaxInvoiceNumberNumeric() {
+  /* Include deleted invoices: QuickFile still reserves their numbers (community-confirmed). */
   const body = await quickFileRequest('/1_2/invoice/search', {
     SearchParameters: {
-      ReturnCount: 1,
+      ReturnCount: 50,
       Offset: 0,
       OrderResultsBy: 'InvoiceNumber',
       OrderDirection: 'DESC',
       InvoiceType: 'INVOICE',
+      ShowDeleted: true,
     },
   });
   const records = quickFileExtractInvoiceSearchRecords(body);
   if (!records.length) return null;
-  const inv = records[0];
-  const invNum = inv.InvoiceNumber || inv.Invoice_No || inv.InvoiceNo || inv.InvoiceNum || '';
-  const n = parseInvoiceNumberNumericPart(invNum);
-  return Number.isFinite(n) ? n : null;
+  let max = null;
+  for (let i = 0; i < records.length; i++) {
+    const inv = records[i];
+    const invNum = inv.InvoiceNumber || inv.Invoice_No || inv.InvoiceNo || inv.InvoiceNum || '';
+    const n = parseInvoiceNumberNumericPart(invNum);
+    if (Number.isFinite(n) && (max === null || n > max)) max = n;
+  }
+  return max;
 }
 
 /** Align local nextInvoiceNumber so the next issued number is above QuickFile's highest (handles invoices created outside the app). */
@@ -8476,28 +10556,58 @@ async function syncNextInvoiceNumberFromQuickFileLedger() {
   try {
     const max = await quickFileGetMaxInvoiceNumberNumeric();
     if (max === null || !Number.isFinite(max)) return;
-    const row = dbAll("SELECT value FROM settings WHERE key = 'nextInvoiceNumber'");
-    let storedNext = row.length ? parseInt(row[0].value, 10) : NaN;
-    if (!Number.isFinite(storedNext) || storedNext < 1) storedNext = 6066;
-    const requiredNext = max + 1;
-    if (storedNext < requiredNext) {
-      db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('nextInvoiceNumber', ?)", [String(requiredNext)]);
-      saveDb();
-      console.warn('[QuickFile] Bumped nextInvoiceNumber to ' + requiredNext + ' (QuickFile max invoice # was ' + max + ')');
-    }
+    bumpNextInvoiceNumberPast(String(max));
   } catch (e) {
     console.warn('[QuickFile] syncNextInvoiceNumberFromQuickFileLedger:', e && e.message ? e.message : e);
   }
 }
 
-function isQuickFileInvoiceNumberDuplicateError(err) {
-  const msg = String((err && err.message) || err || '').toLowerCase();
-  if (!msg) return false;
-  if (msg.includes('already exists')) return true;
-  if (/invoice\s*#?\s*[\d\w-]+\s*already/.test(msg)) return true;
-  if (msg.includes('duplicate') && msg.includes('invoice')) return true;
-  if (msg.includes('invoice number') && (msg.includes('taken') || msg.includes('use'))) return true;
-  return false;
+async function quickFileFindInvoiceByNumber(invoiceNumber) {
+  const num = String(invoiceNumber || '').trim();
+  if (!num) return null;
+  const body = await quickFileRequest('/1_2/invoice/search', {
+    SearchParameters: {
+      ReturnCount: 5,
+      Offset: 0,
+      OrderResultsBy: 'InvoiceNumber',
+      OrderDirection: 'DESC',
+      InvoiceType: 'INVOICE',
+      InvoiceNumber: num,
+      ShowDeleted: false,
+      AdditionalParameters: { ShowPurchaseRef: true },
+    },
+  });
+  const records = quickFileExtractInvoiceSearchRecords(body);
+  const want = num.toLowerCase();
+  const exact = records.find((r) => {
+    const n = String(r.InvoiceNumber || r.Invoice_No || r.InvoiceNo || '').trim().toLowerCase();
+    return n === want;
+  });
+  return exact || records[0] || null;
+}
+
+async function quickFileFindInvoiceByAttendanceRef(attendanceId) {
+  const ref = quickfileInvoiceNumber.attendancePurchaseReference(attendanceId);
+  if (!ref) return null;
+  const body = await quickFileRequest('/1_2/invoice/search', {
+    SearchParameters: {
+      ReturnCount: 5,
+      Offset: 0,
+      OrderResultsBy: 'IssueDate',
+      OrderDirection: 'DESC',
+      InvoiceType: 'INVOICE',
+      PurchaseReference: ref,
+      ShowDeleted: false,
+      AdditionalParameters: { ShowPurchaseRef: true },
+    },
+  });
+  const records = quickFileExtractInvoiceSearchRecords(body);
+  for (let i = 0; i < records.length; i++) {
+    if (quickfileInvoiceNumber.invoiceBelongsToAttendance(records[i], attendanceId)) {
+      return records[i];
+    }
+  }
+  return null;
 }
 
 ipcMain.handle('quickfile-suggest-next-invoice-number', async () => {
@@ -8638,6 +10748,9 @@ ipcMain.handle('quickfile-create-invoice', async (_, params) => {
     attachPdfFileName,
   } = params;
 
+  const normalizedMileageMiles = normalizeMileageForStorage(mileageMiles);
+  const milesForInvoice = normalizedMileageMiles != null ? normalizedMileageMiles : (parseFloat(mileageMiles) || 0);
+
   if (!firmName || typeof firmName !== 'string' || !firmName.trim()) {
     return { ok: false, error: 'Firm name is required to create an invoice' };
   }
@@ -8675,11 +10788,13 @@ ipcMain.handle('quickfile-create-invoice', async (_, params) => {
       ));
     }
 
-    const mileageCost = (mileageMiles || 0) * (mileageRate || 0.45);
+    const mileageCost = (milesForInvoice || 0) * (mileageRate || 0.45);
     if (mileageCost > 0) {
+      const milesVal = milesForInvoice || 0;
+      const rateVal = mileageRate || 0.45;
       lineItems.push(buildQuickFileItemLine(
         'Mileage',
-        (mileageMiles || 0) + ' miles @ Â£' + (mileageRate || 0.45).toFixed(2),
+        quickfileClient.formatQuickFileMileageDescription(milesVal, rateVal),
         mileageCost,
         1,
         vr
@@ -8702,47 +10817,80 @@ ipcMain.handle('quickfile-create-invoice', async (_, params) => {
 
     await syncNextInvoiceNumberFromQuickFileLedger();
 
-    const MAX_INVOICE_NUMBER_ATTEMPTS = 35;
-    let invoiceBody;
-    let lastCreateErr;
-    for (let attempt = 0; attempt < MAX_INVOICE_NUMBER_ATTEMPTS; attempt++) {
-      const invNum = getNextSequentialInvoiceNumber();
-      const singleInvoiceData = { IssueDate: invDate, InvoiceNumber: invNum };
+    const purchaseRef = quickfileInvoiceNumber.attendancePurchaseReference(attendanceId);
+    const notesWithMarker = quickfileInvoiceNumber.appendAttendanceNotesMarker(
+      (narrative || '').slice(0, 4000),
+      attendanceId
+    );
 
-      const invoicePayload = {
-        InvoiceData: {
-          InvoiceType: 'INVOICE',
-          ClientID: clientIdNum,
-          Currency: 'GBP',
-          TermDays: 30,
-          Language: 'en',
-          Notes: (narrative || '').slice(0, 4000),
-          InvoiceLines: {
-            ItemLines: {
-              ItemLine: lineItems,
+    /* Peek-only allocate + bumpPast on conflict/success → strict N, N+1, N+2.
+       Do not use a pre-advance allocator (that burned numbers on failed creates). */
+    const createResult = await quickfileInvoiceNumber.createInvoiceWithDuplicateRecovery({
+      attendanceId,
+      /* Confirmed second invoice: skip same-attendance QuickFile reuse. */
+      allowDuplicate: !!params.allowDuplicate,
+      maxAttempts: quickfileInvoiceNumber.MAX_INVOICE_NUMBER_ATTEMPTS,
+      allocateNextNumber: peekNextSequentialInvoiceNumber,
+      bumpPastNumber: bumpNextInvoiceNumberPast,
+      findByAttendanceRef: attendanceId
+        ? () => quickFileFindInvoiceByAttendanceRef(attendanceId)
+        : undefined,
+      findByInvoiceNumber: (invNum) => quickFileFindInvoiceByNumber(invNum),
+      onConflictWarn: (e, invNum) => {
+        console.warn(
+          '[QuickFile] Invoice number conflict on ' + invNum + ', trying next:',
+          e && e.message ? e.message : e
+        );
+      },
+      createWithNumber: async (invNum) => {
+        const singleInvoiceData = {
+          IssueDate: invDate,
+          InvoiceNumber: invNum,
+        };
+        if (purchaseRef) singleInvoiceData.PurchaseReference = purchaseRef;
+
+        const invoicePayload = {
+          InvoiceData: {
+            InvoiceType: 'INVOICE',
+            ClientID: clientIdNum,
+            Currency: 'GBP',
+            TermDays: 30,
+            Language: 'en',
+            Notes: notesWithMarker,
+            InvoiceLines: {
+              ItemLines: {
+                ItemLine: lineItems,
+              },
+            },
+            Scheduling: {
+              SingleInvoiceData: singleInvoiceData,
             },
           },
-          Scheduling: {
-            SingleInvoiceData: singleInvoiceData,
-          },
-        },
-      };
-      validateQuickFileInvoicePayload(invoicePayload);
-      try {
-        invoiceBody = await quickFileRequest('/1_2/invoice/create', invoicePayload);
-        break;
-      } catch (e) {
-        lastCreateErr = e;
-        if (!isQuickFileInvoiceNumberDuplicateError(e) || attempt === MAX_INVOICE_NUMBER_ATTEMPTS - 1) {
-          throw e;
-        }
-        console.warn('[QuickFile] Invoice number conflict, trying next:', e && e.message ? e.message : e);
-      }
-    }
-    if (!invoiceBody) throw lastCreateErr || new Error('QuickFile invoice/create failed');
+        };
+        validateQuickFileInvoicePayload(invoicePayload);
+        return quickFileRequest('/1_2/invoice/create', invoicePayload);
+      },
+    });
 
-    const invoiceId = invoiceBody.InvoiceID || invoiceBody.InvoiceId || invoiceBody.RecordID || '';
-    const invoiceNumber = invoiceBody.InvoiceNumber || '';
+    const invoiceBody = createResult.invoiceBody || {};
+    const invoiceId = createResult.invoiceId
+      || String(invoiceBody.InvoiceID || invoiceBody.InvoiceId || invoiceBody.RecordID || '');
+    const invoiceNumber = createResult.invoiceNumber
+      || String(invoiceBody.InvoiceNumber || '');
+
+    if (!invoiceId) {
+      throw new Error(
+        'QuickFile invoice/create returned no InvoiceID'
+        + (invoiceNumber ? ' (number ' + invoiceNumber + ')' : '')
+      );
+    }
+
+    if (createResult.reused) {
+      console.warn(
+        '[QuickFile] Reusing existing invoice #' + invoiceNumber
+        + ' (id ' + invoiceId + ') for attendance ' + attendanceId
+      );
+    }
 
     const subtotal = (attendanceFee || 0) + mileageCost + (parkingAmount || 0);
     const vat = subtotal * vr;
@@ -8779,7 +10927,7 @@ ipcMain.handle('quickfile-create-invoice', async (_, params) => {
           userName || '',
           subtotal, vat, total,
           narrative || '',
-          mileageMiles || 0, mileageRate || 0.45,
+          milesForInvoice || 0, mileageRate || 0.45,
           parkingAmount || 0, attendanceFee || 0,
           vatRate || 0.20,
           attendanceId,
@@ -8787,7 +10935,7 @@ ipcMain.handle('quickfile-create-invoice', async (_, params) => {
       );
       db.run(
         `INSERT INTO billing_audit_log (attendance_id, action, details, user_name) VALUES (?, ?, ?, ?)`,
-        [attendanceId, 'invoice_created', JSON.stringify({ invoiceId, invoiceNumber, total }), userName || '']
+        [attendanceId, createResult.reused ? 'invoice_linked' : 'invoice_created', JSON.stringify({ invoiceId, invoiceNumber, total, reused: !!createResult.reused }), userName || '']
       );
       saveDb();
     }
@@ -8896,19 +11044,28 @@ ipcMain.handle('quickfile-create-invoice', async (_, params) => {
    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 ipcMain.handle('station-mileage-get', (_, stationId) => {
-  const row = dbGet('SELECT mileage_from_base, postcode FROM police_stations WHERE id = ?', [stationId]);
-  return row || { mileage_from_base: null, postcode: '' };
+  const row = dbGet('SELECT mileage_from_base, postcode, code FROM police_stations WHERE id = ?', [stationId]);
+  if (!row) return { mileage_from_base: null, postcode: '', code: '' };
+  return {
+    mileage_from_base: normalizeMileageForStorage(row.mileage_from_base),
+    postcode: row.postcode || '',
+    code: row.code || '',
+  };
 });
 
 ipcMain.handle('stations-mileage-list', () => {
-  return dbAll('SELECT id, name, code, scheme, region, mileage_from_base, postcode FROM police_stations ORDER BY name');
+  return dbAll('SELECT id, name, code, scheme, region, mileage_from_base, postcode FROM police_stations ORDER BY name').map((r) => ({
+    ...r,
+    mileage_from_base: normalizeMileageForStorage(r.mileage_from_base),
+  }));
 });
 
 ipcMain.handle('station-mileage-save', (_, params) => {
   const { id, mileage_from_base, postcode, userName } = params;
+  const miles = normalizeMileageForStorage(mileage_from_base);
   db.run(
     'UPDATE police_stations SET mileage_from_base = ?, postcode = ? WHERE id = ?',
-    [mileage_from_base != null ? mileage_from_base : null, postcode || '', id]
+    [miles, postcode || '', id]
   );
   saveDb();
   return { ok: true };
@@ -8916,9 +11073,10 @@ ipcMain.handle('station-mileage-save', (_, params) => {
 
 ipcMain.handle('station-mileage-bulk-save', (_, stations) => {
   stations.forEach(s => {
+    const miles = normalizeMileageForStorage(s.mileage_from_base);
     db.run(
       'UPDATE police_stations SET mileage_from_base = ?, postcode = ? WHERE id = ?',
-      [s.mileage_from_base != null ? s.mileage_from_base : null, s.postcode || '', s.id]
+      [miles, s.postcode || '', s.id]
     );
   });
   saveDb();
@@ -9285,9 +11443,9 @@ ipcMain.handle('officer-email-drafts-compose-url', (_, payload) => {
     cc: '',
     subject: subT,
     body: bodyT,
-  }, { preferEmlForBody: false });
+  });
   /* Copy-link returns the OWA URL (with body when it fits). Long drafts that
-     would use .eml for Open still get a subject/to (+ body if short) link. */
+     would use .eml still get a subject/to link for sharing — body is in the draft. */
   if (typeof isSafeExternalUrl === 'function' && !isSafeExternalUrl(composed.url)) {
     return { ok: false, errors: ['Could not build a safe Outlook Web link.'] };
   }
@@ -9303,9 +11461,8 @@ ipcMain.handle('officer-email-drafts-compose-url', (_, payload) => {
 
 /**
  * Open Outlook with the current to/subject/body placed IN the compose window.
- * Non-empty body → X-Unsent .eml via shell.openPath (OWA body= is unreliable).
- * Empty body → Outlook Web subject/to only. Never opens with an empty body when
- * body text exists.
+ * Short messages → Outlook Web URL (body query param). Longer messages → .eml
+ * draft via shell.openPath. Never opens with an empty body when body text exists.
  */
 async function _openOfficerEmailInOutlook(toT, subT, bodyT, logTag) {
   const composed = outlookWebCompose.prepareOutlookComposeForOpen({
@@ -9426,7 +11583,7 @@ async function _openOfficerEmailInOutlook(toT, subT, bodyT, logTag) {
   };
 }
 
-ipcMain.handle('officer-email-drafts-open-outlook', async (_, draftId, liveFields) => {
+ipcMain.handle('officer-email-drafts-open-outlook', async (_, draftId) => {
   if (!draftId) return { ok: false, errors: ['draftId required'] };
   const row = dbGet('SELECT * FROM officer_email_drafts WHERE id = ?', [String(draftId)]);
   if (!row) return { ok: false, errors: ['Draft not found'] };
@@ -9435,23 +11592,13 @@ ipcMain.handle('officer-email-drafts-open-outlook', async (_, draftId, liveField
   if (!officerEmailDrafts.canTransitionStatus(row.status, 'opened_in_outlook') && row.status !== 'opened_in_outlook') {
     return { ok: false, errors: ['Invalid status transition'] };
   }
-  /* Prefer LIVE email-box fields when the renderer passes them (edited textarea),
-     so Open Outlook never uses a stale DB body after a racey save. */
-  const live = liveFields && typeof liveFields === 'object'
-    ? officerEmailDrafts.normaliseOfficerEmailDraft(liveFields)
-    : null;
-  const mergeRow = {
-    to_email: live && live.toEmail ? live.toEmail : row.to_email,
-    subject: live && live.subject != null && String(live.subject).trim() !== '' ? live.subject : row.subject,
-    body: live && live.body != null && String(live.body).trim() !== '' ? live.body : row.body,
-  };
-  const ov = officerEmailDrafts.validateOpenOutlookFields(mergeRow, {
+  const ov = officerEmailDrafts.validateOpenOutlookFields(row, {
     extraDomains: _officerEmailExtraDomainsFromSettings(),
   });
   if (!ov.ok) return { ok: false, errors: ov.errors };
-  const toT = officerEmailDrafts.trimMax(mergeRow.to_email, officerEmailDrafts.MAX_LENGTHS.toEmail);
-  const subT = officerEmailDrafts.trimMax(mergeRow.subject, officerEmailDrafts.MAX_LENGTHS.subject);
-  const bodyT = officerEmailDrafts.str(mergeRow.body);
+  const toT = officerEmailDrafts.trimMax(row.to_email, officerEmailDrafts.MAX_LENGTHS.toEmail);
+  const subT = officerEmailDrafts.trimMax(row.subject, officerEmailDrafts.MAX_LENGTHS.subject);
+  const bodyT = officerEmailDrafts.str(row.body);
   const launch = await _openOfficerEmailInOutlook(toT, subT, bodyT, 'officer-email-drafts-open-outlook');
   if (!launch.ok) return launch;
   const now = new Date().toISOString();

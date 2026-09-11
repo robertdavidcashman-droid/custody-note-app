@@ -1,0 +1,52 @@
+name: Verify website merge + Vercel
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - '.github/trigger-verify-website-merge'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Confirm website PR merged and inspect deployments
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          set -euo pipefail
+          REPO="robertcashman-bit/custody-note-website"
+          echo "== PR #3 (display) =="
+          gh pr view 3 --repo "$REPO" --json number,title,state,mergedAt,mergeCommit,url
+          echo
+          echo "== PR #2 (copy) =="
+          gh pr view 2 --repo "$REPO" --json number,title,state,mergedAt,mergeCommit,url
+          echo
+          echo "== master tip =="
+          gh api "repos/$REPO/commits/master" --jq '{sha:.sha,date:.commit.committer.date,message:.commit.message}'
+          echo
+          echo "== Check runs on master tip =="
+          SHA=$(gh api "repos/$REPO/commits/master" --jq .sha)
+          gh api "repos/$REPO/commits/$SHA/check-runs" --jq '.check_runs[:15]|map({name,status,conclusion,started_at,details_url})'
+          echo
+          echo "== Website Actions run for merge commit =="
+          gh run list --repo "$REPO" --branch master --limit 5 --json databaseId,name,status,conclusion,url,headSha,event,createdAt
+          RUN_ID=$(gh run list --repo "$REPO" --branch master --limit 1 --json databaseId -q '.[0].databaseId')
+          echo "RUN_ID=$RUN_ID"
+          echo
+          echo "== Deploy job log (vercel / production hints) =="
+          gh run view "$RUN_ID" --repo "$REPO" --log 2>&1 | grep -Ei 'vercel|production|deploy|https://|Ready|Aliased|custodynote|Error|fail|success' | head -120 || true
+          echo
+          echo "== Live custodynote.com markers =="
+          curl -fsSL -H 'Cache-Control: no-cache' "https://custodynote.com/?cb=$RANDOM" -o /tmp/live.html
+          node -e '
+            const html=require("fs").readFileSync("/tmp/live.html","utf8");
+            for (const s of ["Download free","View Features","Free note generator","Download for Windows","max-w-lg","Companies House","09900871"]) {
+              console.log(s+": "+html.includes(s));
+            }
+            console.log("bytes", html.length);
+          '

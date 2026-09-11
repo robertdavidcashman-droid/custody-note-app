@@ -54,7 +54,17 @@ function _wfRenderBillingStep(body, footer) {
     var hasExisting = !!(invoiceStatus.quickfile_invoice_id);
 
     if (stationMileage && stationMileage.mileage_from_base != null && !miles) {
-      miles = stationMileage.mileage_from_base;
+      var SM = window.StationMileage;
+      miles = SM && typeof SM.resolveMilesForAutofill === 'function'
+        ? SM.resolveMilesForAutofill({
+            standardMiles: stationMileage.mileage_from_base,
+            existingMiles: miles,
+            allowLiveOverride: false,
+          })
+        : stationMileage.mileage_from_base;
+      if (SM && typeof SM.normalizeMileageForStorage === 'function') {
+        miles = SM.normalizeMileageForStorage(miles);
+      }
     }
     if (hasExisting && invoiceStatus.invoice_attendance_fee != null) fee = invoiceStatus.invoice_attendance_fee;
     if (hasExisting && invoiceStatus.invoice_mileage_miles != null) miles = invoiceStatus.invoice_mileage_miles;
@@ -218,7 +228,13 @@ function _wfRenderBillingBody(body, footer, meta, opts) {
           '<p class="settings-hint" style="margin:0 0 0.75rem;">Default attendance fee is &pound;160 (what most firms are invoiced). The LAA fixed fee on the claim form is &pound;320 &mdash; that is separate and does not change this invoice.</p>' +
           '<div class="wf-charges-form">' +
             '<div class="wf-charge-row"><label for="wf-fee">Attendance fee for invoice (&pound;)</label><input type="number" id="wf-fee" class="form-input wf-calc" value="' + (opts.attendanceFee || BILLING_DEFAULTS.fixedFee).toFixed(2) + '" step="0.01"></div>' +
-            '<div class="wf-charge-row"><label for="wf-miles">Mileage Miles</label><input type="number" id="wf-miles" class="form-input wf-calc" value="' + (opts.mileageMiles || 0) + '" step="0.1"></div>' +
+            '<div class="wf-charge-row"><label for="wf-miles">Mileage Miles</label><input type="number" id="wf-miles" class="form-input wf-calc" value="' + (function () {
+              var SM = window.StationMileage;
+              if (SM && typeof SM.formatExactMiles === 'function' && opts.mileageMiles != null && opts.mileageMiles !== '') {
+                return SM.formatExactMiles(opts.mileageMiles) || '0';
+              }
+              return String(opts.mileageMiles || 0);
+            })() + '" step="any"></div>' +
             '<div class="wf-charge-row"><label for="wf-rate">Mileage Rate (&pound;/mile)</label><input type="number" id="wf-rate" class="form-input wf-calc" value="' + (opts.mileageRate || 0.45).toFixed(2) + '" step="0.01"></div>' +
             '<div class="wf-charge-row"><label for="wf-parking">Parking (&pound;)</label><input type="number" id="wf-parking" class="form-input wf-calc" value="' + (opts.parkingAmount || 0).toFixed(2) + '" step="0.01"></div>' +
             '<div class="wf-charge-row"><label for="wf-vat">VAT %</label><input type="number" id="wf-vat" class="form-input wf-calc" value="' + (function(){ var vr = (opts.vatRate || 0.20); if (vr > 1) vr = vr / 100; return (vr * 100).toFixed(0); })() + '" step="1"></div>' +

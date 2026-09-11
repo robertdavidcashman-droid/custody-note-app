@@ -47,13 +47,19 @@ function _renderMileageTable() {
     '</tr></thead><tbody>';
 
   filtered.forEach(function (s) {
-    var mileVal = s.mileage_from_base != null ? s.mileage_from_base : '';
+    var SM = window.StationMileage;
+    var mileVal = '';
+    if (s.mileage_from_base != null) {
+      mileVal = SM && typeof SM.formatExactMiles === 'function'
+        ? SM.formatExactMiles(s.mileage_from_base)
+        : String(s.mileage_from_base);
+    }
     html += '<tr>' +
       '<td>' + _mileageEsc(s.name) + '</td>' +
       '<td>' + _mileageEsc(s.code) + '</td>' +
       '<td>' + _mileageEsc(s.scheme) + '</td>' +
       '<td>' + _mileageEsc(s.region) + '</td>' +
-      '<td><input type="number" class="form-input mileage-input" data-sid="' + s.id + '" data-field="mileage" value="' + mileVal + '" step="0.1" placeholder="miles" style="width:100px;"></td>' +
+      '<td><input type="number" class="form-input mileage-input" data-sid="' + s.id + '" data-field="mileage" value="' + mileVal + '" step="any" placeholder="miles" style="width:100px;"></td>' +
       '<td><input type="text" class="form-input mileage-input" data-sid="' + s.id + '" data-field="postcode" value="' + _mileageEsc(s.postcode || '') + '" placeholder="e.g. CT1 1AA" style="width:120px;"></td>' +
       '</tr>';
   });
@@ -66,7 +72,14 @@ function _renderMileageTable() {
       var field = inp.getAttribute('data-field');
       if (!_mileageDirty[sid]) _mileageDirty[sid] = {};
       if (field === 'mileage') {
-        _mileageDirty[sid].mileage_from_base = inp.value !== '' ? parseFloat(inp.value) : null;
+        if (inp.value === '') {
+          _mileageDirty[sid].mileage_from_base = null;
+        } else {
+          var SM = window.StationMileage;
+          _mileageDirty[sid].mileage_from_base = SM && typeof SM.normalizeMileageForStorage === 'function'
+            ? SM.normalizeMileageForStorage(inp.value)
+            : parseFloat(inp.value);
+        }
       } else {
         _mileageDirty[sid].postcode = inp.value;
       }

@@ -23,6 +23,17 @@ describe('main.js duplicate invoice guard', () => {
     assert.ok(mainJs.includes('!params.allowDuplicate'), 'duplicate guard must remain');
     assert.ok(mainJs.includes('allowDuplicate'), 'allowDuplicate param must remain for confirmed duplicates');
   });
+
+  it('passes allowDuplicate into createInvoiceWithDuplicateRecovery so QuickFile reuse is skipped', () => {
+    const idx = mainJs.indexOf('createInvoiceWithDuplicateRecovery({');
+    assert.ok(idx !== -1, 'createInvoiceWithDuplicateRecovery call site missing');
+    const block = mainJs.substring(idx, idx + 600);
+    assert.ok(
+      block.includes('allowDuplicate: !!params.allowDuplicate')
+      || block.includes('allowDuplicate: params.allowDuplicate'),
+      'main must forward allowDuplicate into recovery so confirmed seconds are new invoices'
+    );
+  });
 });
 
 describe('billingUtils duplicate invoice helpers', () => {

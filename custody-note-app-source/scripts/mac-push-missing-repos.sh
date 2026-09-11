@@ -2,7 +2,7 @@
 # Run once on your MacBook to create missing GitHub repos and push local code.
 set -euo pipefail
 
-GH="robertdavidcashman-droid"
+GH="robertcashman-bit"
 REPUK_DIR="${REPUK_DIR:-$HOME/Policestationrepuk}"
 PSRTRAIN_DIR="${PSRTRAIN_DIR:-$HOME/pstrain-rebuild}"
 STATUS_FILE="${HOME}/.cursor-workspace-sync-last-run.json"

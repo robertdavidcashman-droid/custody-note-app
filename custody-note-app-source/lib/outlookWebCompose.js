@@ -4,14 +4,14 @@
  * Outlook compose helpers for officer emails and related flows.
  *
  * Launch strategy (body must appear IN Outlook — clipboard paste is not OK):
- *   1. Open Outlook (default): always use an X-Unsent .eml draft when the body
- *      is non-empty. OWA `body=` is unreliable (often opens compose with an empty
- *      body even when the query param is present), so Open must not depend on it.
- *   2. Copy / share link (`preferEmlForBody: false`): OWA URL with body= when the
- *      URL fits; otherwise subject/to only (body stays in the draft / .eml).
+ *   1. Build an Outlook Web compose URL that includes to, subject, AND body
+ *      when the full URL fits within a safe length.
+ *   2. If the URL would be too long (typical for longer officer emails),
+ *      return an .eml draft payload instead — Outlook desktop opens it with
+ *      the full body via X-Unsent: 1 (HTML + quoted-printable; see outlookComposeEml).
  *
- * .eml uses HTML + quoted-printable (see outlookComposeEml) so New Outlook and
- * Apple Mail keep an editable body.
+ * Confidential bodies are preferred off the URL when possible (.eml path).
+ * Short messages that fit use the OWA body= query param (encodeURIComponent once).
  */
 
 const { buildOutlookComposeEmlContent } = require('./outlookComposeEml');
@@ -101,9 +101,7 @@ const buildOutlookComposeClipboardText = buildFullComposePlainTextForClipboard;
  * Prepare an Outlook launch that places the current body INTO Outlook.
  *
  * @param {{ to?: string, cc?: string, subject?: string, body?: string }} fields
- * @param {{ maxUrlLength?: number, preferEmlForBody?: boolean } | number} [optionsOrMax]
- *   preferEmlForBody defaults to true (Open Outlook). Pass false for copy-link /
- *   share URL so short bodies can still appear in an OWA body= query string.
+ * @param {{ maxUrlLength?: number } | number} [optionsOrMax]
  * @returns {{
  *   method: 'outlook-web' | 'outlook-desktop-eml',
  *   url: string,
@@ -130,8 +128,6 @@ function prepareOutlookComposeForOpen(fields, optionsOrMax) {
   const maxLen = typeof opts.maxUrlLength === 'number' && opts.maxUrlLength > 0
     ? opts.maxUrlLength
     : OUTLOOK_WEB_COMPOSE_URL_MAX_SAFE_LENGTH;
-  /* Default true: Open Outlook must not rely on OWA body= (often empty compose). */
-  const preferEmlForBody = opts.preferEmlForBody !== false;
 
   const toS = String(f.to != null ? f.to : '').trim();
   const ccS = String(f.cc != null ? f.cc : '');
@@ -150,37 +146,9 @@ function prepareOutlookComposeForOpen(fields, optionsOrMax) {
     { to: toS, cc: ccS, subject: subS, body: rawBody },
     { includeBody: true }
   );
-  const subjectOnlyUrl = buildOutlookWebComposeUrl(
-    { to: toS, cc: ccS, subject: subS, body: '' },
-    { includeBody: false }
-  );
 
-  /* Open path: any non-empty body → .eml so compose is never empty. */
-  if (hasBody && preferEmlForBody) {
-    const emlContent = buildOutlookComposeEmlContent({
-      to: toS,
-      cc: ccS,
-      subject: subS,
-      body: rawBody,
-    });
-    return {
-      method: 'outlook-desktop-eml',
-      url: subjectOnlyUrl,
-      emlContent,
-      truncated: false,
-      bodyPlacedInCompose: true,
-      fullPlainTextForClipboard,
-      bodyPlainTextForClipboard,
-      bodyUsedInUrl: '',
-      urlLength: subjectOnlyUrl.length,
-      to: toS,
-      subject: subS,
-      body: rawBody,
-    };
-  }
-
-  /* Copy-link / empty body: OWA URL (with body when it fits and preferEml is off). */
   if (!hasBody || urlWithBody.length <= maxLen) {
+    /* Empty body: still open subject/to only. Non-empty body that fits: put it in the URL. */
     return {
       method: 'outlook-web',
       url: urlWithBody,
@@ -197,13 +165,17 @@ function prepareOutlookComposeForOpen(fields, optionsOrMax) {
     };
   }
 
-  /* Copy-link with body too long for a reliable OWA URL — still produce .eml. */
+  /* Body too long for a reliable OWA URL — open Outlook desktop via .eml. */
   const emlContent = buildOutlookComposeEmlContent({
     to: toS,
     cc: ccS,
     subject: subS,
     body: rawBody,
   });
+  const subjectOnlyUrl = buildOutlookWebComposeUrl(
+    { to: toS, cc: ccS, subject: subS, body: '' },
+    { includeBody: false }
+  );
 
   return {
     method: 'outlook-desktop-eml',

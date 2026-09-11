@@ -1,0 +1,50 @@
+name: Workspace sync check
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check all workspace repos exist on GitHub
+        env:
+          # Default GITHUB_TOKEN cannot see private sibling repos; GH_PAT can.
+          GH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, subprocess, sys
+
+          manifest = json.load(open("workspaces.manifest.json"))
+          rows = []
+          fail = 0
+          for repo in manifest["repos"]:
+              slug = repo["github"]
+              name = repo["name"]
+              try:
+                  out = subprocess.check_output(
+                      ["gh", "api", f"repos/{slug}", "--jq", ".pushed_at"],
+                      text=True,
+                  ).strip()
+                  rows.append((name, slug, "OK", out or "unknown"))
+              except subprocess.CalledProcessError:
+                  rows.append((name, slug, "MISSING", "-"))
+                  fail += 1
+
+          print("| Workspace | GitHub | Status | Last push |")
+          print("|-----------|--------|--------|-----------|")
+          for name, slug, status, pushed in rows:
+              print(f"| {name} | {slug} | {status} | {pushed} |")
+
+          if fail:
+              print(f"\n{fail} repo(s) missing on GitHub")
+              sys.exit(1)
+          print("\nAll workspace repos present on GitHub")
+          PY

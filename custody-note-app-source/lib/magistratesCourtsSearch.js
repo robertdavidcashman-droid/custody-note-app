@@ -33,6 +33,20 @@ function normalizeCourtList(list) {
   });
 }
 
+/** Generic tokens present in almost every court title — never let these steal short queries. */
+var COURT_WORD_STOPLIST = {
+  magistrates: true,
+  "magistrates'": true,
+  court: true,
+  courts: true,
+  family: true,
+  county: true,
+  and: true,
+  the: true,
+  of: true,
+  'in': true,
+};
+
 function normalizeCourtSearchQuery(query) {
   return String(query || '')
     .replace(/\s+/g, ' ')
@@ -40,14 +54,55 @@ function normalizeCourtSearchQuery(query) {
     .trim();
 }
 
+function stripWordPunctuation(word) {
+  return String(word || '')
+    .toLowerCase()
+    .replace(/^[^a-z0-9]+|[^a-z0-9']+$/gi, '')
+    .replace(/'/g, "'");
+}
+
+function isCourtStopWord(word) {
+  var w = stripWordPunctuation(word);
+  if (!w) return true;
+  if (COURT_WORD_STOPLIST[w]) return true;
+  // "Magistrates'" / "Magistrates" with any trailing punctuation
+  if (w.indexOf('magistrate') === 0) return true;
+  return false;
+}
+
 function rankCourtMatch(name, query) {
   const n = String(name || '').toLowerCase();
   const q = normalizeCourtSearchQuery(query).toLowerCase();
   if (!q) return 0;
-  if (n.startsWith(q)) return 3;
+  // Strongest: whole name starts with the town/query
+  if (n.startsWith(q)) return 4;
+
   const words = n.split(/\s+/);
-  if (words.some(function(w) { return w.startsWith(q); })) return 2;
-  if (n.includes(q)) return 1;
+  var meaningfulWordPrefix = words.some(function(w) {
+    if (isCourtStopWord(w)) return false;
+    return w.toLowerCase().startsWith(q);
+  });
+  if (meaningfulWordPrefix) return 3;
+
+  // Short queries (1–3 chars): do NOT fall through to stop-word prefixes or
+  // substring includes — "ma" lives inside almost every "Magistrates'" token.
+  if (q.length < 4) return 0;
+
+  // Longer queries: allow stop-word prefixes (e.g. "court") and substring includes
+  if (words.some(function(w) { return w.toLowerCase().startsWith(q); })) return 2;
+
+  // Substring include, but ignore hits that only land inside a stop word
+  var idx = n.indexOf(q);
+  while (idx !== -1) {
+    var before = n.slice(0, idx);
+    var afterStart = idx;
+    var wordStart = before.lastIndexOf(' ') + 1;
+    var wordEnd = n.indexOf(' ', afterStart);
+    if (wordEnd === -1) wordEnd = n.length;
+    var hitWord = n.slice(wordStart, wordEnd);
+    if (!isCourtStopWord(hitWord)) return 1;
+    idx = n.indexOf(q, idx + 1);
+  }
   return 0;
 }
 
@@ -77,6 +132,8 @@ var MagistratesCourtsSearch = {
   normalizeCourtSearchQuery: normalizeCourtSearchQuery,
   rankCourtMatch: rankCourtMatch,
   searchMagistratesCourts: searchMagistratesCourts,
+  isCourtStopWord: isCourtStopWord,
+  COURT_WORD_STOPLIST: COURT_WORD_STOPLIST,
 };
 
 if (typeof module !== 'undefined' && module.exports) {

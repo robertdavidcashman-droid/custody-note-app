@@ -1,15 +1,255 @@
 {
   "releases": [
     {
-      "version": "1.9.71",
-      "date": "2026-08-23",
+      "version": "1.9.93",
+      "date": "2026-09-11",
       "latest": true,
       "changes": [
-        "Open Outlook places the current email-box body into compose via an Outlook draft (.eml) — no more empty compose / clipboard paste",
-        "Officer Emails pass live textarea fields into Open Outlook so edited text is never lost to a stale draft save",
-        "Session lock blanker fail-closed when client/case data is visible; DB flush on OS lock; Backups folder auto-created so scheduled backups run",
-        "Mac Cmd+shortcuts work (Ctrl unchanged on Windows); OpenAI/QuickFile/DSCC secrets no longer sync across devices",
-        "Sole publisher / updater feed: robertdavidcashman-droid/custody-note-app"
+        "Sync 429: honour Retry-After (+ small jitter); gate skips cycles without hammering; outbox rows stay pending (no retry burn)",
+        "While rate-limited: coalesce scheduleSoon + slow poll; prefer draining pending outbox before pull when the window opens",
+        "Footer / Force Save: Safe locally — sync waiting (never implies data loss); works with old fixed IP limits and new licence-scoped website limits"
+      ]
+    },
+    {
+      "version": "1.9.92",
+      "date": "2026-09-10",
+      "latest": false,
+      "changes": [
+        "Data-safety verification GREEN: Force Save drain sized from outbox (no unsafe maxCycles:3), background continuation flag, never false Synced on partial drain",
+        "Force-quit / SIGKILL flush durability harness; monitor fail-closed gate wired into sync pull; server PITR client contracts (empty/failed ≠ wipe; restore scoring)",
+        "Expanded CI gate with seeded chaos, never-event invariant, 1000+ canaries, Mac/Windows account-level SoT proof, Force Save local-vs-central matrix, startup circuit breakers",
+        "Durability: flush timeout / write failure restores dirty flag; Force Save verifies on-disk CNDB magic before Safe locally",
+        "Push ack: reject padded/wrong written syncId arrays; only clear outbox rows whose syncIds were acknowledged",
+        "Docs: VERIFICATION-REPORT Overall GREEN citing website PR #13 (192/192 + 35/35 SoT/PITR) with NON-BLOCKING historical Costachi only"
+      ]
+    },
+    {
+      "version": "1.9.91",
+      "date": "2026-09-10",
+      "latest": false,
+      "changes": [
+        "Cloud sync: end silent death — every sync cycle (including auth_required / rate_limited / offline skips) now persists lastSyncCycleAt + skip reason and logs cycle attempts so Settings / diagnostics never go quiet for days",
+        "Empty-cloud auto-heal: when this device has local notes but a from-epoch probe proves the cloud is empty (or inventory was never verified after a false ack), automatically re-upload all local records with written ack + verify pull — no hidden button required; backoff-capped; never wipes local data",
+        "Footer / Data & Sync: surface Activate licence to sync, Healing empty cloud, rate-limit remaining time, last cycle time, and heal status — never claim Synced while auth is missing or empty-cloud heal is pending",
+        "Licence activation immediately restarts the sync worker; rate-limit sticky gate still expires and resumes automatically",
+        "Tests: silent skip heartbeat, empty-cloud auto-heal decisions, false-ack lock, preserve-local Full re-sync guards"
+      ]
+    },
+    {
+      "version": "1.9.90",
+      "date": "2026-09-10",
+      "latest": false,
+      "changes": [
+        "QuickFile: confirmed second invoices (allowDuplicate) no longer reuse the existing attendance-tagged invoice — allocate the next sequential number and create a genuine new QuickFile invoice",
+        "Normal (non-duplicate) path still reuses same-attendance invoices to avoid accidental doubles",
+        "Unit tests: allowDuplicate skips findByAttendanceRef reuse and does not attach on number conflict"
+      ]
+    },
+    {
+      "version": "1.9.89",
+      "date": "2026-09-10",
+      "latest": false,
+      "changes": [
+        "Footer status honesty: stop showing panic “Local only — check sync” when the outbox is clear and pulls succeed (including received=0 steady state) — sticky default lastPush.ok=false and leftover session errors no longer force an unhealthy chip",
+        "Backup footer: after a successful quick backup, do not keep “Backup queued” solely because hourlyDirty is still set for the next generational run — show Backed up; real queue / degraded / folder-missing states still surface",
+        "Managed AWS entitlement chip: rename Local only → Local backups (informational), so it no longer collides with sync health wording",
+        "Unit + data-safety tests for healthy vs failure footer chips (footerStatusChips)"
+      ]
+    },
+    {
+      "version": "1.9.88",
+      "date": "2026-09-10",
+      "latest": false,
+      "changes": [
+        "QuickFile invoices: enforce strict sequential numbering going forward — peek-only allocate, persist last issued on every success, conflict retries use smallest free (attempted+1) with no large jumps from error-text parsing",
+        "Same-attendance invoice reuse still does not burn a new number; failed non-duplicate creates no longer skip the peeked number",
+        "Unit tests: successive N/N+1/N+2, conflict→N+1 not N+10, reuse without consume, persist after success"
+      ]
+    },
+    {
+      "version": "1.9.87",
+      "date": "2026-09-10",
+      "latest": false,
+      "changes": [
+        "QuickFile billing: recover when invoice number is already used/exists/there — match more error variants, reuse the existing invoice when it belongs to this attendance, otherwise allocate the next free number with bounded retries",
+        "QuickFile: sync next invoice number including deleted invoices (QuickFile still reserves those numbers), tag creates with attendance PurchaseReference, persist invoice id/number even when the API omits InvoiceNumber in the response",
+        "Unit tests for duplicate-number retry, same-attendance attach, non-duplicate failure, and persistence"
+      ]
+    },
+    {
+      "version": "1.9.86",
+      "date": "2026-09-10",
+      "latest": false,
+      "changes": [
+        "Data-safety architecture: central account sync is Source of Truth; generational backups remain independent PITR (not the same thing)",
+        "Force Save / Save now: flush disk → verified backup → outbox → attempt central sync drain → status distinguishes Safe locally vs Safe locally + central copy confirmed vs Waiting/Syncing/Sync problem — never ambiguous Saved",
+        "Persistent outbox mutation_id (sync_id+version+op); never clear before confirmed written ack; ambiguous ack safe-retries",
+        "Tombstones: absence on another device is not deletion; soft-delete only with matching sync_id deleted_at; whole-dataset LWW prohibited",
+        "Fail-safe monitors: sudden count drop, remote disappear without tombstone, revision backwards, empty cloud with local, migration shrink, 429/auth/key",
+        "Local record_revisions (metadata + content hash) for overwrite/conflict recovery hints; backup integrity gate refuses empty restore over live data",
+        "CI: npm run test:data-safety gate in Test workflow; docs/data-safety incident + architecture + readiness (GREEN — website server SoT PITR / SERVER-PITR.md)",
+        "Builds on 1.9.85 durability / empty-cloud / backup-path work (PR #34 lineage)"
+      ]
+    },
+    {
+      "version": "1.9.85",
+      "date": "2026-09-09",
+      "latest": false,
+      "changes": [
+        "Local-first durability: every attendance save (including drafts) flushDbSyncs to disk before UI reports Saved to disk — closes the pre-1.9.85 crash window where autosave could claim saved while the 30s debounce had not written yet",
+        "Honest save UI: Saved to disk · pending sync (not Synced) until cloud push confirms written; structured save IPC { id, durable, pendingSync }",
+        "Empty-cloud / Full re-sync preserve guards: never wipe local-only without an explicit matching tombstone; integrity check reports local vs cloud discrepancies with autoDelete:false",
+        "Backups: quick snapshots every ~2 minutes as generational attendance-quick-*.db (plus attendance-latest.db), post-write CNDB verify, soft-delete flush; never silently skip — Home/Settings show degraded protection (fixes main.js 30-minute override that defeated module defaults)",
+        "Save now (Windows + Mac): form/header control + Ctrl+S flushes the note synchronously to attendances.db, then writes a verified local backup (and off-site copy if configured); success names the backup path; note-saved vs backup-failed are never conflated",
+        "attendanceSave API stays backward-compatible: preload returns numeric id (error objects unchanged); attendanceSaveDetailed exposes { id, durable, pendingSync }; main coerces object ids so sql.js never binds [object Object]",
+        "Autosave shows Unsaved changes until disk flush succeeds, then Saved to disk with last write time; dirty indicator clears only after durable write",
+        "Cross-platform backup paths (Windows + Mac): after Mac↔Windows restore, unusable backupFolder (e.g. /Users/… on Windows) auto-resets to userData/Backups on startup, unlock, Settings load, and restore; clears unusable offsite setting without deleting offsite files; durable notice until dismissed",
+        "Settings always shows effective local + off-site paths, Open folder, last success/failure; Home Backup degraded banner — cross-platform paths cannot silently disable local backups",
+        "Forensics: docs/forensics/MEDWAY_2026-09-07_ATTENDANCE_INVESTIGATION.md (storage map, suspect commits, live inventory how-to); unit tests in attendanceDurability + backupPathAndGenerational",
+        "Extends empty-cloud alarm work from 1.9.84 (PR #33 lineage)"
+      ]
+    },
+    {
+      "version": "1.9.84",
+      "date": "2026-09-08",
+      "latest": false,
+      "changes": [
+        "Sync honesty: persistent empty-cloud ERROR when local notes exist but a from-epoch/inventory pull proves cloud has 0 for this licence — never looks Synced/all-clear",
+        "Empty-cloud alarm no longer suppressed by dirty sync_queue (fixes gap after 1.9.82 push-ack honesty kept dirty set)",
+        "Persist lastVerifiedCloudInventory so incremental received:0 cannot clear a proven empty cloud or false-alarm a known non-empty cloud",
+        "Footer/Settings/Home: Cloud empty — re-upload message recommends Re-upload all (not Full re-sync while empty); rate-limit and unconfirmed push shown with pending dirty counts",
+        "Unit tests cover local>0+inventory0 alarm, inventory>0 clear, incremental received=0 non-empty regression, and Re-upload all copy"
+      ]
+    },
+    {
+      "version": "1.9.83",
+      "date": "2026-09-08",
+      "latest": false,
+      "changes": [
+        "Fix Mac→Windows data copy unlock: when encryption.key cannot be decrypted by local safeStorage, quarantine the unreadable key and prompt for the recovery password instead of inventing a new master key that bricks attendances.db",
+        "Opening an existing CNDB never mints a fresh random key on key-file decrypt failure; clear errors mention the recovery password when unlock is cancelled or fails",
+        "Preserve-first: unreadable encryption.key is renamed aside (not deleted); attendances.db is never wiped"
+      ]
+    },
+    {
+      "version": "1.9.82",
+      "date": "2026-09-08",
+      "latest": false,
+      "changes": [
+        "Cross-device sync: do not clear local dirty flags unless push returns a confirmed written count matching the batch (blocks ok:true with written:0 / omitted written — the Mac→Windows empty-cloud failure class)",
+        "Settings: Re-upload all local records to cloud — marks dirty, rebuilds sync queue, pushes, then verifies with a fresh pull; if cloud still empty, keeps records dirty and reports CLOUD_EMPTY_AFTER_PUSH",
+        "Local/cloud restore now bumps sync_version when re-dirtying, stops/resets the sync worker to avoid mid-drain markSynced races, and returns marked/queued counts",
+        "Push attempts are logged to sync_attempts (same audit trail as pulls) so lastAttempts is no longer pull-only",
+        "429 rate-limit gate: pause push and pull for ~5 minutes after Too many requests instead of burning the 120/hour budget on the 10s poll",
+        "Home/footer/Settings: honest sync phases and recovery hints for empty-large-DB, local-full/cloud-empty (from-epoch pull only), and rate-limited; ensure Backups folder on data change",
+        "Full re-sync now runs an authoritative from-epoch pull (not a silent worker no-op) and reports received/merged/decrypt counts; push/pull licence keys are normalised trim+uppercase to match cloud hashing",
+        "Re-upload all drains the full sync queue across cycles before verify-pull; restore returns marked/queued counts; false ok:true push without written can no longer clear dirty (Mac CDP empty-cloud class)",
+        "Data & Sync settings: local-vs-cloud health, schema version, sync phase, emergency record-index export (metadata only), and Open sync diagnostics",
+        "Read-only storage inventory script (scripts/inventory-sync-storage.mjs) for preserve-first incident response"
+      ]
+    },
+    {
+      "version": "1.9.81",
+      "date": "2026-09-07",
+      "latest": false,
+      "changes": [
+        "Station mileage (systemic): any stored standard mileage stays exact on apply, save, reload, and export — live/calculated road figures (e.g. 46→45.8/46.6) cannot silently replace a known standard",
+        "Tonbridge and Medway seeded standards remain exactly 46; catalogue refresh preserves every station's mileage_from_base and postcode",
+        "Miles inputs use step=any; visit/billing display and QuickFile invoice storage no longer force fractional drift on whole miles"
+      ]
+    },
+    {
+      "version": "1.9.80",
+      "date": "2026-08-31",
+      "latest": false,
+      "changes": [
+        "Daily anonymous usage ping (hashed machine id, platform, version, licence tier only) so admin stats can show unique machines in the last 7/30 days — no case data"
+      ]
+    },
+    {
+      "version": "1.9.79",
+      "date": "2026-08-31",
+      "latest": false,
+      "changes": [
+        "Faster cold start on Windows and Mac — useful UI (Home / lock / first-launch) typically within about a second on a normal laptop",
+        "Stopped wiping Chromium cache on every launch (was forcing a full cold disk cache)",
+        "No longer waits on QuickFile credential pull before showing the window",
+        "Home splash no longer waits for magistrates court list or LAA reference JSON; those load in the background",
+        "Heavy screens (billing, LAA forms, reports, AI, templates) load after first paint instead of blocking startup",
+        "Police station catalogue re-seed skipped when the bundled file is unchanged"
+      ]
+    },
+    {
+      "version": "1.9.78",
+      "date": "2026-08-31",
+      "latest": false,
+      "changes": [
+        "Magistrates court typeahead: suggestions appear from two letters and stay visible while typing (dropdown no longer clipped by form layout containment)",
+        "Town-name ranking improved — typing ma/wo/se shows Manchester/Woolwich/Sevenoaks etc., not a flood of Magistrates' matches",
+        "CRM14 Court name field now uses the same magistrates court typeahead; keyboard Arrow/Enter selection supported"
+      ]
+    },
+    {
+      "version": "1.9.77",
+      "date": "2026-08-31",
+      "latest": false,
+      "changes": [
+        "AI Law/Elements and Ask AI panels keep Copy / Insert / Clear / Close visible on large or scaled displays, and allow click-out / Escape to dismiss"
+      ]
+    },
+    {
+      "version": "1.9.75",
+      "date": "2026-08-30",
+      "latest": false,
+      "changes": [
+        "LAA police stations: added missing MA100 (Great Broughton, Whitehaven / Workington scheme 6007)",
+        "Station label cleanups: LN066 Tottenham Court Road; Llanelli scheme footnote stripped (WA005–WA008, WA902); BR904 Sedgemoor / Taunton Deane",
+        "PACE s.24 grounds for arrest aligned to statutory limbs (name/address split, highway obstruction, loss of or damage to property; search powers no longer a standalone ground)",
+        "PACE s.37 grounds for detention reduced to the two statutory options (secure/preserve evidence; obtain evidence by questioning)"
+      ]
+    },
+    {
+      "version": "1.9.74",
+      "date": "2026-08-28",
+      "latest": false,
+      "changes": [
+        "Switching to Bail without charge / Released on pre-charge bail now clears any leftover suggested LAA code (CN06/CN04/CN05/CN09 etc.), not only CN09",
+        "Finalise rejects charge / NFA / caution / RUI codes on first-grant bail matters (those have no investigation CN); Charged with Bail still CN06; RUI still CN09",
+        "Voluntary outcome-code dropdown labels now match auto-suggest exactly (CN07 Conditional Caution, CN08 Fixed Penalty Notice) and include CN01 for Handed back to DSCC"
+      ]
+    },
+    {
+      "version": "1.9.73",
+      "date": "2026-08-25",
+      "latest": false,
+      "changes": [
+        "LAA outcome codes: Bail without charge / pre-charge bail / Charged with Bail never auto-code or validate as CN09 (CN09 is RUI / released without bail only)",
+        "Charged* → CN06, Released NFA → CN04, RUI → CN09; wrong outcome-code pairs block finalise; CN12/CN13 added to telephone and voluntary dropdowns",
+        "QuickFile mileage line no longer shows a stray accented A before the pound (UTF-8 mojibake) — sends ASCII-safe \"Mileage (12.0 miles at 0.45 GBP/mile)\""
+      ]
+    },
+    {
+      "version": "1.9.72",
+      "date": "2026-08-25",
+      "latest": false,
+      "changes": [
+        "Credential-free session lock no longer dead-ends when no recovery/admin password is set and a case is open",
+        "Sensitive blanker offers Quit Custody Note (real app quit) and Unlock this session (with confirm), then prompts to set a recovery password",
+        "Empty screens still offer Dismiss; password lock is unchanged when a credential exists",
+        "Session blanker never blocks Cmd+Q / Quit menu / Alt+F4; Quit always reaches main-process app.quit with a forced exit safety net",
+        "Database flush on lock and quit is time-bounded so a stuck disk write cannot wedge the app"
+      ]
+    },
+    {
+      "version": "1.9.71",
+      "date": "2026-08-24",
+      "latest": false,
+      "changes": [
+        "Session lock blanker can no longer be dismissed when client or case content is on screen",
+        "Database flushes to disk on lid close / OS lock and when finalising a record, so the last note is not lost",
+        "Backups folder is created automatically if missing (scheduled backups no longer skip quietly)",
+        "Mac keyboard shortcuts use Cmd (Windows still uses Ctrl); Help labels match",
+        "Settings sync no longer uploads API keys, QuickFile credentials, DSCC PIN, or scratchpad text; Help and security docs state licence-key escrow honestly"
       ]
     },
     {
@@ -17,7 +257,9 @@
       "date": "2026-08-22",
       "latest": false,
       "changes": [
-        "Ported from bit: OWA body=/ .eml Outlook compose attempt (superseded by 1.9.71 .eml-first Open path)"
+        "Officer Emails: Open Outlook now places the current email-box text into Outlook as the message body (Outlook Web when the URL fits; Outlook desktop .eml draft when it does not)",
+        "Removes the clipboard-paste workaround so you no longer need to paste the body after Outlook opens",
+        "Uses the live edited or typed body at click time — not a stale generated template"
       ]
     },
     {

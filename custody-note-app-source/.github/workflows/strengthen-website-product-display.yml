@@ -1,0 +1,109 @@
+name: Strengthen website product display
+
+# Replaces empty marketing records screenshots and reduces CTA noise on
+# custodynote.com (private sibling repo robertcashman-bit/custody-note-website).
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - cursor/product-display-shots-1d4f
+    paths:
+      - scripts/strengthen-website-product-display.mjs
+      - scripts/capture-marketing-demo-screens.mjs
+      - website-product-shots/screenshots/**
+      - .github/workflows/strengthen-website-product-display.yml
+
+permissions:
+  contents: read
+
+jobs:
+  strengthen-website:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout app
+        uses: actions/checkout@v4
+
+      - name: Checkout website
+        uses: actions/checkout@v4
+        with:
+          repository: robertcashman-bit/custody-note-website
+          path: custody-note-website
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Apply product-display strengthen script
+        env:
+          WEBSITE_ROOT: ${{ github.workspace }}/custody-note-website
+        run: node scripts/strengthen-website-product-display.mjs
+
+      - name: Commit and push website branch
+        working-directory: custody-note-website
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          set -euo pipefail
+          git config user.name "Cursor Agent"
+          git config user.email "cursoragent@cursor.com"
+          BRANCH="cursor/product-display-shots-1d4f"
+          git checkout -B "$BRANCH"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No website file changes to commit"
+            exit 0
+          fi
+          git commit -m "$(cat <<'EOF'
+          fix(marketing): larger hero product shot + quieter first-screen CTAs
+
+          - Hero: enlarge/framed filled dashboard shot (hero-main-ui) with window chrome
+          - Hero CTAs: Download free + View Features only (drop generator + Win/Mac row)
+          - Floating download pill: delayed past ~1 viewport so it never sits on the hero
+          - Replace empty All Records shots with filled SAMPLE demonstration data
+          - Keep existing real UI screenshots elsewhere; no new photography/testimonials
+          EOF
+          )"
+          git push -u origin "$BRANCH" --force
+
+      - name: Open or update website PR
+        working-directory: custody-note-website
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          set -euo pipefail
+          BRANCH="cursor/product-display-shots-1d4f"
+          BODY="$(cat <<'EOF'
+          ## Summary
+          Product **display** pass for custodynote.com — visual weight + CTA quieting (not a text-only rewrite).
+
+          ### 1. Homepage hero product shot
+          - Keep existing filled \`hero-main-ui\` dashboard (not an empty state)
+          - Make it the visual equal of the headline: wider column, drop \`max-w-lg\`, window chrome + deeper shadow, soft glow
+          - \`ProductScreenshot\` gains a \`hero\` framing mode reused site-wide
+
+          ### 2. First-screen CTAs
+          - **Primary:** Download free
+          - **Secondary:** View Features
+          - Removed from hero: Free note generator, Download for Windows, Mac picker (platform choice stays on \`/download\`)
+          - Floating download pill: appears only after ~1 viewport scroll — never on the hero
+          - Promo banner messaging-only; redundant nav text “Download” removed
+
+          ### 3. Solicitor software page
+          - Replace empty “No attendances found” \`records-list\` with filled SAMPLE demonstration attendances
+          - Keep the page’s other real UI shots; slightly larger InlineScreenshot framing
+          - Do not rebuild the article
+
+          ### Constraints
+          - Free during beta / no credit card; paid Pro planned after beta
+          - No invented photography, testimonials, download counts, or security claims
+          - Dark professional look preserved
+
+          Companion assets/scripts: custody-note-app \`cursor/product-display-shots-1d4f\`.
+          EOF
+          )"
+          if gh pr view "$BRANCH" --json url >/dev/null 2>&1; then
+            echo "Website PR already exists for $BRANCH"
+            gh pr edit "$BRANCH" --title "fix(marketing): larger hero product shot + quieter first-screen CTAs" --body "$BODY"
+            gh pr view "$BRANCH" --json url,title -q '"\(.title) \(.url)"'
+            exit 0
+          fi
+          gh pr create --base master --head "$BRANCH" \
+            --title "fix(marketing): larger hero product shot + quieter first-screen CTAs" \
+            --body "$BODY"

@@ -6,26 +6,38 @@ const fs = require('fs');
 const path = require('path');
 
 const APP = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+const AC = fs.readFileSync(path.join(__dirname, '..', 'lib', 'courtAutocomplete.js'), 'utf8');
 const BILLING = fs.readFileSync(path.join(__dirname, '..', 'renderer', 'views', 'billing-screen.js'), 'utf8');
 
-describe('court typeahead source (app.js)', () => {
+describe('court typeahead source (app.js + courtAutocomplete.js)', () => {
   it('initCourtAutocomplete shows no-match hint only when list is loaded', () => {
-    assert.match(APP, /No courts match/);
-    assert.match(APP, /Loading magistrates courts/);
+    assert.match(AC, /No courts match/);
+    assert.match(AC, /Loading magistrates courts/);
   });
 
   it('retries via ensureMagistratesCourtsLoaded on focus and after typing during load', () => {
     assert.match(APP, /ensureMagistratesCourtsLoaded/);
-    assert.match(APP, /ensureMagistratesCourtsLoaded\(\)\.finally/);
+    assert.match(AC, /ensureLoaded\(\)\.finally/);
   });
 
   it('decodes court names when loading list', () => {
     assert.match(APP, /decodeCourtName/);
   });
 
-  it('positions court dropdown with fixed coordinates', () => {
-    assert.match(APP, /function positionCourtDropdown/);
-    assert.match(APP, /getBoundingClientRect/);
+  it('portals court dropdown to body with fixed coordinates', () => {
+    assert.match(AC, /function positionCourtDropdown/);
+    assert.match(AC, /getBoundingClientRect/);
+    assert.match(APP, /portalRoot:\s*document\.body/);
+  });
+
+  it('wires both courtName and crm14CourtName', () => {
+    assert.match(APP, /f\.key === 'courtName' \|\| f\.key === 'crm14CourtName'/);
+  });
+
+  it('supports keyboard ArrowDown/ArrowUp/Enter selection', () => {
+    assert.match(AC, /ArrowDown/);
+    assert.match(AC, /ArrowUp/);
+    assert.match(AC, /Enter/);
   });
 });
 

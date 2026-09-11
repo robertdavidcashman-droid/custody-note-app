@@ -313,6 +313,22 @@ async function mapWithConcurrency(items, concurrency, worker) {
   return results;
 }
 
+/**
+ * ASCII-safe QuickFile mileage ItemDescription.
+ * Avoids £ / en-dash / mojibake (Â£) that QuickFile can display wrongly.
+ * Example: "Mileage (12.0 miles at 0.45 GBP/mile)"
+ * @param {number|string} miles
+ * @param {number|string} rate
+ * @returns {string}
+ */
+function formatQuickFileMileageDescription(miles, rate) {
+  const m = Number(miles);
+  const r = Number(rate);
+  const milesNum = Number.isFinite(m) && m >= 0 ? m : 0;
+  const rateNum = Number.isFinite(r) ? r : 0.45;
+  return 'Mileage (' + milesNum.toFixed(1) + ' miles at ' + rateNum.toFixed(2) + ' GBP/mile)';
+}
+
 module.exports = {
   buildQuickFileAuth,
   parseQuickFileResponse,
@@ -323,4 +339,5 @@ module.exports = {
   normaliseQuickFileSearchClient,
   mergeQuickFileClientDetails,
   mapWithConcurrency,
+  formatQuickFileMileageDescription,
 };

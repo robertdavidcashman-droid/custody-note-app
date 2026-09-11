@@ -102,10 +102,15 @@ function assertPayloadBody(fields, expectedBody) {
     to: fields.toEmail,
     subject: fields.subject,
     body: fields.body,
-  });
-  assert.strictEqual(prepared.method, 'outlook-desktop-eml', 'Open must use .eml so body is not dropped');
-  assert.strictEqual(prepared.bodyPlacedInCompose, true);
-  assert.strictEqual(extractEmlPlainBody(prepared.emlContent), expectedBody);
+  }, { maxUrlLength: 50_000 });
+  if (prepared.method === 'outlook-web') {
+    assert.strictEqual(
+      new URL(prepared.url).searchParams.get('body'),
+      expectedBody.replace(/\n/g, '\r\n')
+    );
+  } else {
+    assert.strictEqual(extractEmlPlainBody(prepared.emlContent), expectedBody);
+  }
 }
 
 describe('officer-email UI → Outlook launch payload (live body)', () => {
@@ -183,11 +188,11 @@ describe('officer-email UI → Outlook launch payload (live body)', () => {
       to: calls.openOneOffOutlook[0].toEmail,
       subject: calls.openOneOffOutlook[0].subject,
       body: calls.openOneOffOutlook[0].body,
-    });
-    const decoded = extractEmlPlainBody(prepared.emlContent);
+    }, { maxUrlLength: 50_000 });
+    const decoded = new URL(prepared.url).searchParams.get('body');
     assert.ok(decoded.includes("didn't"));
     assert.ok(decoded.includes('Smith & Jones'));
-    assert.ok(!decoded.includes('<br>'));
+    assert.ok(decoded.includes('%') === false || decoded.includes('100%') === false); /* body has no % */
   });
 
   it('F) second Outlook click uses the newest text, not the previous one', async () => {

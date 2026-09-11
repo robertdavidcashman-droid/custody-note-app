@@ -38,7 +38,11 @@ type LaunchCapture = {
   bodyUsedInUrl: string;
   emlContent: string;
   bodyPlacedInCompose: boolean;
+  capturedAt?: string;
 };
+
+const CAPTURE_WAIT_MS = 60_000;
+const CAPTURE_POLL_MS = 200;
 
 test.beforeAll(async () => {
   testUserData = fs.mkdtempSync(path.join(os.tmpdir(), 'cn-officer-email-e2e-'));
@@ -88,47 +92,130 @@ test.afterAll(async ({}, testInfo) => {
   }
 });
 
+function capturePath(): string {
+  return path.join(testUserData, 'last-outlook-launch.json');
+}
+
 function readCapture(): LaunchCapture {
-  const p = path.join(testUserData, 'last-outlook-launch.json');
-  const raw = fs.readFileSync(p, 'utf8');
+  const raw = fs.readFileSync(capturePath(), 'utf8');
   return JSON.parse(raw) as LaunchCapture;
 }
 
-async function waitForCaptureAfter(prevMtimeMs: number): Promise<LaunchCapture> {
-  const p = path.join(testUserData, 'last-outlook-launch.json');
-  const deadline = Date.now() + 15000;
+function tryReadCapture(): LaunchCapture | null {
+  try {
+    return readCapture();
+  } catch {
+    return null;
+  }
+}
+
+function captureFingerprint(): string {
+  const cap = tryReadCapture();
+  if (!cap) return '';
+  /* Prefer capturedAt (stable across coarse FS mtime); fall back to body+url. */
+  if (cap.capturedAt) return `at:${cap.capturedAt}`;
+  return `body:${cap.body}\nurl:${cap.url}\nmethod:${cap.method}`;
+}
+
+/**
+ * Poll last-outlook-launch.json until a NEW capture appears after prevFingerprint.
+ * CI (Windows) can be slow to flush IPC + disk; 15s was too tight.
+ */
+async function waitForCaptureAfter(prevFingerprint: string): Promise<LaunchCapture> {
+  const p = capturePath();
+  const deadline = Date.now() + CAPTURE_WAIT_MS;
+  let lastErr = '';
   while (Date.now() < deadline) {
     try {
       const st = fs.statSync(p);
-      if (st.mtimeMs > prevMtimeMs) {
-        return readCapture();
+      if (st.size > 2) {
+        const cap = readCapture();
+        const fp = cap.capturedAt
+          ? `at:${cap.capturedAt}`
+          : `body:${cap.body}\nurl:${cap.url}\nmethod:${cap.method}`;
+        if (fp && fp !== prevFingerprint) {
+          return cap;
+        }
       }
-    } catch {
-      /* not yet */
+    } catch (err) {
+      lastErr = err instanceof Error ? err.message : String(err);
     }
-    await page.waitForTimeout(100);
+    await page.waitForTimeout(CAPTURE_POLL_MS);
   }
-  throw new Error('timed out waiting for last-outlook-launch.json');
+  const blanker = await page.locator('#cn-credentialfree-blanker').count().catch(() => -1);
+  const overlay = await page.locator('.cn-confirm-overlay').count().catch(() => -1);
+  const exists = fs.existsSync(p);
+  throw new Error(
+    `timed out waiting for last-outlook-launch.json` +
+      ` (waited ${CAPTURE_WAIT_MS}ms, exists=${exists}, blanker=${blanker}, confirmOverlay=${overlay}` +
+      (lastErr ? `, lastReadError=${lastErr}` : '') +
+      `)`
+  );
 }
 
-function captureMtime(): number {
-  const p = path.join(testUserData, 'last-outlook-launch.json');
-  try {
-    return fs.statSync(p).mtimeMs;
-  } catch {
-    return 0;
+/** Dismiss credential-free session blanker if a CI OS lock event raised it. */
+async function ensureBlankerNotBlocking(): Promise<void> {
+  const blanker = page.locator('#cn-credentialfree-blanker');
+  if (!(await blanker.isVisible({ timeout: 400 }).catch(() => false))) return;
+
+  const dismiss = page.locator('#cn-credentialfree-dismiss');
+  if (await dismiss.isVisible({ timeout: 500 }).catch(() => false)) {
+    await dismiss.click();
+    await blanker.waitFor({ state: 'hidden', timeout: 10000 });
+    return;
   }
+
+  const unlock = page.locator('#cn-credentialfree-unlock-session');
+  if (await unlock.isVisible({ timeout: 500 }).catch(() => false)) {
+    await unlock.click();
+    const confirmYes = page.locator('#cn-credentialfree-confirm-yes');
+    await confirmYes.waitFor({ state: 'visible', timeout: 5000 });
+    await confirmYes.click();
+    await blanker.waitFor({ state: 'hidden', timeout: 10000 });
+    return;
+  }
+
+  /* Last resort: remove overlay so the Open Outlook click can fire. */
+  await page.evaluate(() => {
+    const el = document.getElementById('cn-credentialfree-blanker');
+    if (el && el.parentNode) el.parentNode.removeChild(el);
+  });
 }
 
 async function openOfficerEmailsView(): Promise<void> {
+  await ensureBlankerNotBlocking();
   await page.locator('#home-card-officer-emails').click();
   await expect(page.locator('#view-officer-emails')).toHaveClass(/active/, { timeout: 15000 });
   await expect(page.locator('#oes-body')).toBeVisible({ timeout: 15000 });
 }
 
-async function clickOpenOutlook(): Promise<LaunchCapture> {
-  const before = captureMtime();
-  /* Auto-confirm the Open Outlook dialog if present. */
+async function confirmOpenOutlookOverlayOrDialog(): Promise<void> {
+  /*
+   * showChoice path (production): wait for the confirm overlay primary and click it.
+   * Prefer role+name so we do not hit Cancel (often listed first). Native dialog
+   * fallback is accepted via page.once('dialog') in clickOpenOutlook.
+   */
+  const overlay = page.locator('.cn-confirm-overlay');
+  try {
+    await overlay.waitFor({ state: 'visible', timeout: 15000 });
+  } catch {
+    /* Native dialog may already have been accepted, or go() already ran. */
+    return;
+  }
+  await ensureBlankerNotBlocking();
+  const choiceOpen = overlay.getByRole('button', { name: 'Open Outlook Web' });
+  await choiceOpen.waitFor({ state: 'visible', timeout: 10000 });
+  await choiceOpen.click();
+  await overlay.waitFor({ state: 'hidden', timeout: 15000 }).catch(() => undefined);
+}
+
+async function clickOpenOutlookOnce(): Promise<LaunchCapture> {
+  await ensureBlankerNotBlocking();
+  await expect(page.locator('#cn-credentialfree-blanker')).toHaveCount(0);
+
+  const before = captureFingerprint();
+
+  /* Auto-confirm native window.confirm fallback if showChoice is absent. */
   page.once('dialog', async (dialog) => {
     try {
       await dialog.accept();
@@ -136,20 +223,45 @@ async function clickOpenOutlook(): Promise<LaunchCapture> {
       /* ignore */
     }
   });
-  await page.locator('#oes-open').click();
-  /* showChoice path: click primary if custom modal appears */
-  const choiceOpen = page.locator('button:has-text("Open Outlook Web")').last();
-  try {
-    if (await choiceOpen.isVisible({ timeout: 1500 })) {
-      await choiceOpen.click();
-    }
-  } catch {
-    /* may already have proceeded via showChoice promise mock absence */
-  }
+
+  const openBtn = page.locator('#oes-open');
+  await expect(openBtn).toBeVisible({ timeout: 15000 });
+  await expect(openBtn).toBeEnabled();
+  await openBtn.click();
+  await confirmOpenOutlookOverlayOrDialog();
   return waitForCaptureAfter(before);
 }
 
+/** One retry: Windows CI occasionally drops the first confirm before capture lands. */
+async function clickOpenOutlook(): Promise<LaunchCapture> {
+  try {
+    return await clickOpenOutlookOnce();
+  } catch (firstErr) {
+    /* Dismiss a stuck Cancel/confirm overlay before retrying. */
+    const overlay = page.locator('.cn-confirm-overlay');
+    if (await overlay.count().catch(() => 0)) {
+      const cancel = overlay.getByRole('button', { name: /^Cancel$/ });
+      if (await cancel.count().catch(() => 0)) {
+        await cancel.click().catch(() => undefined);
+      } else {
+        await page.keyboard.press('Escape').catch(() => undefined);
+      }
+      await overlay.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => undefined);
+    }
+    try {
+      return await clickOpenOutlookOnce();
+    } catch (secondErr) {
+      const detail = firstErr instanceof Error ? firstErr.message : String(firstErr);
+      throw new Error(
+        `Open Outlook capture failed after retry. First: ${detail}. Second: ` +
+          (secondErr instanceof Error ? secondErr.message : String(secondErr))
+      );
+    }
+  }
+}
+
 test('A/B/C/D/E/F officer-email Open Outlook uses live box text in launch payload', async () => {
+  test.setTimeout(240_000);
   await openOfficerEmailsView();
 
   /* C) completely typed replacement */

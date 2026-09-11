@@ -1,0 +1,41 @@
+# Dump full logs for a known website Deploy and IndexNow run.
+name: Dump website deploy log
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+    paths:
+      - '.github/trigger-dump-website-deploy-log'
+
+permissions:
+  contents: read
+
+jobs:
+  dump:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dump run 32279607280 (5140b9c) full deploy log
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          set -euo pipefail
+          REPO=robertcashman-bit/custody-note-website
+          RUN_ID=32279607280
+          echo "== run summary =="
+          gh run view "$RUN_ID" --repo "$REPO" --json conclusion,status,headSha,url,jobs
+          echo "== FULL LOG =="
+          gh run view "$RUN_ID" --repo "$REPO" --log > /tmp/website-deploy-5140b9c.log
+          wc -c /tmp/website-deploy-5140b9c.log
+          echo "== filtered =="
+          grep -nEi 'Deploy attempt|Production|Aliased|Ready|Error|error|Failed|fail|https://|Inspect|rootDirectory|normalize|vercel deploy|Uploaded|Deployment|Building|Completing|Queued|Created|custody-note|prj_|team_' /tmp/website-deploy-5140b9c.log | head -250 || true
+          echo "== deploy job tail =="
+          grep '^deploy' /tmp/website-deploy-5140b9c.log | tail -120 || true
+
+      - name: Upload full log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: website-deploy-5140b9c-log
+          path: /tmp/website-deploy-5140b9c.log

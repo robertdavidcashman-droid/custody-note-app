@@ -67,7 +67,7 @@ describe('dbMigrations runner', () => {
     for (const t of [
       'settings', 'attendances', 'officer_email_drafts', 'police_stations',
       'firms', 'audit_log', 'sync_queue', 'sync_attempts', 'sync_conflicts',
-      'billing_audit_log', 'schema_version',
+      'billing_audit_log', 'schema_version', 'record_revisions',
     ]) {
       assert.ok(tableExists(db, t), 'expected table missing: ' + t);
     }
@@ -77,6 +77,8 @@ describe('dbMigrations runner', () => {
     for (const c of ['deleted_at', 'work_type', 'sync_id', 'sync_dirty', 'sync_version', 'invoice_total']) {
       assert.ok(attCols.includes(c), 'attendances missing column: ' + c);
     }
+    const qCols = colNames(db, 'sync_queue');
+    assert.ok(qCols.includes('mutation_id'), 'sync_queue missing mutation_id');
 
     db.close();
   });
@@ -196,7 +198,7 @@ describe('dbMigrations runner', () => {
     );
 
     const result = runMigrations(db);
-    assert.deepStrictEqual(result.applied, [2]);
+    assert.deepStrictEqual(result.applied, [2, 3, 4]);
     assert.strictEqual(
       Number(scalar(db, "SELECT mileage_from_base FROM police_stations WHERE code = 'BG039'")),
       46

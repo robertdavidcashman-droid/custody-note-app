@@ -5,10 +5,10 @@ function createBackupScheduler(options = {}) {
   const runBackup = typeof options.runBackup === 'function' ? options.runBackup : async () => ({ skipped: true });
   const onStatusChange = typeof options.onStatusChange === 'function' ? options.onStatusChange : () => {};
 
-  const QUICK_MIN_INTERVAL_MS = options.quickMinIntervalMs || 15 * 60 * 1000;
+  const QUICK_MIN_INTERVAL_MS = options.quickMinIntervalMs || 2 * 60 * 1000;
   const HOURLY_INTERVAL_MS = options.hourlyIntervalMs || 60 * 60 * 1000;
   const USER_IDLE_GRACE_MS = options.userIdleGraceMs || 45 * 1000;
-  const PERIODIC_CHECK_MS = options.periodicCheckMs || 3 * 60 * 1000;
+  const PERIODIC_CHECK_MS = options.periodicCheckMs || 60 * 1000;
 
   let timer = null;
   let running = false;
@@ -25,6 +25,8 @@ function createBackupScheduler(options = {}) {
   let lastError = null;
   let lastRequestedAt = null;
   let lastSkipReason = null;
+  let lastVerified = null;
+  let lastVerifiedAt = null;
   let deferredReason = null;
   let currentState = 'idle';
   let nextRunAt = 0;
@@ -46,6 +48,8 @@ function createBackupScheduler(options = {}) {
       lastError,
       lastRequestedAt,
       lastSkipReason,
+      lastVerified,
+      lastVerifiedAt,
       nextRunAt: nextRunAt || null,
       deferredReason,
       userIdleGraceMs: USER_IDLE_GRACE_MS,
@@ -151,6 +155,13 @@ function createBackupScheduler(options = {}) {
         lastBackupReason = reason;
         lastError = null;
         lastSkipReason = null;
+        if (result && result.verified) {
+          lastVerified = true;
+          lastVerifiedAt = result.verifiedAt || lastBackupAt;
+        } else if (result && result.verified === false) {
+          lastVerified = false;
+          lastVerifiedAt = result.verifiedAt || lastBackupAt;
+        }
         if (kind === 'hourly') {
           hourlyDirty = false;
           quickDirty = false;
@@ -224,6 +235,10 @@ function createBackupScheduler(options = {}) {
       lastBackupReason = reason;
       lastError = null;
       lastSkipReason = null;
+      if (metrics && metrics.verified) {
+        lastVerified = true;
+        lastVerifiedAt = metrics.verifiedAt || ts;
+      }
       if (kind === 'hourly' || clearsAll) {
         hourlyDirty = false;
         quickDirty = false;

@@ -27,17 +27,21 @@ describe('security hardening regressions', () => {
     assert.ok(src.includes('capturePage'), 'capturePage call must remain auditable');
   });
 
-  it('outlookWebCompose omits body from URL by default', () => {
+  it('outlookWebCompose requires includeBody opt-in on the raw URL builder', () => {
     const src = read('lib/outlookWebCompose.js');
     assert.ok(src.includes('includeBody'), 'opt-in includeBody flag required');
     assert.match(
       src,
       /includeBody\s*===\s*true/,
-      'body in URL must be opt-in only'
+      'body in URL must be opt-in on buildOutlookWebComposeUrl'
     );
     assert.ok(
-      src.includes('preferEmlForBody') && src.includes('outlook-desktop-eml'),
-      'Open path must prefer .eml so confidential bodies are not URL-primary'
+      src.includes('prepareOutlookComposeForOpen'),
+      'prepareOutlookComposeForOpen must place body in OWA or .eml'
+    );
+    assert.ok(
+      src.includes("method: 'outlook-desktop-eml'") || src.includes('outlook-desktop-eml'),
+      'long bodies must fall back to .eml so body is never silently dropped'
     );
   });
 

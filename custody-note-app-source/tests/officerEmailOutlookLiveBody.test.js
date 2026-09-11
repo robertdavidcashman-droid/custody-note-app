@@ -2,8 +2,7 @@
 
 /**
  * Regression: Open Outlook must use the LIVE email-box text (edited or typed),
- * not a stale generated template string. Open uses .eml so the body is not
- * dropped by Outlook Web ignoring body=.
+ * not a stale generated template string.
  */
 const { describe, it } = require('node:test');
 const assert = require('node:assert');
@@ -14,8 +13,6 @@ const { extractEmlPlainBody } = require('../lib/outlookComposeEml');
 
 const PANEL = fs.readFileSync(path.join(__dirname, '..', 'renderer/views/officerEmailsPanel.js'), 'utf8');
 const STANDALONE = fs.readFileSync(path.join(__dirname, '..', 'renderer/views/officerEmailsStandalone.js'), 'utf8');
-const MAIN = fs.readFileSync(path.join(__dirname, '..', 'main.js'), 'utf8');
-const PRELOAD = fs.readFileSync(path.join(__dirname, '..', 'preload.js'), 'utf8');
 
 describe('officer email Open Outlook — live field source of truth', () => {
   it('panel collectFields reads els.body.value (live textarea)', () => {
@@ -28,16 +25,6 @@ describe('officer email Open Outlook — live field source of truth', () => {
     assert.ok(PANEL.includes('saveDraft({ silent: true })'));
   });
 
-  it('panel openOutlookDraft passes collectFields() as liveFields (not draft-id alone)', () => {
-    assert.ok(
-      PANEL.includes('openOutlookDraft(selectedDraftId, collectFields())'),
-      'Open must pass live box fields so main does not rely on a stale DB body'
-    );
-    assert.ok(PRELOAD.includes("officer-email-drafts-open-outlook', id, liveFields"));
-    assert.ok(MAIN.includes('liveFields'));
-    assert.ok(MAIN.includes('Prefer LIVE email-box fields'));
-  });
-
   it('standalone openOneOffOutlook passes collectFields() (live values)', () => {
     assert.ok(STANDALONE.includes('var f = collectFields()'));
     assert.ok(STANDALONE.includes('window.api.officerEmails.openOneOffOutlook(f)'));
@@ -48,23 +35,24 @@ describe('officer email Open Outlook — live field source of truth', () => {
     assert.ok(!STANDALONE.includes('Message body copied to clipboard — paste'));
   });
 
-  it('edited generated text reaches .eml compose payload', () => {
+  it('edited generated text reaches compose payload', () => {
     const generated = 'Dear Officer,\n\nPlease send disclosure.\n\nKind regards';
     const edited = generated.replace('Please send disclosure.', 'Please send disclosure AND bodycam.');
     const r = prepareOutlookComposeForOpen(
-      { to: 'o@police.uk', subject: 'Disclosure', body: edited }
+      { to: 'o@police.uk', subject: 'Disclosure', body: edited },
+      { maxUrlLength: 50_000 }
     );
-    assert.strictEqual(r.method, 'outlook-desktop-eml');
-    assert.strictEqual(r.bodyPlacedInCompose, true);
-    assert.strictEqual(extractEmlPlainBody(r.emlContent), edited);
+    assert.strictEqual(r.method, 'outlook-web');
+    assert.strictEqual(new URL(r.url).searchParams.get('body'), edited.replace(/\n/g, '\r\n'));
   });
 
-  it('completely typed replacement body is used in .eml', () => {
+  it('completely typed replacement body is used', () => {
     const typed = 'Completely new message typed by hand.\n\nLine two.';
     const r = prepareOutlookComposeForOpen(
-      { to: 'o@police.uk', subject: 'Custom', body: typed }
+      { to: 'o@police.uk', subject: 'Custom', body: typed },
+      { maxUrlLength: 50_000 }
     );
-    assert.strictEqual(extractEmlPlainBody(r.emlContent), typed);
+    assert.strictEqual(new URL(r.url).searchParams.get('body'), typed.replace(/\n/g, '\r\n'));
   });
 
   it('long live body is placed in .eml content intact', () => {

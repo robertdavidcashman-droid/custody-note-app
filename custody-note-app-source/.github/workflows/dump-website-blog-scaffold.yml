@@ -1,0 +1,76 @@
+name: Dump website blog scaffold
+
+# Pull key blog files from private custody-note-website so agents can match patterns.
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - cursor/blog-police-station-escape-fees-292b
+    paths:
+      - .github/workflows/dump-website-blog-scaffold.yml
+      - .github/trigger-dump-website-blog-scaffold
+
+permissions:
+  contents: read
+
+jobs:
+  dump:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout website
+        uses: actions/checkout@v4
+        with:
+          repository: robertcashman-bit/custody-note-website
+          path: custody-note-website
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Collect blog scaffold
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/blog-scaffold
+          cd custody-note-website
+          for f in \
+            lib/staticBlogPosts.ts \
+            lib/guides.ts \
+            lib/guides/index.ts \
+            lib/blogImports.ts \
+            components/SeoLandingShell.tsx \
+            components/RelatedBlogPosts.tsx \
+            components/AuthorByline.tsx \
+            app/blog/page.tsx \
+            app/blog/\[slug\]/page.tsx \
+            app/blog/why-attendance-notes-fail-laa-audit/page.tsx \
+            app/blog/laa-billing-attendance-notes-2026/page.tsx \
+            app/blog/attendance-note-template-guide/page.tsx \
+            app/blog/laa-audit-proof-attendance-notes/page.tsx \
+            app/blog/what-makes-a-good-attendance-note/page.tsx
+          do
+            if [ -f "$f" ]; then
+              mkdir -p "/tmp/blog-scaffold/$(dirname "$f")"
+              cp "$f" "/tmp/blog-scaffold/$f"
+            fi
+          done
+          # Guides content dir if present
+          if [ -d content/guides ]; then
+            mkdir -p /tmp/blog-scaffold/content/guides
+            cp -R content/guides/. /tmp/blog-scaffold/content/guides/ || true
+          fi
+          if [ -d content/blog ]; then
+            mkdir -p /tmp/blog-scaffold/content/blog
+            cp -R content/blog/. /tmp/blog-scaffold/content/blog/ || true
+          fi
+          # List blog routes and public image dirs
+          find app/blog -maxdepth 2 -type f | sort > /tmp/blog-scaffold/BLOG_FILES.txt
+          find public -iname '*blog*' -o -iname '*og*' -o -iname '*featured*' 2>/dev/null | sort > /tmp/blog-scaffold/PUBLIC_BLOG_ASSETS.txt || true
+          ls -la lib | tee /tmp/blog-scaffold/LIB_LS.txt
+          # Sample a few static post entries
+          if [ -f lib/staticBlogPosts.ts ]; then
+            wc -l lib/staticBlogPosts.ts | tee /tmp/blog-scaffold/staticBlogPosts.wc.txt
+          fi
+          find /tmp/blog-scaffold -type f | sort
+
+      - name: Upload scaffold
+        uses: actions/upload-artifact@v4
+        with:
+          name: website-blog-scaffold
+          path: /tmp/blog-scaffold

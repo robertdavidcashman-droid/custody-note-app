@@ -370,14 +370,14 @@ function insertExtraNote(body, extraNote) {
 function buildOutlookComposeUrl({ toEmail, subject, body }) {
   const to = trimMax(toEmail, MAX_LENGTHS.toEmail);
   const sub = trimMax(subject, MAX_LENGTHS.subject);
-  /* Copy-link / share URL: put body in OWA when it fits. Open Outlook uses .eml
-     (preferEmlForBody default) so compose is never empty. */
+  /* Prefer a URL that already carries body when it fits; otherwise subject/to
+     only (long bodies open via .eml from the Open Outlook IPC path). */
   return outlookWebCompose.prepareOutlookComposeForOpen({
     to,
     cc: '',
     subject: sub,
     body: str(body),
-  }, { preferEmlForBody: false }).url;
+  }).url;
 }
 
 function isLikelyEmailAddress(email) {

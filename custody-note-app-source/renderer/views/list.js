@@ -118,8 +118,14 @@ function duplicateAttendance(id) {
         showToast('Could not create duplicate record', 'error');
         return;
       }
-      var numericId = typeof result === 'number' ? result : parseInt(result, 10);
-      if (isNaN(numericId)) {
+      // attendance-save returns { id, durable, pendingSync } (legacy: bare id).
+      var numericId = null;
+      if (typeof result === 'number') numericId = result;
+      else if (typeof result === 'string') numericId = parseInt(result, 10);
+      else if (result && typeof result === 'object' && result.id != null) {
+        numericId = typeof result.id === 'number' ? result.id : parseInt(result.id, 10);
+      }
+      if (numericId == null || isNaN(numericId)) {
         showToast('Could not create duplicate record', 'error');
         return;
       }

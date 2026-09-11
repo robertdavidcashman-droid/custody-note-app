@@ -1,0 +1,87 @@
+# Bump private website download page to the app package.json version and soften
+# Mac notarization copy. Uses GH_PAT (same as deploy-website).
+#
+# Trigger: push to master touching the sentinel file (workflow_dispatch is often
+# blocked for the Cloud Agent integration token).
+name: Bump website download version
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+    paths:
+      - '.github/trigger-bump-website-download'
+      - '.github/workflows/bump-website-download-version.yml'
+      - 'scripts/bump-website-download-version.mjs'
+
+permissions:
+  contents: read
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      WEBSITE_REPO: robertcashman-bit/custody-note-website
+    steps:
+      - name: Checkout app
+        uses: actions/checkout@v4
+
+      - name: Require GH_PAT
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GH_PAT}" ]; then
+            echo "::error::Set GH_PAT in custody-note-app Actions secrets."
+            exit 1
+          fi
+
+      - name: Checkout website master
+        uses: actions/checkout@v4
+        with:
+          repository: robertcashman-bit/custody-note-website
+          path: custody-note-website
+          token: ${{ secrets.GH_PAT }}
+          ref: master
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Bump download version + soften Mac copy
+        env:
+          WEBSITE_ROOT: ${{ github.workspace }}/custody-note-website
+        run: node scripts/bump-website-download-version.mjs
+
+      - name: Commit and push website
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+        working-directory: custody-note-website
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          VERSION=$(node -p "require('${{ github.workspace }}/package.json').version")
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "No website changes to commit."
+            exit 0
+          fi
+          git add -A
+          git commit -m "Download: bump to v${VERSION} (Developer ID signed Mac; notarization pending)"
+          git pull --rebase origin master || true
+          git push origin HEAD:master
+          echo "Pushed website master tip $(git rev-parse --short HEAD)"
+
+      - name: Upload bump report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bump-website-download-report
+          path: |
+            custody-note-website/.bump-website-download-report.json
+            custody-note-website/app/download/page.tsx
+            custody-note-website/data/releases.json
+          if-no-files-found: ignore

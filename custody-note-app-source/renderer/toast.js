@@ -251,7 +251,10 @@
       function esc(e) { if (e.key === 'Escape') done(null); }
 
       var safeOptions = Array.isArray(options) ? options : [];
-      safeOptions.forEach(function (opt, i) {
+      /* Prefer focusing the primary action. Focusing option[0] caused CI flakes when
+         Cancel was listed first (Enter activated abort before Playwright clicked Open). */
+      var focusBtn = null;
+      safeOptions.forEach(function (opt) {
         var b = document.createElement('button');
         b.type = 'button';
         var variant = opt.variant === 'danger' ? 'btn btn-danger'
@@ -261,8 +264,14 @@
         b.textContent = opt.label;
         b.addEventListener('click', function () { done(opt.id); });
         btns.appendChild(b);
-        if (i === 0) setTimeout(function () { try { b.focus(); } catch (e) {} }, 0);
+        if (!focusBtn && opt.variant !== 'secondary' && opt.variant !== 'danger') {
+          focusBtn = b;
+        }
       });
+      if (!focusBtn && btns.firstChild) focusBtn = btns.firstChild;
+      if (focusBtn) {
+        setTimeout(function () { try { focusBtn.focus(); } catch (e) {} }, 0);
+      }
 
       box.appendChild(btns);
       overlay.appendChild(box);

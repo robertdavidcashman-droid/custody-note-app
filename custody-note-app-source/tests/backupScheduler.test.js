@@ -62,9 +62,9 @@ describe('backupScheduler', () => {
       runBackup: async () => ({ skipped: true }),
     });
     const status = scheduler.getStatus();
-    assert.strictEqual(status.quickMinIntervalMs, 15 * 60 * 1000);
+    assert.strictEqual(status.quickMinIntervalMs, 2 * 60 * 1000);
     assert.strictEqual(status.userIdleGraceMs, 45 * 1000);
-    assert.strictEqual(status.periodicCheckMs, 3 * 60 * 1000);
+    assert.strictEqual(status.periodicCheckMs, 60 * 1000);
   });
 
   it('does not run when clean', () => {

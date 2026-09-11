@@ -40,14 +40,14 @@ function buildMailtoLink(draft) {
 
 function buildOutlookWebComposeLink(draft) {
   var d = normalizeDraft(draft);
-  /* Renderer / copy-link path: put body in OWA when it fits. Electron Open
-     Outlook uses main-process .eml (preferEmlForBody default). */
+  /* Body in OWA URL when it fits; otherwise subject/to URL (officer-email
+     Open Outlook uses main-process .eml for the long-body case). */
   return prepareOutlookComposeForOpen({
     to: d.to,
     cc: d.cc,
     subject: d.subject,
     body: d.body,
-  }, { preferEmlForBody: false }).url;
+  }).url;
 }
 
 function savePendingEmailDraft(draft, storage) {
@@ -129,10 +129,10 @@ function openEmailDraft(draft, mode, env) {
         cc: d.cc,
         subject: d.subject,
         body: d.body,
-      }, { preferEmlForBody: false });
+      });
       link = prepared.url;
       /* Body already in URL when method is outlook-web. Clipboard only as a
-         last-resort aid when the body does not fit in the OWA URL. */
+         last-resort aid when the renderer cannot write an .eml (long body). */
       if (d.body && prepared.method !== 'outlook-web') {
         try {
           var clipEnv = env || {};

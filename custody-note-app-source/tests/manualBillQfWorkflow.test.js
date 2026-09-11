@@ -1105,7 +1105,7 @@ describe('billingUtils — resolveWorkflowBillingTotals', () => {
 describe('billingUtils — buildQuickFilePayload', () => {
   it('builds line items array with fee, mileage, parking', () => {
     assert.ok(billingUtilsJs.includes('function buildQuickFileLineItems'));
-    assert.ok(billingUtilsJs.includes("description: 'Mileage'"));
+    assert.ok(billingUtilsJs.includes('GBP/mile'));
     assert.ok(billingUtilsJs.includes("description: 'Parking'"));
   });
 

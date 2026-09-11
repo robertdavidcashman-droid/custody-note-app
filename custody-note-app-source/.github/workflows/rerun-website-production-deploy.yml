@@ -1,0 +1,102 @@
+# Re-run private website Deploy and IndexNow (has VERCEL_TOKEN + project IDs).
+name: Rerun website production deploy
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+    paths:
+      - '.github/trigger-rerun-website-production-deploy'
+
+permissions:
+  contents: read
+
+jobs:
+  rerun:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch Deploy and IndexNow on website repo
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          set -euo pipefail
+          REPO=robertcashman-bit/custody-note-website
+          echo "== master tip before =="
+          gh api "repos/$REPO/commits/master" --jq '{sha:.sha,message:(.commit.message|split("\n")[0])}'
+          echo "== dispatch workflow =="
+          gh workflow run "Deploy and IndexNow" --repo "$REPO" --ref master
+          echo "Dispatched. Waiting for new run..."
+          sleep 15
+          for i in $(seq 1 40); do
+            RUN_JSON=$(gh run list --repo "$REPO" --workflow "Deploy and IndexNow" --branch master --limit 1 --json databaseId,status,conclusion,url,createdAt,headSha)
+            echo "$RUN_JSON"
+            STATUS=$(echo "$RUN_JSON" | jq -r '.[0].status')
+            CONCLUSION=$(echo "$RUN_JSON" | jq -r '.[0].conclusion')
+            RUN_ID=$(echo "$RUN_JSON" | jq -r '.[0].databaseId')
+            if [ "$STATUS" = "completed" ]; then
+              echo "Completed with conclusion=$CONCLUSION"
+              echo "RUN_ID=$RUN_ID" >> "$GITHUB_ENV"
+              break
+            fi
+            echo "Attempt $i: status=$STATUS"
+            sleep 20
+          done
+          if [ -z "${RUN_ID:-}" ]; then
+            echo "::error::Timed out waiting for website deploy run"
+            exit 1
+          fi
+          echo "== deploy job log (filtered) =="
+          gh run view "$RUN_ID" --repo "$REPO" --log 2>&1 | grep -Ei 'Deploy attempt|Production|Aliased|Ready|Error|error|Failed|fail|https://|Inspect:|rootDirectory|normalize|vercel deploy|Uploaded|Deployment' | head -200 || true
+          if [ "$CONCLUSION" != "success" ]; then
+            echo "::error::Website Deploy and IndexNow failed: $CONCLUSION"
+            gh run view "$RUN_ID" --repo "$REPO" --log-failed 2>&1 | tail -200 || true
+            exit 1
+          fi
+
+      - name: Verify live display markers
+        run: |
+          set -euo pipefail
+          # Inline verifier (no checkout dependency beyond node)
+          node <<'JS'
+          const https = require('https');
+          function fetch(url) {
+            return new Promise((resolve, reject) => {
+              https.get(url, { headers: { 'Cache-Control': 'no-cache' } }, (res) => {
+                if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+                  return fetch(res.headers.location).then(resolve, reject);
+                }
+                const chunks = [];
+                res.on('data', (c) => chunks.push(c));
+                res.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+              }).on('error', reject);
+            });
+          }
+          (async () => {
+            let ok = false;
+            for (let i = 1; i <= 24; i++) {
+              const html = await fetch('https://custodynote.com/?cb=' + Date.now());
+              const checks = {
+                downloadFree: html.includes('Download free'),
+                viewFeatures: html.includes('View Features'),
+                noGenerator: !html.includes('Free note generator'),
+                noMaxWlg: !html.includes('max-w-lg'),
+                noSeeExample: !html.includes('See Example Note'),
+                hasHeroPropShot: html.includes('hero-main-ui'),
+              };
+              console.log('attempt', i, checks, 'bytes', html.length);
+              // max-w-lg may remain in lower page sections; prefer See Example Note gone + ProductScreenshot framing.
+              // Strong signal for PR #3: See Example Note removed from homepage HTML entirely.
+              if (checks.downloadFree && checks.viewFeatures && checks.noGenerator && checks.noSeeExample) {
+                ok = true;
+                break;
+              }
+              await new Promise((r) => setTimeout(r, 15000));
+            }
+            if (!ok) {
+              console.error('LIVE still missing PR #3 display markers');
+              process.exit(1);
+            }
+            console.log('LIVE OK');
+          })().catch((e) => { console.error(e); process.exit(1); });
+          JS

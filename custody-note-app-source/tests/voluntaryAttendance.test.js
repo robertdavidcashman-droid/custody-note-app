@@ -49,6 +49,15 @@ describe('Voluntary Attendance', () => {
     assert.ok(valid.includes('not_applicable'));
     assert.ok(valid.includes('missing'));
   });
+
+  it('voluntary outcomeCode dropdown includes CN12 and CN13', () => {
+    const volMarker = "id: 'outcome', title: '8. Outcome',\n      keyFields: ['outcomeDecision'],\n      fields: [\n        { key: 'interviewCompleted'";
+    const volStart = appJs.indexOf(volMarker);
+    assert.ok(volStart > 0, 'voluntary outcome section with interviewCompleted must exist');
+    const volSlice = appJs.slice(volStart, volStart + 3500);
+    assert.match(volSlice, /CN12 \\u2013 Pre-charge engagement agreed/);
+    assert.match(volSlice, /CN13 \\u2013 Pre-charge engagement not agreed/);
+  });
 });
 
 describe('Voluntary attendance — custody-record questions stay hidden', () => {

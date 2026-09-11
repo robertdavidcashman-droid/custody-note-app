@@ -199,7 +199,7 @@ async function main() {
     let releaseReady = false;
     for (const delayMs of [3000, 5000, 10000]) {
       await new Promise((r) => setTimeout(r, delayMs));
-      const listRes = await fetch(`https://api.github.com/repos/robertdavidcashman-droid/custody-note-app/releases?per_page=20`, { headers: ghApiHeaders });
+      const listRes = await fetch(`https://api.github.com/repos/robertcashman-bit/custody-note-app/releases?per_page=20`, { headers: ghApiHeaders });
       if (!listRes.ok) continue;
       const allReleases = await listRes.json();
       const matchingRelease = allReleases.find((r) => r.tag_name === tag);
@@ -209,7 +209,7 @@ async function main() {
         releaseReady = true;
         break;
       }
-      const patchRes = await fetch(`https://api.github.com/repos/robertdavidcashman-droid/custody-note-app/releases/${matchingRelease.id}`, {
+      const patchRes = await fetch(`https://api.github.com/repos/robertcashman-bit/custody-note-app/releases/${matchingRelease.id}`, {
         method: 'PATCH',
         headers: ghApiHeaders,
         body: JSON.stringify({ draft: false }),
@@ -227,7 +227,7 @@ async function main() {
     // Verify GitHub latest release matches expected version before website deploy.
     const skipVerify = argv.includes('--skip-verify');
     if (!skipVerify) {
-      const latestUrl = 'https://api.github.com/repos/robertdavidcashman-droid/custody-note-app/releases/latest';
+      const latestUrl = 'https://api.github.com/repos/robertcashman-bit/custody-note-app/releases/latest';
       let latestVersion = null;
       let latestAssetNames = [];
       for (const delayMs of [3000, 5000, 8000]) {
@@ -256,10 +256,10 @@ async function main() {
         );
         console.warn('Demoting v' + newVersion + ' to prerelease so /releases/latest returns the previous full release.');
         try {
-          const idRes = await fetch(`https://api.github.com/repos/robertdavidcashman-droid/custody-note-app/releases/tags/v${newVersion}`, { headers: ghApiHeaders });
+          const idRes = await fetch(`https://api.github.com/repos/robertcashman-bit/custody-note-app/releases/tags/v${newVersion}`, { headers: ghApiHeaders });
           if (idRes.ok) {
             const rel = await idRes.json();
-            const patchRes = await fetch(`https://api.github.com/repos/robertdavidcashman-droid/custody-note-app/releases/${rel.id}`, {
+            const patchRes = await fetch(`https://api.github.com/repos/robertcashman-bit/custody-note-app/releases/${rel.id}`, {
               method: 'PATCH',
               headers: ghApiHeaders,
               body: JSON.stringify({ prerelease: true, make_latest: 'false' }),

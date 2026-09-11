@@ -123,6 +123,18 @@ describe('v1.5.3 — showChoice helper', () => {
     assert.match(toastJs, /done\(null\)/);
   });
 
+  it('showChoice focuses the primary action, not always option[0]', () => {
+    assert.match(
+      toastJs,
+      /Prefer focusing the primary action|focusBtn/,
+      'must focus primary so Cancel-first dialogs are not Enter-activated in CI'
+    );
+    assert.ok(
+      !/if\s*\(\s*i\s*===\s*0\s*\)\s*setTimeout\s*\(\s*function\s*\(\s*\)\s*\{\s*try\s*\{\s*b\.focus/.test(toastJs),
+      'must not autofocus option[0] (Cancel-first Outlook confirm flake)'
+    );
+  });
+
   it('styles.css provides a stacked-button layout for the choice modal', () => {
     assert.match(stylesCss, /\.cn-confirm-btns--stacked\s*\{/);
     assert.match(stylesCss, /flex-direction:\s*column/);

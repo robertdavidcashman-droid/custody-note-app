@@ -80,7 +80,10 @@ describe('sync integration', () => {
       readLicenceData: () => ({ key: 'x' }),
       getMachineId: () => 'm1',
       getMasterKeyHex: () => 'a'.repeat(64),
-      httpPost: () => Promise.resolve({ ok: true, written: 1 }),
+      httpPost: (url, body) => Promise.resolve({
+        ok: true,
+        written: body && Array.isArray(body.records) ? body.records.length : 1,
+      }),
       syncPull: () => Promise.resolve({ pulled: 0 }),
     });
     worker.enqueue('1', 'upsert', {});

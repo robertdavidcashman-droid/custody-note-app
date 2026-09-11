@@ -18,7 +18,7 @@ revoke it immediately.**
    (Or, if it is a fine-grained PAT, go to
    <https://github.com/settings/personal-access-tokens> and revoke it.)
 3. Generate a new **fine-grained** PAT scoped to the
-   `robertdavidcashman-droid/custody-note-app` repository only.
+   `robertcashman-bit/custody-note-app` repository only.
    - Permissions: `Contents: Read and write`, `Actions: Read-only`,
      `Metadata: Read-only` (auto-included).
    - Expiration: 90 days. Set a calendar reminder to rotate.

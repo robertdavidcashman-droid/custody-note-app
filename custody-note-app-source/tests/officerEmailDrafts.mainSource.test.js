@@ -32,11 +32,7 @@ describe('main process — officer email Outlook safety', () => {
     const start = mainSrc.indexOf("ipcMain.handle('officer-email-drafts-open-outlook'");
     const end = mainSrc.indexOf("ipcMain.handle('officer-email-drafts-copy'", start);
     const block = mainSrc.slice(start, end);
-    assert.ok(
-      block.includes('async (_, draftId, liveFields)') || block.includes('async (_, draftId)'),
-      'handler should accept draft id (and optional live fields) from the renderer'
-    );
-    assert.ok(!block.includes('payload.url') && !block.includes('fields.url'), 'must not open a renderer-supplied URL');
+    assert.ok(block.includes("async (_, draftId)"), 'handler should accept only a draft id from the renderer');
     assert.ok(
       mainSrc.includes('prepareOutlookComposeForOpen') || block.includes('_openOfficerEmailInOutlook'),
       'main process should prepare compose from draft fields'

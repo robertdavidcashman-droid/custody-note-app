@@ -216,7 +216,16 @@
     d.multipleJourneys = vis.length > 1 ? 'Yes' : (d.multipleJourneys || 'No');
     d.numAttendances = vis.length;
     var totalMiles = sumVisitMiles(vis, d.milesClaimable);
-    d.milesClaimable = totalMiles > 0 ? String(totalMiles) : (d.milesClaimable != null ? String(d.milesClaimable) : '');
+    if (totalMiles > 0) {
+      var SM = (typeof globalThis !== 'undefined' && globalThis.StationMileage)
+        ? globalThis.StationMileage
+        : (typeof window !== 'undefined' ? window.StationMileage : null);
+      d.milesClaimable = SM && typeof SM.formatExactMiles === 'function'
+        ? SM.formatExactMiles(totalMiles)
+        : String(totalMiles);
+    } else {
+      d.milesClaimable = d.milesClaimable != null ? String(d.milesClaimable) : '';
+    }
     var totalPark = sumVisitParking(vis, d.parkingCost);
     d.parkingCost = totalPark > 0 ? String(totalPark) : (d.parkingCost != null ? String(d.parkingCost) : '');
   }

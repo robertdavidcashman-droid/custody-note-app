@@ -10,34 +10,46 @@ const appJs = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
 const indexHtml = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 
 describe('P0 durability — flush on suspend/lock/finalise', () => {
-  it('force-lock broadcasts flushDbSync before session-force-lock', () => {
+  it('force-lock broadcasts bounded flush and session-force-lock', () => {
     const idx = mainJs.indexOf('function _broadcastForceLock');
     assert.ok(idx > 0, '_broadcastForceLock must exist');
-    const body = mainJs.slice(idx, idx + 900);
-    assert.match(body, /flushDbSync\(\)/);
+    const body = mainJs.slice(idx, idx + 1200);
+    assert.match(body, /flushDbAsyncBounded/);
     assert.match(body, /session-force-lock/);
+    /* Blanker must not wait on a wedged sync flush — send lock immediately. */
     assert.ok(
-      body.indexOf('flushDbSync') < body.indexOf('session-force-lock'),
-      'DB must flush before lock IPC'
+      body.indexOf('session-force-lock') < body.indexOf('flushDbAsyncBounded'),
+      'UI lock must be sent before awaiting bounded flush'
     );
   });
 
-  it('before-quit still flushes synchronously', () => {
+  it('before-quit uses bounded async flush and can force exit', () => {
     assert.match(mainJs, /app\.on\('before-quit'/);
     const idx = mainJs.indexOf("app.on('before-quit'");
-    const body = mainJs.slice(idx, idx + 400);
-    assert.match(body, /flushDbSync\(\)/);
+    const body = mainJs.slice(idx, idx + 900);
+    assert.match(body, /flushDbAsyncBounded/);
+    assert.match(body, /app\.exit\(0\)/);
+    assert.match(body, /_forceClose\s*=\s*true/);
+    assert.match(body, /e\.preventDefault\(\)/);
   });
 
   it('attendance finalise/complete uses flushDbSync not async flushDb', () => {
-    assert.match(
-      mainJs,
-      /if \(st === 'finalised' \|\| st === 'completed'\) flushDbSync\(\)/
-    );
+    // All attendance-save paths now flush via finishAttendanceSaveResult → flushDbSync
+    assert.match(mainJs, /function finishAttendanceSaveResult/);
+    assert.match(mainJs, /flushDbSync\(\)/);
+    const saveIdx = mainJs.indexOf("ipcMain.handle('attendance-save'");
+    const saveChunk = mainJs.slice(saveIdx, saveIdx + 9000);
+    assert.match(saveChunk, /finishAttendanceSaveResult/);
     assert.doesNotMatch(
       mainJs,
       /if \(st === 'finalised' \|\| st === 'completed'\) flushDb\(\)/
     );
+  });
+
+  it('defines flushDbAsyncBounded with a timeout', () => {
+    assert.match(mainJs, /function flushDbAsyncBounded/);
+    assert.match(mainJs, /FLUSH_BOUND_DEFAULT_MS/);
+    assert.match(mainJs, /timedOut:\s*true/);
   });
 });
 
@@ -67,9 +79,9 @@ describe('P0 keyboard shortcuts — Ctrl or Meta', () => {
     assert.match(appJs, /modPressed\(e\) && e\.key === 'n'/);
   });
 
-  it('shortcut labels use data-shortcut-mod and Save (not Save & exit) for Cmd/Ctrl+S', () => {
+  it('shortcut labels use data-shortcut-mod and Save now (not Save & exit) for Cmd/Ctrl+S', () => {
     assert.match(indexHtml, /data-shortcut-mod/);
-    assert.match(indexHtml, /<kbd data-shortcut-mod>Ctrl<\/kbd>\+<kbd>S<\/kbd><\/td><td>Save<\/td>/);
+    assert.match(indexHtml, /<kbd data-shortcut-mod>Ctrl<\/kbd>\+<kbd>S<\/kbd><\/td><td>Save now/);
     assert.doesNotMatch(indexHtml, /Ctrl<\/kbd>\+<kbd>S<\/kbd><\/td><td>Save &amp; exit<\/td>/);
   });
 

@@ -270,7 +270,7 @@ describe('buildQuickFilePayload', () => {
     });
     assert.strictEqual(payload.lineItems.length, 2);
     assert.ok(payload.lineItems[0].description.includes('Fixed Fee'), 'Line 1 should be fixed fee');
-    assert.strictEqual(payload.lineItems[1].description, 'Mileage');
+    assert.match(payload.lineItems[1].description, /^Mileage \(10\.0 miles at 0\.45 GBP\/mile\)$/);
   });
 
   it('includes linked attachments when present', () => {

@@ -77,8 +77,10 @@ function buildQuickFileLineItems(record, totals) {
     });
   }
   if (totals.mileageAmount > 0) {
+    var milesTxt = Number(totals.mileageMiles || 0).toFixed(1);
+    var rateTxt = Number(totals.mileageRate || 0).toFixed(2);
     lines.push({
-      description: 'Mileage',
+      description: 'Mileage (' + milesTxt + ' miles at ' + rateTxt + ' GBP/mile)',
       unitCost: totals.mileageAmount,
       qty: 1,
       vatRate: totals.vatRate,

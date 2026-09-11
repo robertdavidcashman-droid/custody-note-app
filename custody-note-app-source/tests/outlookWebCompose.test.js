@@ -113,26 +113,15 @@ describe('outlookWebCompose.buildBodyPlainTextForClipboard', () => {
 });
 
 describe('outlookWebCompose.prepareOutlookComposeForOpen — body in Outlook', () => {
-  it('Open (default) places ordinary short body in .eml — not OWA body=', () => {
-    const body = 'Dear Officer,\n\nPlease send initial disclosure.\n\nKind regards,\nRobert';
-    const r = prepareOutlookComposeForOpen(
-      { to: 'a@b.c', subject: 'Disclosure', body }
-    );
-    assert.strictEqual(r.method, 'outlook-desktop-eml');
-    assert.strictEqual(r.bodyPlacedInCompose, true);
-    assert.strictEqual(r.truncated, false);
-    assert.strictEqual(extractEmlPlainBody(r.emlContent), body);
-    assert.ok(!r.url.includes('body='), 'Open must not rely on OWA body=');
-  });
-
-  it('copy-link (preferEmlForBody:false) places short body in OWA URL', () => {
+  it('places ordinary short body in OWA URL (not clipboard-only)', () => {
     const body = 'Dear Officer,\n\nPlease send initial disclosure.\n\nKind regards,\nRobert';
     const r = prepareOutlookComposeForOpen(
       { to: 'a@b.c', subject: 'Disclosure', body },
-      { maxUrlLength: 50_000, preferEmlForBody: false }
+      { maxUrlLength: 50_000 }
     );
     assert.strictEqual(r.method, 'outlook-web');
     assert.strictEqual(r.bodyPlacedInCompose, true);
+    assert.strictEqual(r.truncated, false);
     const parsed = new URL(r.url);
     assert.strictEqual(parsed.searchParams.get('to'), 'a@b.c');
     assert.strictEqual(parsed.searchParams.get('subject'), 'Disclosure');
@@ -140,58 +129,59 @@ describe('outlookWebCompose.prepareOutlookComposeForOpen — body in Outlook', (
     assert.ok(r.bodyUsedInUrl.includes('Please send initial disclosure'));
   });
 
-  it('preserves multiline + blank lines in .eml (Open) and OWA (copy-link)', () => {
+  it('preserves multiline + blank lines in OWA body param', () => {
     const body = 'Para one.\n\nPara two.\n\nPara three.';
-    const open = prepareOutlookComposeForOpen({ to: 'o@police.uk', subject: 'S', body });
-    assert.strictEqual(open.method, 'outlook-desktop-eml');
-    assert.strictEqual(extractEmlPlainBody(open.emlContent), body);
-    const link = prepareOutlookComposeForOpen(
+    const r = prepareOutlookComposeForOpen(
       { to: 'o@police.uk', subject: 'S', body },
-      { maxUrlLength: 50_000, preferEmlForBody: false }
+      { maxUrlLength: 50_000 }
     );
-    assert.strictEqual(link.method, 'outlook-web');
-    assert.strictEqual(new URL(link.url).searchParams.get('body'), body.replace(/\n/g, '\r\n'));
+    assert.strictEqual(r.method, 'outlook-web');
+    assert.strictEqual(new URL(r.url).searchParams.get('body'), body.replace(/\n/g, '\r\n'));
   });
 
-  it('uses edited live body in .eml, not a stale generated string', () => {
+  it('uses edited live body, not a stale generated string', () => {
     const generated = 'ORIGINAL GENERATED TEXT';
     const edited = 'AMENDED BY USER — please send CCTV.';
     const r = prepareOutlookComposeForOpen(
-      { to: 'o@police.uk', subject: 'S', body: edited }
+      { to: 'o@police.uk', subject: 'S', body: edited },
+      { maxUrlLength: 50_000 }
     );
-    assert.strictEqual(r.method, 'outlook-desktop-eml');
-    assert.strictEqual(extractEmlPlainBody(r.emlContent), edited);
-    assert.ok(!r.emlContent.includes(generated));
+    const urlBody = new URL(r.url).searchParams.get('body');
+    assert.strictEqual(urlBody, edited);
+    assert.ok(!urlBody.includes(generated));
     assert.ok(!r.body.includes(generated));
   });
 
-  it('special-character officer email sample survives into .eml body', () => {
+  it('special-character officer email sample survives encoding into OWA body', () => {
     const r = prepareOutlookComposeForOpen(
-      { to: 'o@police.uk', subject: 'Re: Smith & Jones', body: SPECIAL_BODY }
+      { to: 'o@police.uk', subject: 'Re: Smith & Jones', body: SPECIAL_BODY },
+      { maxUrlLength: 50_000 }
     );
-    assert.strictEqual(r.method, 'outlook-desktop-eml');
-    const decoded = extractEmlPlainBody(r.emlContent);
-    assert.strictEqual(decoded, SPECIAL_BODY);
+    assert.strictEqual(r.method, 'outlook-web');
+    const decoded = new URL(r.url).searchParams.get('body');
+    assert.strictEqual(decoded, SPECIAL_BODY.replace(/\n/g, '\r\n'));
     assert.ok(decoded.includes("didn't"));
     assert.ok(decoded.includes('Smith & Jones'));
     assert.ok(decoded.includes('CR/12345/26'));
   });
 
-  it('empty subject still places body in .eml when body present', () => {
+  it('empty subject still places body in compose when body present', () => {
     const r = prepareOutlookComposeForOpen(
-      { to: 'a@b.c', subject: '', body: 'Hello body' }
+      { to: 'a@b.c', subject: '', body: 'Hello body' },
+      { maxUrlLength: 50_000 }
     );
-    assert.strictEqual(r.method, 'outlook-desktop-eml');
-    assert.strictEqual(extractEmlPlainBody(r.emlContent), 'Hello body');
+    assert.strictEqual(new URL(r.url).searchParams.get('body'), 'Hello body');
+    assert.strictEqual(new URL(r.url).searchParams.get('subject'), null);
   });
 
-  it('populated subject is preserved alongside body in .eml', () => {
+  it('populated subject is preserved alongside body', () => {
     const r = prepareOutlookComposeForOpen(
-      { to: 'a@b.c', subject: 'Custody — disclosure', body: 'Please confirm.' }
+      { to: 'a@b.c', subject: 'Custody — disclosure', body: 'Please confirm.' },
+      { maxUrlLength: 50_000 }
     );
-    assert.strictEqual(r.method, 'outlook-desktop-eml');
-    assert.ok(r.emlContent.includes('Custody'));
-    assert.strictEqual(extractEmlPlainBody(r.emlContent), 'Please confirm.');
+    const parsed = new URL(r.url);
+    assert.strictEqual(parsed.searchParams.get('subject'), 'Custody — disclosure');
+    assert.strictEqual(parsed.searchParams.get('body'), 'Please confirm.');
   });
 
   it('long body uses .eml path with full body (never silent empty body)', () => {
@@ -212,23 +202,24 @@ describe('outlookWebCompose.prepareOutlookComposeForOpen — body in Outlook', (
 
   it('second prepare with newer text uses the newest body', () => {
     const first = prepareOutlookComposeForOpen(
-      { to: 'a@b.c', subject: 'S', body: 'first version' }
+      { to: 'a@b.c', subject: 'S', body: 'first version' },
+      { maxUrlLength: 50_000 }
     );
     const second = prepareOutlookComposeForOpen(
-      { to: 'a@b.c', subject: 'S', body: 'second version — newest' }
+      { to: 'a@b.c', subject: 'S', body: 'second version — newest' },
+      { maxUrlLength: 50_000 }
     );
-    assert.strictEqual(extractEmlPlainBody(first.emlContent), 'first version');
-    assert.strictEqual(extractEmlPlainBody(second.emlContent), 'second version — newest');
+    assert.strictEqual(new URL(first.url).searchParams.get('body'), 'first version');
+    assert.strictEqual(new URL(second.url).searchParams.get('body'), 'second version — newest');
   });
 
   it('truncateOutlookComposeForShellOpen alias matches prepareOutlookComposeForOpen', () => {
     const fields = { to: 'a@b.c', subject: 'S', body: 'Hello' };
-    const a = prepareOutlookComposeForOpen(fields);
-    const b = truncateOutlookComposeForShellOpen(fields);
+    const a = prepareOutlookComposeForOpen(fields, { maxUrlLength: 50_000 });
+    const b = truncateOutlookComposeForShellOpen(fields, { maxUrlLength: 50_000 });
     assert.strictEqual(a.method, b.method);
     assert.strictEqual(a.url, b.url);
     assert.strictEqual(a.body, b.body);
-    assert.strictEqual(a.method, 'outlook-desktop-eml');
   });
 });
 

@@ -501,7 +501,7 @@
     function doOpen() {
       var promise;
       try {
-        promise = window.api.officerEmails.openOutlookDraft(selectedDraftId, collectFields());
+        promise = window.api.officerEmails.openOutlookDraft(selectedDraftId);
       } catch (syncErr) {
         try { console.error('[officerEmailsPanel] openOutlookDraft threw synchronously', syncErr); } catch (_) {}
         reportFatal('openOutlookDraft sync throw', (syncErr && syncErr.message) || String(syncErr));

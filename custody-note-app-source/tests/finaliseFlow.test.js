@@ -115,9 +115,13 @@ describe('saveForm — finalise path', () => {
 
   it('stops autosave and sets currentRecordStatus before IPC when finalising', () => {
     assert.ok(saveFormBody, 'saveForm function must exist');
+    const detailedIdx = saveFormBody.indexOf('attendanceSaveDetailed');
+    const legacyIdx = saveFormBody.indexOf('window.api.attendanceSave');
+    const saveCallIdx = detailedIdx !== -1 ? detailedIdx : legacyIdx;
+    assert.ok(saveCallIdx > 0, 'must call attendanceSaveDetailed or attendanceSave');
     const finaliseBlock = saveFormBody.substring(
       saveFormBody.indexOf("if (status === 'finalised')"),
-      saveFormBody.indexOf('window.api.attendanceSave')
+      saveCallIdx
     );
     assert.ok(finaliseBlock.includes('stopAutoSave()'), 'must stop autosave');
     assert.ok(finaliseBlock.includes("currentRecordStatus = 'finalised'"), 'must set status');
@@ -233,8 +237,8 @@ describe('Main process — attendance-save handler', () => {
   });
 
   it('flushes DB to disk after finalise or office-complete', () => {
-    assert.ok(saveHandler.includes("if (st === 'finalised' || st === 'completed') flushDbSync()"),
-      'must call flushDbSync after finalise or completed write');
+    assert.ok(saveHandler.includes('finishAttendanceSaveResult') || saveHandler.includes('flushDbSync()'),
+      'must call flushDbSync (via finishAttendanceSaveResult) after save write');
   });
 });
 

@@ -90,13 +90,9 @@ const custodyEmailComposeDraft = (function buildEmailComposeDraft() {
   function prepareOutlookComposeForOpen(fields, optionsOrMax) {
     var f = fields || {};
     var maxLen = OUTLOOK_WEB_COMPOSE_URL_MAX_SAFE_LENGTH;
-    var preferEmlForBody = true;
     if (typeof optionsOrMax === 'number' && optionsOrMax > 0) maxLen = optionsOrMax;
-    else if (optionsOrMax && typeof optionsOrMax === 'object') {
-      if (typeof optionsOrMax.maxUrlLength === 'number' && optionsOrMax.maxUrlLength > 0) {
-        maxLen = optionsOrMax.maxUrlLength;
-      }
-      if (optionsOrMax.preferEmlForBody === false) preferEmlForBody = false;
+    else if (optionsOrMax && typeof optionsOrMax.maxUrlLength === 'number' && optionsOrMax.maxUrlLength > 0) {
+      maxLen = optionsOrMax.maxUrlLength;
     }
     var toS = String(f.to != null ? f.to : '').trim();
     var ccS = String(f.cc != null ? f.cc : '');
@@ -107,24 +103,16 @@ const custodyEmailComposeDraft = (function buildEmailComposeDraft() {
       { to: toS, cc: ccS, subject: subS, body: rawBody },
       { includeBody: true }
     );
-    var subjectOnlyUrl = buildOutlookWebComposeUrl(
-      { to: toS, cc: ccS, subject: subS, body: '' },
-      { includeBody: false }
-    );
-    if (hasBody && preferEmlForBody) {
-      return {
-        method: 'outlook-desktop-eml',
-        url: subjectOnlyUrl,
-        bodyPlacedInCompose: true,
-      };
-    }
     if (!hasBody || urlWithBody.length <= maxLen) {
       return { method: 'outlook-web', url: urlWithBody, bodyPlacedInCompose: hasBody };
     }
     return {
       method: 'outlook-desktop-eml',
-      url: subjectOnlyUrl,
-      bodyPlacedInCompose: true,
+      url: buildOutlookWebComposeUrl(
+        { to: toS, cc: ccS, subject: subS, body: '' },
+        { includeBody: false }
+      ),
+      bodyPlacedInCompose: false,
     };
   }
 
@@ -135,7 +123,7 @@ const custodyEmailComposeDraft = (function buildEmailComposeDraft() {
       cc: d.cc,
       subject: d.subject,
       body: d.body,
-    }, { preferEmlForBody: false }).url;
+    }).url;
   }
 
   function savePendingEmailDraft(draft, storage) {
@@ -205,7 +193,7 @@ const custodyEmailComposeDraft = (function buildEmailComposeDraft() {
           cc: d.cc,
           subject: d.subject,
           body: d.body,
-        }, { preferEmlForBody: false });
+        });
         link = prepared.url;
         if (d.body && prepared.method !== 'outlook-web') {
           try {
@@ -277,8 +265,38 @@ contextBridge.exposeInMainWorld('api', {
   attendanceList: () => ipcRenderer.invoke('attendance-list'),
   attendanceListFull: () => ipcRenderer.invoke('attendance-list-full'),
   attendanceSearch: (params) => ipcRenderer.invoke('attendance-search', params),
-  attendanceGet: (id) => ipcRenderer.invoke('attendance-get', id),
-  attendanceSave: (payload) => ipcRenderer.invoke('attendance-save', payload),
+  attendanceGet: (id) => {
+    // Coerce prior save-result objects so sql.js never sees [object Object].
+    if (id != null && typeof id === 'object' && id.id != null) id = id.id;
+    return ipcRenderer.invoke('attendance-get', id);
+  },
+  /**
+   * Backward-compatible save: resolves to numeric id on success (e2e + legacy
+   * callers). Error shapes ({ error, message }) are returned as objects.
+   * For durable/pendingSync metadata use attendanceSaveDetailed.
+   */
+  attendanceSave: async (payload) => {
+    var p = payload || {};
+    if (p.id != null && typeof p.id === 'object' && p.id.id != null) {
+      p = Object.assign({}, p, { id: p.id.id });
+    }
+    var result = await ipcRenderer.invoke('attendance-save', p);
+    if (result == null) return result;
+    if (typeof result === 'number' || typeof result === 'string') return result;
+    if (typeof result === 'object') {
+      if (result.error) return result;
+      if (result.id != null) return result.id;
+    }
+    return result;
+  },
+  /** Full { id, durable, pendingSync, syncDirty } — used by autosave / Save now UI. */
+  attendanceSaveDetailed: async (payload) => {
+    var p = payload || {};
+    if (p.id != null && typeof p.id === 'object' && p.id.id != null) {
+      p = Object.assign({}, p, { id: p.id.id });
+    }
+    return ipcRenderer.invoke('attendance-save', p);
+  },
   attendanceForceStatus: (params) => ipcRenderer.invoke('attendance-force-status', params),
   attendanceDelete: (params) => ipcRenderer.invoke('attendance-delete', params),
   attendanceArchive: (id) => ipcRenderer.invoke('attendance-archive', id),
@@ -306,15 +324,20 @@ contextBridge.exposeInMainWorld('api', {
     deleteDraft: (id) => ipcRenderer.invoke('officer-email-drafts-delete', id),
     markOpenedInOutlook: (id) => ipcRenderer.invoke('officer-email-drafts-mark-opened', id),
     markSentManually: (id) => ipcRenderer.invoke('officer-email-drafts-mark-sent-manually', id),
-    openOutlookDraft: (id, liveFields) => ipcRenderer.invoke('officer-email-drafts-open-outlook', id, liveFields || null),
+    openOutlookDraft: (id) => ipcRenderer.invoke('officer-email-drafts-open-outlook', id),
     openOneOffOutlook: (fields) => ipcRenderer.invoke('officer-email-drafts-open-one-off-outlook', fields),
     getComposeUrl: (payload) => ipcRenderer.invoke('officer-email-drafts-compose-url', payload),
     copyText: (text) => ipcRenderer.invoke('officer-email-drafts-copy', text),
     buildPreview: (fields) => ipcRenderer.invoke('officer-email-drafts-preview', fields),
   },
   flushAndBackup: () => ipcRenderer.invoke('flush-and-backup'),
+  persistAndBackup: () => ipcRenderer.invoke('persist-and-backup'),
   backupStatus: () => ipcRenderer.invoke('backup-status'),
+  backupOpenFolder: (which) => ipcRenderer.invoke('backup-open-folder', which),
+  backupAcknowledgePathCorrection: () => ipcRenderer.invoke('backup-acknowledge-path-correction'),
   onBackupStatusChanged: (cb) => ipcRenderer.on('backup-status-changed', (_, data) => cb(data)),
+  onBackupPathCorrected: (cb) => ipcRenderer.on('backup-path-corrected', (_, data) => cb(data)),
+  onBackupDegraded: (cb) => ipcRenderer.on('backup-degraded', (_, data) => cb(data)),
   reportEditorActivity: () => ipcRenderer.send('editor-activity'),
   confirmClose: () => ipcRenderer.send('close-confirmed'),
   onCheckUnsavedChanges: (cb) => ipcRenderer.on('check-unsaved-changes', () => cb()),
@@ -326,6 +349,8 @@ contextBridge.exposeInMainWorld('api', {
   sessionLockStatus: () => ipcRenderer.invoke('session-lock-status'),
   sessionUnlock: (password) => ipcRenderer.invoke('session-unlock', password),
   onSessionForceLock: (cb) => ipcRenderer.on('session-force-lock', (_, data) => cb(data)),
+  /* Credential-free blanker escape: real app quit (before-quit flushes DB). */
+  quitApp: () => ipcRenderer.invoke('app-quit'),
   recoverKeyFromCloud: () => ipcRenderer.invoke('recover-key-from-cloud'),
   isDbEncrypted: () => ipcRenderer.invoke('is-db-encrypted'),
   isSafeStorageAvailable: () => ipcRenderer.invoke('is-safe-storage-available'),
@@ -418,6 +443,9 @@ contextBridge.exposeInMainWorld('api', {
   /* Cross-device sync */
   syncNow: () => ipcRenderer.invoke('sync-now'),
   syncFullResync: () => ipcRenderer.invoke('sync-full-resync'),
+  syncReuploadAll: () => ipcRenderer.invoke('sync-reupload-all'),
+  syncExportRecordIndex: () => ipcRenderer.invoke('sync-export-record-index'),
+  syncIntegrityCheck: () => ipcRenderer.invoke('sync-integrity-check'),
   syncStatus: () => ipcRenderer.invoke('sync-status'),
   syncScheduleOnReconnect: () => ipcRenderer.invoke('sync-schedule-on-reconnect'),
   syncGetDiagnostics: () => ipcRenderer.invoke('sync-get-diagnostics'),

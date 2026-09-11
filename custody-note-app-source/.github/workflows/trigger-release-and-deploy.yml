@@ -1,0 +1,49 @@
+# Start "Release and deploy" for an existing version tag without deleting/re-pushing
+# the tag (GITHUB_TOKEN tag pushes from Auto-tag do not trigger other workflows).
+#
+# Trigger: push to master touching the sentinel file (workflow_dispatch is often
+# blocked for the Cloud Agent integration token). Contents of the sentinel are
+# ignored; the tag is always v{package.json version}.
+name: Trigger Release and deploy
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+    paths:
+      - '.github/trigger-release-and-deploy'
+      - '.github/workflows/trigger-release-and-deploy.yml'
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout app
+        uses: actions/checkout@v4
+
+      - name: Dispatch Release and deploy for package.json version tag
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GH_TOKEN}" ]; then
+            echo "::error::Set GH_PAT in custody-note-app Actions secrets."
+            exit 1
+          fi
+          VERSION=$(node -p "require('./package.json').version")
+          TAG="v${VERSION}"
+          if ! git ls-remote --tags origin "refs/tags/${TAG}" | grep -q .; then
+            echo "::error::Tag ${TAG} does not exist on origin. Wait for Auto-tag, or create it once."
+            exit 1
+          fi
+          echo "Dispatching Release and deploy for ${TAG} (workflow_dispatch; tag left untouched)."
+          gh workflow run "Release and deploy" --repo "${{ github.repository }}" --ref "${TAG}"
+          sleep 8
+          gh run list --repo "${{ github.repository }}" --workflow "Release and deploy" --limit 3 \
+            --json databaseId,status,conclusion,headBranch,event,url,createdAt

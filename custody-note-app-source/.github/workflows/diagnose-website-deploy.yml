@@ -1,0 +1,97 @@
+# Diagnose website deploy path (GH_PAT only — no VERCEL_TOKEN required).
+name: Diagnose website Vercel deploy
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+    paths:
+      - '.github/trigger-diagnose-website-deploy'
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dump website deploy status and workflow
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          set -euo pipefail
+          REPO=robertcashman-bit/custody-note-website
+          echo "== master tip =="
+          gh api "repos/$REPO/commits/master" --jq '{sha:.sha,date:.commit.committer.date,message:(.commit.message|split("\n")[0])}'
+          SHA=$(gh api "repos/$REPO/commits/master" --jq .sha)
+          echo
+          echo "== PR #3 =="
+          gh pr view 3 --repo "$REPO" --json state,mergedAt,mergeCommit,url
+          echo
+          echo "== Actions runs (master branch) =="
+          gh run list --repo "$REPO" --branch master --limit 8 --json databaseId,name,status,conclusion,url,headSha,createdAt,event
+          echo
+          echo "== Deploy and IndexNow runs (any branch/event, limit 15) =="
+          gh run list --repo "$REPO" --workflow "Deploy and IndexNow" --limit 15 --json databaseId,name,status,conclusion,url,headSha,createdAt,event,displayTitle
+          echo
+          echo "== Latest Deploy and IndexNow job steps =="
+          LATEST_DEPLOY=$(gh run list --repo "$REPO" --workflow "Deploy and IndexNow" --limit 1 --json databaseId -q '.[0].databaseId')
+          echo "LATEST_DEPLOY=$LATEST_DEPLOY"
+          gh run view "$LATEST_DEPLOY" --repo "$REPO" --json status,conclusion,url,jobs --jq '{status,conclusion,url,jobs:[.jobs[]|{name,status,conclusion,startedAt,completedAt,steps:[.steps[]|{name,status,conclusion}]}]}'
+          echo
+          echo "== Workflows =="
+          gh api "repos/$REPO/actions/workflows" --jq '.workflows[]|{name,path,state}'
+          echo
+          echo "== Deploy workflow YAML (first matching) =="
+          for wf in .github/workflows/deploy.yml .github/workflows/deploy-and-indexnow.yml .github/workflows/production.yml; do
+            if gh api "repos/$REPO/contents/$wf" --jq .content >/tmp/wf.b64 2>/dev/null; then
+              echo "FOUND $wf"
+              base64 -d </tmp/wf.b64 | tee "/tmp/$(basename $wf)"
+            fi
+          done
+          gh api "repos/$REPO/contents/.github/workflows" --jq '.[].name' | tee /tmp/wf-names.txt
+          while read -r name; do
+            case "$name" in
+              *eploy*|*ercel*|*ndex*)
+                echo "---- $name ----"
+                gh api "repos/$REPO/contents/.github/workflows/$name" --jq .content | base64 -d | tee "/tmp/$name"
+                ;;
+            esac
+          done </tmp/wf-names.txt
+          echo
+          echo "== Latest run full log (filtered) =="
+          RUN_ID=$(gh run list --repo "$REPO" --branch master --limit 1 --json databaseId -q '.[0].databaseId')
+          echo "RUN_ID=$RUN_ID"
+          gh run view "$RUN_ID" --repo "$REPO" --log 2>&1 | grep -Ei 'vercel|production|deploy|Aliased|Ready|Error|fail|success|project|custodynote|token|Missing' | head -200 || true
+          echo
+          echo "== Check runs on master tip =="
+          gh api "repos/$REPO/commits/$SHA/check-runs" --jq '.check_runs|map({name,status,conclusion,details_url})'
+          echo
+          echo "== Homepage source markers on master =="
+          rm -rf /tmp/cnw && git clone --depth 1 "https://x-access-token:${GH_TOKEN}@github.com/$REPO.git" /tmp/cnw
+          cd /tmp/cnw
+          echo "SHA=$(git rev-parse HEAD)"
+          for f in app/page.tsx src/app/page.tsx; do
+            [ -f "$f" ] || continue
+            echo "FILE $f"
+            grep -n "Download free\|View Features\|Free note generator\|max-w-lg\|See Example Note\|Download for Windows\|hero" "$f" | head -80 || true
+          done
+          for f in components/FloatingTrialCta.tsx src/components/FloatingTrialCta.tsx; do
+            [ -f "$f" ] || continue
+            echo "FILE $f"
+            grep -n "scrollY\|innerHeight\|viewport\|Download\|delay" "$f" | head -40 || true
+          done
+
+      - name: Upload diagnose artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: website-deploy-diagnose
+          path: |
+            /tmp/*.yml
+            /tmp/wf-names.txt
+            /tmp/cnw/app/page.tsx
+            /tmp/cnw/components/FloatingTrialCta.tsx
+            /tmp/cnw/components/ProductScreenshot.tsx
+          if-no-files-found: ignore

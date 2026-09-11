@@ -116,7 +116,10 @@ function createMockCtx(overrides = {}) {
     readLicenceData: () => ({ key: 'test-key' }),
     getMachineId: () => 'test-machine',
     getMasterKeyHex: () => 'a'.repeat(64),
-    httpPost: async () => ({ ok: true, written: 1 }),
+    httpPost: async (url, body) => {
+      const writtenCount = body && Array.isArray(body.records) ? body.records.length : 1;
+      return { ok: true, written: writtenCount };
+    },
     httpGetWithTimeout: async () => ({ statusCode: 200, ok: true }),
     onStatusChange: () => {}, sendToRenderer: () => {},
     ...overrides,
@@ -147,12 +150,13 @@ describe('Stress: Intermittent 50% failure', () => {
   it('eventually syncs all records despite random failures', async () => {
     let callCount = 0;
     const mock = createMockCtx({
-      httpPost: async () => {
+      httpPost: async (url, body) => {
         callCount++;
         if (Math.random() < 0.5) {
           const e = new Error('Timeout'); e.code = 'ETIMEDOUT'; throw e;
         }
-        return { ok: true, written: 1 };
+        const writtenCount = body && Array.isArray(body.records) ? body.records.length : 1;
+        return { ok: true, written: writtenCount };
       },
     });
     for (let i = 1; i <= 10; i++) mock.addAttendance(i);
@@ -201,9 +205,10 @@ describe('Stress: Network flap (alternate connectivity)', () => {
   it('syncs all items despite alternating connectivity', async () => {
     let online = true;
     const mock = createMockCtx({
-      httpPost: async () => {
+      httpPost: async (url, body) => {
         if (!online) { const e = new Error('Timeout'); e.code = 'ETIMEDOUT'; throw e; }
-        return { ok: true, written: 1 };
+        const writtenCount = body && Array.isArray(body.records) ? body.records.length : 1;
+        return { ok: true, written: writtenCount };
       },
     });
     for (let i = 1; i <= 10; i++) mock.addAttendance(i);

@@ -1,0 +1,154 @@
+name: Fix website marketing copy
+
+# Honesty pass for custodynote.com (private sibling repo).
+# Uses GH_PAT (same secret as deploy-website) to clone, edit, push a PR branch.
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - cursor/marketing-legal-copy-24e3
+    paths:
+      - scripts/fix-website-marketing-copy.mjs
+      - .github/workflows/fix-website-marketing-copy.yml
+
+permissions:
+  contents: read
+
+jobs:
+  fix-website:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout app
+        uses: actions/checkout@v4
+
+      - name: Checkout website
+        uses: actions/checkout@v4
+        with:
+          repository: robertcashman-bit/custody-note-website
+          path: custody-note-website
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Snapshot key website sources (pre-fix)
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/website-src-snapshot
+          cd custody-note-website
+          # Collect likely pages/components for review + precise edits
+          find app components lib -type f \( -name '*.tsx' -o -name '*.ts' -o -name '*.jsx' -o -name '*.js' \) \
+            | while read -r f; do
+                case "$f" in
+                  *page.tsx|*layout.tsx|*Cookie*|*cookie*|*Header*|*Nav*|*Footer*|*Cta*|*CTA*|*Banner*|*site.ts|*product-copy*|*cta-analytics*|*linkable*)
+                    mkdir -p "/tmp/website-src-snapshot/$(dirname "$f")"
+                    cp "$f" "/tmp/website-src-snapshot/$f"
+                    ;;
+                esac
+              done
+          # Always include homepage + features + app + about + product-copy
+          for f in app/page.tsx app/features/page.tsx app/app/page.tsx app/about/page.tsx app/download/page.tsx app/layout.tsx lib/product-copy.ts lib/site.ts; do
+            if [ -f "$f" ]; then
+              mkdir -p "/tmp/website-src-snapshot/$(dirname "$f")"
+              cp "$f" "/tmp/website-src-snapshot/$f"
+            fi
+          done
+          find /tmp/website-src-snapshot -type f | sort | tee /tmp/website-src-snapshot/FILES.txt
+          # Grep helpers for the duplicate CTA and Cookies path
+          rg -n "Still writing custody notes|/Cookies|/trial|Open Custody Note|Free Forever|Free during beta to test|Free Trial|Try Custody Note|InlineCtaStrip|TRIAL_LABEL" \
+            /tmp/website-src-snapshot > /tmp/website-src-snapshot/HITS.txt || true
+
+      - name: Upload website source snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: website-src-snapshot
+          path: /tmp/website-src-snapshot
+
+      - name: Apply marketing/legal copy fixes
+        env:
+          WEBSITE_ROOT: ${{ github.workspace }}/custody-note-website
+        run: node scripts/fix-website-marketing-copy.mjs
+
+      - name: Upload copy-fix report and post-fix key pages
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: website-copy-fix-report
+          path: |
+            custody-note-website/.copy-fix-report.json
+            custody-note-website/app/page.tsx
+            custody-note-website/app/features/page.tsx
+            custody-note-website/app/app/page.tsx
+            custody-note-website/app/about/page.tsx
+            custody-note-website/app/download/page.tsx
+            custody-note-website/lib/site.ts
+            custody-note-website/lib/product-copy.ts
+            custody-note-website/components
+          if-no-files-found: ignore
+
+      - name: Commit and push website branch
+        working-directory: custody-note-website
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          set -euo pipefail
+          git config user.name "Cursor Agent"
+          git config user.email "cursoragent@cursor.com"
+          BRANCH="cursor/marketing-legal-copy-24e3"
+          git checkout -B "$BRANCH"
+          rm -f .copy-fix-report.json
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No website file changes to commit"
+            exit 0
+          fi
+          git commit -m "$(cat <<'EOF'
+          fix(copy): beta commercial honesty + walkthrough fixes
+
+          Cookie /cookies path, homepage CTA dedupe, /app download landing,
+          features grammar, trial CTAs → download, Companies House disclosures.
+          EOF
+          )"
+          git push -u origin "$BRANCH" --force
+
+      - name: Open or update website PR
+        working-directory: custody-note-website
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          set -euo pipefail
+          BRANCH="cursor/marketing-legal-copy-24e3"
+          if gh pr view "$BRANCH" --json url >/dev/null 2>&1; then
+            echo "Website PR already exists for $BRANCH"
+            gh pr view "$BRANCH" --json url,title -q '"\(.title) \(.url)"'
+            # Refresh body with latest scope
+            gh pr edit "$BRANCH" --body "$(cat <<'EOF'
+          ## Summary
+          Marketing/legal honesty pass for custodynote.com during free beta (payments not wired).
+
+          ### Commercial
+          - One line: **Free during beta. No credit card. Paid Pro planned after beta.**
+          - Download: remove Free Trial title, free forever body, and Subscribe £9.99 CTA
+          - Pricing: stop “Shipping now / Available now for Pro”; label Pro AI / multi-site as planned
+          - Homepage: Pro-planned cloud/sync labels; example workflow notes; **dedupe repeated “Still writing…” CTAs**
+          - Nav/footer: Free Forever → Download free; `/trial` CTAs → `/download`; stop Free Trial / Try wording
+          - Cookie banner: `/Cookies` → `/cookies`
+          - `/app`: honest download landing (no fake Open web-app)
+          - `/features`: fix broken “with a Free during beta to test…” grammar
+          - Terms dated **19 August 2026**; Privacy billing language future-proofed
+
+          ### Legal entity
+          - About + legal footers: DEFENCELEGALSERVICES LIMITED, Companies House **09900871**, registered office, CH link
+
+          ### Out of scope
+          - No Lemon Squeezy / checkout / billing
+          - Companion desktop app PR: custody-note-app `cursor/marketing-legal-copy-24e3`
+
+          EOF
+          )"
+            exit 0
+          fi
+          gh pr create --base master --head "$BRANCH" --title "fix(copy): beta commercial line + Companies House disclosures" --body "$(cat <<'EOF'
+          ## Summary
+          Marketing/legal honesty pass for custodynote.com during free beta (payments not wired).
+
+          Companion app PR uses the same branch name on custody-note-app.
+          EOF
+          )"

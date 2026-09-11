@@ -6,8 +6,9 @@
  * Root causes addressed:
  * 1. Empty court list during IPC load showed misleading "No courts match".
  * 2. Trailing punctuation (Sevenoaks.) failed substring search.
- * 3. CSS contain:paint on .form-section clipped the absolute dropdown.
- * 4. Dropdown used absolute positioning inside scroll/contain containers.
+ * 3. CSS contain:layout / transform on form containers clipped fixed dropdowns
+ *    → dropdown is now portaled to document.body (see courtTypeahead.userJourney).
+ * 4. Magistrates' word-prefix flooded two-letter queries.
  */
 const { describe, it } = require('node:test');
 const assert = require('node:assert');
@@ -18,6 +19,7 @@ const search = require('../lib/magistratesCourtsSearch');
 const root = path.join(__dirname, '..');
 const appJs = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
 const stylesCss = fs.readFileSync(path.join(root, 'styles.css'), 'utf8');
+const acJs = fs.readFileSync(path.join(root, 'lib', 'courtAutocomplete.js'), 'utf8');
 const courts = JSON.parse(fs.readFileSync(path.join(root, 'data', 'magistrates-courts.json'), 'utf8'));
 
 const SEVENOAKS = "Sevenoaks Magistrates' Court and Family Court";
@@ -48,6 +50,12 @@ describe('court typeahead search — Sevenoaks in live data', () => {
     const hits = search.searchMagistratesCourts([], 'Sevenoaks', 20);
     assert.deepStrictEqual(hits, []);
   });
+
+  it('does not let Magistrates\' steal two-letter ma queries', () => {
+    const hits = search.searchMagistratesCourts(courts, 'ma', 20);
+    assert.ok(hits.some(function(n) { return /Manchester/i.test(n); }));
+    assert.ok(!hits.some(function(n) { return /^Aberdare/i.test(n); }), hits.join(' | '));
+  });
 });
 
 describe('court typeahead — load race UX (app.js wiring)', () => {
@@ -58,23 +66,19 @@ describe('court typeahead — load race UX (app.js wiring)', () => {
 
   it('ensureMagistratesCourtsLoaded re-runs suggestions after load when field focused', () => {
     assert.match(appJs, /function ensureMagistratesCourtsLoaded/);
-    assert.match(appJs, /if \(document\.activeElement === input\)[\s\S]{0,120}setSuggestions/);
+    assert.match(acJs, /document\.activeElement === input/);
   });
 
   it('shows Loading magistrates courts instead of No courts match when list empty', () => {
-    assert.match(appJs, /Loading magistrates courts/);
-    assert.doesNotMatch(
-      appJs,
-      /if \(!items\.length\)[\s\S]{0,120}magistratesCourts\.length/
-    );
+    assert.match(acJs, /Loading magistrates courts/);
   });
 
   it('uses normalizeCourtSearchQuery before searching', () => {
-    assert.match(appJs, /normalizeCourtSearchQuery/);
+    assert.match(acJs, /normalizeCourtSearchQuery/);
   });
 
   it('shows explicit message when court list fails to load', () => {
-    assert.match(appJs, /Court list failed to load/);
+    assert.match(acJs, /Court list failed to load/);
   });
 
   it('logs court count after successful load', () => {
@@ -87,15 +91,20 @@ describe('court typeahead — load race UX (app.js wiring)', () => {
   });
 });
 
-describe('court typeahead — dropdown visibility (CSS + fixed positioning)', () => {
+describe('court typeahead — dropdown visibility (portal + fixed)', () => {
   it('form-section does not use contain:content (clips paint / dropdown)', () => {
     assert.doesNotMatch(stylesCss, /\.form-section[^}]*contain:\s*content/);
-    assert.match(stylesCss, /\.form-section[^}]*contain:\s*layout style/);
   });
 
-  it('court dropdown uses fixed positioning to escape scroll containers', () => {
-    assert.match(appJs, /dropdown\.style\.position = 'fixed'/);
-    assert.match(appJs, /court-autocomplete-dropdown/);
+  it('court autocomplete portals dropdown to document.body', () => {
+    assert.match(acJs, /portalRoot/);
+    assert.match(acJs, /document\.body/);
+    assert.match(appJs, /portalRoot:\s*document\.body/);
+  });
+
+  it('court dropdown uses fixed positioning', () => {
+    assert.match(acJs, /dropdown\.style\.position = 'fixed'/);
+    assert.match(stylesCss, /\.court-autocomplete-dropdown\s*\{[^}]*position:\s*fixed/s);
   });
 
   it('court-autocomplete-dropdown has elevated open styles', () => {

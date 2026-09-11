@@ -42,6 +42,80 @@ const HEADER_LINES = [
   'Police Station Name', 'Police', 'station', 'ID',
 ];
 
+/** Annex A page-break leftovers like "Central London (Contd)" must not glue into station names. */
+const CONTD_FRAGMENT_RE = /\s*[A-Za-z0-9 &/',.-]+\s*\(contd\.?\)\s*/gi;
+const CONTD_LINE_RE = /^(.+?)\s*\(contd\.?\)$/i;
+
+/** Llanelli transitional footnote sometimes concatenates onto the scheme title in PDF text. */
+const LLANELLI_FOOTNOTE_RE = /\s*These Police Station ID codes must be used for Matters starting before[\s\S]*Llanelli Police Station Scheme\.?/i;
+
+/**
+ * Normalise scheme titles extracted from Annex A PDF text.
+ * Keeps known PDF quirks (PROVST etc.) but strips footnotes and obvious OCR typos
+ * that would otherwise poison every row in the scheme.
+ */
+function cleanSchemeName(scheme) {
+  if (!scheme) return '';
+  let s = String(scheme).replace(/\s+/g, ' ').trim();
+  s = s.replace(LLANELLI_FOOTNOTE_RE, '').trim();
+  // Known fee-sheet spelling for scheme 2005 (PDF sometimes reads Sedgemore / Dane).
+  if (/^Sedgemore\s*\/\s*Taunton\s+Dane$/i.test(s)) {
+    s = 'Sedgemoor / Taunton Deane';
+  }
+  return s;
+}
+
+/** Strip continued-heading leftovers from a station name buffer. */
+function stripContinuedHeading(name) {
+  if (!name) return '';
+  return String(name)
+    .replace(CONTD_FRAGMENT_RE, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Resolve display name for a station ID.
+ * Nameless Annex A IDs (e.g. MA100 under GREAT BROUGHTON) inherit the previous
+ * station name in the same scheme rather than being dropped.
+ */
+function resolveStationName(rawName, opts) {
+  const options = opts || {};
+  const cleaned = stripContinuedHeading(rawName);
+  if (cleaned) return cleaned;
+  if (options.lastStationName) return String(options.lastStationName).trim();
+  if (options.currentScheme) return String(options.currentScheme).trim();
+  return '';
+}
+
+function buildStationRecord(stationId, rawName, ctx) {
+  const context = ctx || {};
+  const resolvedRaw = resolveStationName(rawName, {
+    lastStationName: context.lastStationName,
+    currentScheme: context.currentScheme,
+  });
+  if (!stationId || !resolvedRaw) return null;
+
+  const isNonPoliceVenue = /NON[\s-]+POLICE\s+STATION/i.test(resolvedRaw);
+  let displayName;
+  if (isNonPoliceVenue) {
+    const cleaned = resolvedRaw.replace(/\s*NON[\s-]+POLICE\s+STATION\s*/i, ' ').replace(/\s+/g, ' ').trim();
+    const baseName = cleaned || (context.currentScheme || 'Scheme venue');
+    displayName = toTitleCase(baseName) + ' (non-police venue)';
+  } else {
+    displayName = toTitleCase(resolvedRaw);
+  }
+
+  return {
+    name: displayName,
+    code: stationId,
+    scheme: cleanSchemeName(context.currentScheme || ''),
+    schemeCode: context.currentSchemeCode || '',
+    region: getRegion(stationId),
+    kind: isNonPoliceVenue ? 'venue' : 'station',
+  };
+}
+
 async function main() {
   const pdfArg = process.argv[2];
   const candidates = pdfArg
@@ -80,6 +154,7 @@ async function main() {
   let currentScheme = '';
   let currentSchemeCode = '';
   let nameBuffer = '';
+  let lastStationName = '';
 
   function isHeaderOrJunk(line) {
     if (HEADER_LINES.includes(line)) return true;
@@ -93,32 +168,25 @@ async function main() {
     if (line.startsWith('station or scheme')) return true;
     if (line === 'Annex A \u2013 Police station and police station') return true;
     if (line === 'scheme codes') return true;
+    // Discard Llanelli transitional footnote lines (scheme title stays "Llanelli").
+    if (line.startsWith('These Police Station ID codes must be used')) return true;
+    if (line.startsWith('for Matters starting before')) return true;
+    if (line.startsWith('and on or after')) return true;
+    if (line.startsWith('in the Llanelli Police Station Scheme')) return true;
     return false;
   }
 
   function flushStation(stationId) {
     const rawName = nameBuffer.replace(/\s+/g, ' ').trim();
     nameBuffer = '';
-    if (!rawName || !stationId) return;
-
-    const isNonPoliceVenue = /NON[\s-]+POLICE\s+STATION/i.test(rawName);
-    let displayName;
-    if (isNonPoliceVenue) {
-      const cleaned = rawName.replace(/\s*NON[\s-]+POLICE\s+STATION\s*/i, ' ').replace(/\s+/g, ' ').trim();
-      const baseName = cleaned || (currentScheme || 'Scheme venue');
-      displayName = toTitleCase(baseName) + ' (non-police venue)';
-    } else {
-      displayName = toTitleCase(rawName);
-    }
-
-    stations.push({
-      name: displayName,
-      code: stationId,
-      scheme: currentScheme,
-      schemeCode: currentSchemeCode,
-      region: getRegion(stationId),
-      kind: isNonPoliceVenue ? 'venue' : 'station',
+    const record = buildStationRecord(stationId, rawName, {
+      currentScheme,
+      currentSchemeCode,
+      lastStationName,
     });
+    if (!record) return;
+    stations.push(record);
+    lastStationName = record.name.replace(/\s*\(non-police venue\)\s*$/i, '').trim();
   }
 
   for (let i = 0; i < rawLines.length; i++) {
@@ -131,8 +199,8 @@ async function main() {
       continue;
     }
 
-    const contdMatch = line.match(/^(.+?)\s*\(contd\.\)$/i);
-    if (contdMatch) {
+    // Page-break scheme continuation heading — clear buffer, do not treat as a name.
+    if (CONTD_LINE_RE.test(line)) {
       nameBuffer = '';
       continue;
     }
@@ -142,28 +210,31 @@ async function main() {
       if (nameBuffer.trim()) {
         flushStation(null);
       }
-      currentScheme = schemeWithStation[1].trim();
+      currentScheme = cleanSchemeName(schemeWithStation[1].trim());
       currentSchemeCode = schemeWithStation[2];
       nameBuffer = schemeWithStation[3];
+      lastStationName = '';
       continue;
     }
 
     const schemeCodeOnLine = line.match(/^(\d{4})\s+(.+)$/);
     if (schemeCodeOnLine) {
       if (nameBuffer.trim()) {
-        currentScheme = nameBuffer.replace(/\s+/g, ' ').trim();
+        currentScheme = cleanSchemeName(nameBuffer.replace(/\s+/g, ' ').trim());
       }
       currentSchemeCode = schemeCodeOnLine[1];
       nameBuffer = schemeCodeOnLine[2];
+      lastStationName = '';
       continue;
     }
 
     if (SCHEME_CODE_RE.test(line)) {
       if (nameBuffer.trim()) {
-        currentScheme = nameBuffer.replace(/\s+/g, ' ').trim();
+        currentScheme = cleanSchemeName(nameBuffer.replace(/\s+/g, ' ').trim());
       }
       currentSchemeCode = line;
       nameBuffer = '';
+      lastStationName = '';
       continue;
     }
 
@@ -188,7 +259,18 @@ async function main() {
   console.log('Written to police-stations-laa.json');
 }
 
-main().catch(e => {
-  console.error(e);
-  process.exit(1);
-});
+module.exports = {
+  cleanSchemeName,
+  stripContinuedHeading,
+  resolveStationName,
+  buildStationRecord,
+  toTitleCase,
+  getRegion,
+};
+
+if (require.main === module) {
+  main().catch(e => {
+    console.error(e);
+    process.exit(1);
+  });
+}

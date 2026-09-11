@@ -96,7 +96,7 @@
         <span id="header-form-actions" class="header-form-actions">
           <span id="header-autosave" class="autosave-indicator" title="Drafts save automatically to this computer while you edit. After finalise, autosave stops because the note is locked."></span>
           <button type="button" id="billing-panel-btn" class="btn btn-small btn-accent btn-header-primary-action" title="Primary action for the current record (Finalise / Finish matter / Archive)" style="display:none;">Finalise</button>
-          <button type="button" class="btn btn-small btn-backup-now" id="header-backup-now-btn" title="Save &amp; backup now">&#128190; Backup</button>
+          <button type="button" class="btn btn-small btn-backup-now" id="header-backup-now-btn" title="Save now — write to disk and create a verified local backup (Ctrl+S)">Save now</button>
           <button type="button" class="btn-small" id="header-kb-help" title="Keyboard shortcuts">?</button>
           <button type="button" class="btn btn-small" id="header-laa-forms" title="Generate LAA forms">LAA Forms</button>
           <button type="button" class="btn btn-sections" id="header-sections-idx">Sections</button>
@@ -282,6 +282,33 @@
               <div class="home-widget-header">
                 <h3 class="home-widget-title">Recent Cases</h3>
                 <button type="button" id="home-view-all" class="home-view-all">View all &rarr;</button>
+              </div>
+              <div id="home-empty-db-recovery" class="home-cloud-backup-banner" style="display:none;margin:0 0 0.75rem 0;background:linear-gradient(135deg,#fff7ed,#fffbeb);border:1px solid #f59e0b;">
+                <div style="display:flex;align-items:flex-start;gap:0.65rem;">
+                  <div style="flex:1;">
+                    <p style="margin:0;font-weight:600;font-size:0.9rem;color:#92400e;">Database file is large but no records are listed</p>
+                    <p id="home-empty-db-recovery-body" style="margin:0.25rem 0 0 0;font-size:0.8rem;color:#78350f;line-height:1.4;">Your local database may need a restore from another computer or a cloud re-sync. Open Settings → Backup to restore a local backup, run Full re-sync from cloud, or on the computer that still has your records use Re-upload all local records to cloud.</p>
+                  </div>
+                  <button type="button" id="home-empty-db-recovery-settings" class="btn btn-secondary btn-small">Open Settings</button>
+                </div>
+              </div>
+              <div id="home-empty-cloud-alarm" class="home-cloud-backup-banner" style="display:none;margin:0 0 0.75rem 0;background:linear-gradient(135deg,#fef2f2,#fff1f2);border:1px solid #ef4444;">
+                <div style="display:flex;align-items:flex-start;gap:0.65rem;">
+                  <div style="flex:1;">
+                    <p style="margin:0;font-weight:600;font-size:0.9rem;color:#991b1b;">Cloud empty for this licence</p>
+                    <p id="home-empty-cloud-alarm-body" style="margin:0.25rem 0 0 0;font-size:0.8rem;color:#7f1d1d;line-height:1.4;">Records are still on this device, but the cloud has none for this licence. Use Re-upload all — do not use Full re-sync while the cloud is empty.</p>
+                  </div>
+                  <button type="button" id="home-empty-cloud-alarm-settings" class="btn btn-secondary btn-small">Open Settings</button>
+                </div>
+              </div>
+              <div id="home-backup-degraded" class="home-cloud-backup-banner" style="display:none;margin:0 0 0.75rem 0;background:linear-gradient(135deg,#fff7ed,#fffbeb);border:1px solid #f59e0b;">
+                <div style="display:flex;align-items:flex-start;gap:0.65rem;">
+                  <div style="flex:1;">
+                    <p style="margin:0;font-weight:600;font-size:0.9rem;color:#92400e;">Local backup protection degraded</p>
+                    <p id="home-backup-degraded-body" style="margin:0.25rem 0 0 0;font-size:0.8rem;color:#78350f;line-height:1.4;">Backups could not write to the local Backups folder. Open Settings → Backup and confirm the path (especially after restoring a Mac database onto Windows).</p>
+                  </div>
+                  <button type="button" id="home-backup-degraded-settings" class="btn btn-secondary btn-small">Open Settings</button>
+                </div>
               </div>
               <ul id="home-recent-list" class="home-recent-list">
                 <li class="home-recent-empty">No records yet. Create your first attendance above.</li>
@@ -602,7 +629,7 @@
             <span id="autosave-indicator" class="autosave-indicator"></span>
             <button type="button" id="form-duplicate-btn" class="btn btn-small" title="Duplicate for another client in the same session" style="display:none;">Duplicate</button>
             <button type="button" id="form-header-history-btn" class="btn btn-small" title="View change history for this record">&#128203; History</button>
-            <button type="button" id="form-backup-now-btn" class="btn btn-small btn-backup-now" title="Save &amp; backup now">&#128190; Backup</button>
+            <button type="button" id="form-backup-now-btn" class="btn btn-small btn-backup-now" title="Save now — write this note to disk and create a verified local backup (Ctrl+S)">Save now</button>
             <button type="button" id="kb-help-btn" class="btn-small" title="Keyboard shortcuts">?</button>
             <button type="button" id="laa-forms-btn" class="btn btn-small" title="Generate LAA forms from this record">LAA Forms</button>
             <button type="button" id="form-context-panel-toggle" class="btn btn-small" title="Show or hide matter summary panel" aria-expanded="false" aria-controls="form-context-panel">Summary</button>
@@ -627,7 +654,7 @@
               <tr><td><kbd>Enter</kbd></td><td>Open selected record (in list)</td></tr>
               <tr><td><kbd data-shortcut-mod>Ctrl</kbd>+<kbd>→</kbd></td><td>Next section</td></tr>
               <tr><td><kbd data-shortcut-mod>Ctrl</kbd>+<kbd>←</kbd></td><td>Previous section</td></tr>
-              <tr><td><kbd data-shortcut-mod>Ctrl</kbd>+<kbd>S</kbd></td><td>Save</td></tr>
+              <tr><td><kbd data-shortcut-mod>Ctrl</kbd>+<kbd>S</kbd></td><td>Save now (disk + backup)</td></tr>
               <tr><td><kbd>Esc</kbd></td><td>Clear search / close popup</td></tr>
             </table>
             <button type="button" id="kb-help-close" class="btn btn-secondary" style="margin-top:0.75rem;width:100%;">Close</button>
@@ -1276,15 +1303,21 @@
             </div>
           </div>
           <div id="cross-device-sync-section" style="margin-bottom:1.5rem;padding-bottom:1rem;border-bottom:1px solid var(--border,#ccc);">
-            <h3 style="margin:0 0 0.5rem 0;font-size:1rem;">Cross-device record sync</h3>
+            <h3 style="margin:0 0 0.5rem 0;font-size:1rem;">Data &amp; Sync</h3>
             <p class="settings-hint" style="margin:0 0 0.5rem;">Records sync automatically in the background when online. Each computer keeps a local copy; changes push to the cloud and pull onto your other devices.</p>
             <p id="cross-device-sync-status" class="settings-hint" style="margin:0 0 0.5rem;">Checking sync status&hellip;</p>
+            <p id="cross-device-sync-health" class="settings-hint" style="margin:0 0 0.5rem;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:0.8rem;"></p>
             <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.25rem;">
               <button type="button" id="btn-sync-full-resync" class="btn btn-secondary">Full re-sync from cloud</button>
               <button type="button" id="btn-sync-push-now" class="btn btn-secondary">Push all pending now</button>
+              <button type="button" id="btn-sync-reupload-all" class="btn btn-secondary">Re-upload all local records to cloud</button>
+              <button type="button" id="btn-sync-export-index" class="btn btn-secondary">Export record index (no note text)</button>
+              <button type="button" id="btn-sync-integrity-check" class="btn btn-secondary">Integrity check (local vs cloud)</button>
+              <button type="button" id="btn-sync-open-diagnostics" class="btn btn-secondary">Open sync diagnostics</button>
             </div>
-            <p class="settings-hint" style="margin:0.5rem 0 0;">Use <strong>Full re-sync from cloud</strong> if this computer shows Synced but records from another device are missing. Use <strong>Push all pending now</strong> on the computer that has your records.</p>
+            <p class="settings-hint" style="margin:0.5rem 0 0;">Use <strong>Full re-sync from cloud</strong> if this computer shows Synced but records from another device are missing. Use <strong>Push all pending now</strong> on the computer that has your records. Use <strong>Re-upload all local records to cloud</strong> after a manual database file copy, or when other devices still show &ldquo;No remote records&rdquo; while this computer has data. <strong>Export record index</strong> lists client/station/date metadata only (no note bodies) for incident recovery. <strong>Integrity check</strong> reports local vs cloud discrepancies without deleting anything.</p>
             <p id="cross-device-sync-action-status" class="settings-hint" style="margin:0.35rem 0 0;"></p>
+            <p id="cross-device-sync-recovery-hint" class="settings-hint" style="margin:0.35rem 0 0;display:none;color:#b45309;"></p>
           </div>
           <div id="anywhere-bridge-section" style="margin-bottom:1.5rem;padding-bottom:1rem;border-bottom:1px solid var(--border,#ccc);">
             <h3 style="margin:0 0 0.5rem 0;font-size:1rem;">Custody Note Anywhere &rarr; Desktop</h3>
@@ -1335,19 +1368,26 @@
               <span id="local-restore-status" class="settings-hint" style="margin:0;"></span>
             </div>
           </div>
-          <p class="settings-hint" style="margin-top:0;">Your attendance data is backed up automatically as encrypted files. Syncing to a cloud folder keeps an off-site copy safe.</p>
-          <label>Local backup folder</label>
+          <p class="settings-hint" style="margin-top:0;">Your attendance data is backed up automatically as encrypted files. Quick snapshots every ~2 minutes (generational) plus hourly archives. Syncing to a cloud folder keeps an off-site copy safe.</p>
+          <label>Local backup folder (effective path on this computer)</label>
           <div class="setting-row">
-            <input type="text" id="setting-backup-folder" class="settings-input" readonly placeholder="Desktop">
+            <input type="text" id="setting-backup-folder" class="settings-input" readonly placeholder="userData/Backups">
             <button type="button" id="setting-backup-browse" class="btn btn-secondary">Browse</button>
+            <button type="button" id="setting-backup-open-folder" class="btn btn-secondary">Open folder</button>
           </div>
+          <p id="settings-backup-effective-meta" class="settings-hint" style="margin:0.35rem 0 0;"></p>
+          <p id="settings-backup-last-status" class="settings-hint" style="margin:0.25rem 0 0;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:0.8rem;"></p>
+          <p id="settings-backup-degraded-banner" class="settings-warning-banner" style="display:none;margin-top:0.5rem;"></p>
+          <button type="button" id="settings-backup-path-ack" class="btn btn-secondary btn-small" style="display:none;margin-top:0.35rem;">Dismiss path notice</button>
           <label style="margin-top:0.75rem;">Sync backups to the cloud <span style="color:#059669;font-weight:600;">(recommended)</span></label>
           <p class="settings-hint" style="margin:0 0 0.5rem;">Choose a folder that syncs to OneDrive, Dropbox, or Google Drive. Encrypted backups are copied there automatically.</p>
           <div id="offsite-backup-chooser" class="offsite-backup-chooser">
             <div class="offsite-scanning">Scanning for cloud folders&hellip;</div>
           </div>
           <button type="button" id="setting-detect-cloud-folders" class="btn btn-secondary" style="margin-top:0.5rem;">Detect cloud folders</button>
+          <button type="button" id="setting-offsite-open-folder" class="btn btn-secondary" style="margin-top:0.5rem;">Open off-site folder</button>
           <input type="text" id="setting-offsite-backup-folder" readonly style="display:none;" aria-hidden="true">
+          <p id="settings-offsite-effective-path" class="settings-hint" style="margin:0.35rem 0 0;"></p>
           <div class="settings-advanced-section" style="display:none;">
             <label>Custom cloud backup URL (optional)</label>
             <input type="url" id="setting-cloud-backup-url" class="settings-input" placeholder="https://your-backup-api.example.com/api/backup" style="width:100%;max-width:400px;" autocomplete="off">
@@ -1817,7 +1857,7 @@
               <table class="help-kb-table">
                 <tr><td><kbd data-shortcut-mod>Ctrl</kbd> + <kbd>&rarr;</kbd></td><td>Next section</td></tr>
                 <tr><td><kbd data-shortcut-mod>Ctrl</kbd> + <kbd>&larr;</kbd></td><td>Previous section</td></tr>
-                <tr><td><kbd data-shortcut-mod>Ctrl</kbd> + <kbd>S</kbd></td><td>Save (does not exit)</td></tr>
+                <tr><td><kbd data-shortcut-mod>Ctrl</kbd> + <kbd>S</kbd></td><td>Save now (disk + backup)</td></tr>
                 <tr><td><kbd>Esc</kbd></td><td>Close popup / go back</td></tr>
               </table>
             </div>
@@ -1999,7 +2039,7 @@
           <span id="licence-footer-badge" class="footer-chip footer-licence-chip" style="cursor:pointer;" title="Click to open Licence settings"></span>
           <span id="net-status-text" class="footer-indicator footer-chip connected">Checking&hellip;</span>
           <span id="backup-status-text" class="footer-indicator footer-chip backup-ok">Backup checking&hellip;</span>
-          <span id="cloud-backup-footer-wrap"><span id="cloud-backup-footer-status" class="footer-indicator footer-chip warning" style="cursor:pointer;" title="Open Settings to check Cloud Backup">Local only</span></span>
+          <span id="cloud-backup-footer-wrap"><span id="cloud-backup-footer-status" class="footer-indicator footer-chip backup-ok" style="cursor:pointer;" title="Managed AWS cloud backup is not configured. Local + offsite folders still protect your data. Click to open Settings.">Local backups</span></span>
           <span id="aws-s3-footer-wrap" style="display:none;"><span id="aws-s3-status-footer" class="footer-indicator footer-chip backup-active"></span></span>
           <span id="sync-footer-wrap" style="display:none;"><span id="sync-status-indicator" class="footer-indicator footer-chip synced" style="display:none;"></span></span>
           <span id="update-footer-wrap" style="display:none;"><span id="update-footer-status" class="footer-indicator footer-chip synced" style="cursor:pointer;"></span></span>
@@ -2200,6 +2240,7 @@
     <button type="button" id="scratchpad-toggle" class="scratchpad-fab" title="Quick Notes">&#128221;</button>
   </div>
   <script src="renderer/lib/duplicate-attendance.js"></script>
+  <script src="lib/stationMileage.js"></script>
   <script src="renderer/lib/station-visits.js"></script>
   <script src="renderer/lib/quickfileConnectionState.js"></script>
   <script src="renderer/lib/quickfileConfigured.js"></script>
@@ -2216,10 +2257,9 @@
   <script src="renderer/emailCopy.js"></script>
   <script src="renderer/licence.js"></script>
   <script src="renderer/freemiumFeatures.js"></script>
-  <script src="renderer/aiLawElements.js"></script>
-  <!-- Wheel-style ("rotating counter") date/time picker. Self-contained, attaches a 🕑/📅 button next to every native date/time/datetime-local input. Native typing still works. -->
-  <script src="renderer/widgets/wheelDateTimePicker.js"></script>
+  <!-- Wheel-style ("rotating counter") date/time picker + AI panel: deferred (boot-deferred.js) -->
   <script src="lib/magistratesCourtsSearch.js"></script>
+  <script src="lib/courtAutocomplete.js"></script>
   <script src="lib/defenceSummary.js"></script>
   <script src="lib/clientAddress.js"></script>
   <script src="lib/laaPrivacyNoticeV7.js"></script>
@@ -2227,29 +2267,35 @@
   <script src="lib/clientSignatureAttachment.js"></script>
   <script src="lib/officerEmailTemplateOptions.js"></script>
   <script src="lib/sessionBlankerPolicy.js"></script>
+  <script src="lib/footerStatusChips.js"></script>
   <script src="app.js"></script>
-  <script src="renderer/views/officerEmailsPanel.js"></script>
-  <script src="renderer/views/officerEmailsStandalone.js"></script>
-  <script src="renderer/views/reports.js"></script>
-  <script src="renderer/views/authorities.js"></script>
-  <script src="renderer/views/settings.js"></script>
-  <script src="renderer/views/list.js"></script>
-  <script src="renderer/csv-exporter.js"></script>
-  <script src="renderer/laa-forms.js"></script>
-  <script src="renderer/filenameUtils.js"></script>
-  <script src="renderer/billingUtils.js"></script>
-  <script src="renderer/views/billing.js"></script>
-  <script src="renderer/views/workflow-stepper.js"></script>
-  <script src="renderer/views/documents-screen.js"></script>
-  <script src="renderer/views/billing-screen.js"></script>
-  <script src="renderer/views/completion-screen.js"></script>
-  <script src="renderer/views/station-mileage-admin.js"></script>
+  <!-- Cold-start: non-home scripts load after first paint (see renderer/boot-deferred.js).
+       Paths kept here (comments) so load-order tests still see the dependency chain. -->
+  <script src="renderer/boot-deferred.js"></script>
+  <!-- deferred: renderer/aiLawElements.js -->
+  <!-- deferred: renderer/widgets/wheelDateTimePicker.js -->
+  <!-- deferred: renderer/views/officerEmailsPanel.js -->
+  <!-- deferred: renderer/views/officerEmailsStandalone.js -->
+  <!-- deferred: renderer/views/reports.js -->
+  <!-- deferred: renderer/views/authorities.js -->
+  <!-- deferred: renderer/views/settings.js -->
+  <!-- deferred: renderer/views/list.js -->
+  <!-- deferred: renderer/csv-exporter.js -->
+  <!-- deferred: renderer/laa-forms.js -->
+  <!-- deferred: renderer/filenameUtils.js -->
+  <!-- deferred: renderer/billingUtils.js -->
+  <!-- deferred: renderer/views/billing.js -->
+  <!-- deferred: renderer/views/workflow-stepper.js -->
+  <!-- deferred: renderer/views/documents-screen.js -->
+  <!-- deferred: renderer/views/billing-screen.js -->
+  <!-- deferred: renderer/views/completion-screen.js -->
+  <!-- deferred: renderer/views/station-mileage-admin.js -->
   <!-- laa-forms.js: CRM14 HTML summary for billing previews; CRM1–3 & declaration use official PDFs via IPC -->
-  <script src="renderer/audit-log.js"></script>
-  <script src="renderer/templateSystem/placeholders.js"></script>
-  <script src="renderer/templateSystem/templateEngine.js"></script>
-  <script src="renderer/templateSystem/templateStore.js"></script>
-  <script src="renderer/templateSystem/templateManager.js"></script>
+  <!-- deferred: renderer/audit-log.js -->
+  <!-- deferred: renderer/templateSystem/placeholders.js -->
+  <!-- deferred: renderer/templateSystem/templateEngine.js -->
+  <!-- deferred: renderer/templateSystem/templateStore.js -->
+  <!-- deferred: renderer/templateSystem/templateManager.js -->
   <!-- Event wiring, service-worker cleanup, fallback splash timer, admin shortcut -->
   <script src="renderer/init-events.js"></script>
 
@@ -2308,42 +2354,54 @@
   </div>
 
   <!-- AI Law / Elements review modal -->
-  <div id="ai-law-draft-modal" class="first-launch-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="ai-law-draft-title">
-    <div class="first-launch-modal" style="max-width:640px;width:94%;">
-      <h2 id="ai-law-draft-title" style="margin:0 0 0.5rem;">AI draft — Law / Elements</h2>
-      <p id="ai-law-draft-meta" class="settings-hint" style="margin:0 0 0.75rem;"></p>
-      <p class="settings-hint" style="margin:0 0 0.5rem;color:var(--warning,#b45309);">Sources required. Unsourced case law is blocked. Verify primary materials before relying on this draft.</p>
-      <textarea id="ai-law-draft-text" class="settings-input" rows="12" style="width:100%;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:0.85rem;" aria-label="Editable AI law draft"></textarea>
-      <div id="ai-law-draft-sources" style="margin-top:0.65rem;padding:0.55rem 0.65rem;border:1px solid var(--border,#e2e8f0);border-radius:8px;background:rgba(15,23,42,0.03);"></div>
-      <div style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-top:0.75rem;">
-        <button type="button" id="ai-law-draft-copy" class="btn btn-secondary">Copy</button>
-        <button type="button" id="ai-law-draft-insert" class="btn btn-primary" disabled>Insert into Law / Elements</button>
-        <button type="button" id="ai-law-draft-close" class="btn btn-secondary">Close</button>
+  <div id="ai-law-draft-modal" class="ai-dialog-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="ai-law-draft-title">
+    <div class="ai-dialog ai-dialog--law" role="document">
+      <div class="ai-dialog-header">
+        <h2 id="ai-law-draft-title">AI draft — Law / Elements</h2>
+        <p id="ai-law-draft-meta" class="settings-hint ai-dialog-meta"></p>
+        <p class="settings-hint ai-dialog-warn">Sources required. Unsourced case law is blocked. Verify primary materials before relying on this draft.</p>
       </div>
-      <p class="settings-hint" style="margin:0.75rem 0 0;">Insert stays disabled until at least two source URLs are present. Not legal advice. Nothing is saved into the note until you press Insert.</p>
+      <div class="ai-dialog-body">
+        <textarea id="ai-law-draft-text" class="settings-input ai-dialog-textarea" aria-label="Editable AI law draft"></textarea>
+        <div id="ai-law-draft-sources" class="ai-dialog-sources"></div>
+      </div>
+      <div class="ai-dialog-footer">
+        <div class="ai-dialog-actions">
+          <button type="button" id="ai-law-draft-copy" class="btn btn-secondary">Copy</button>
+          <button type="button" id="ai-law-draft-insert" class="btn btn-primary" disabled>Insert into Law / Elements</button>
+          <button type="button" id="ai-law-draft-close" class="btn btn-secondary">Close</button>
+        </div>
+        <p class="settings-hint ai-dialog-footer-hint">Insert stays disabled until at least two source URLs are present. Not legal advice. Nothing is saved into the note until you press Insert.</p>
+      </div>
     </div>
   </div>
 
   <!-- Ask AI multi-turn session (UI-only — not printed) -->
-  <div id="ai-ask-modal" class="first-launch-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="ai-ask-title">
-    <div class="first-launch-modal" style="max-width:720px;width:94%;max-height:90vh;display:flex;flex-direction:column;">
-      <h2 id="ai-ask-title" style="margin:0 0 0.35rem;">Ask AI</h2>
-      <p id="ai-ask-accuracy-banner" class="settings-hint" style="margin:0 0 0.75rem;color:var(--warning,#b45309);">Sources required. Unsourced case law is blocked. Web-sourced drafts are for solicitor verification — not legal advice. You control what is sent; do not paste client names or privileged instructions unless you intend to.</p>
-      <div id="ai-ask-thread" style="flex:1;min-height:180px;max-height:40vh;overflow:auto;border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:0.65rem;margin-bottom:0.75rem;background:var(--surface,#fff);"></div>
-      <label for="ai-ask-input" class="settings-hint" style="display:block;margin-bottom:0.25rem;font-weight:600;color:inherit;">Your question</label>
-      <textarea id="ai-ask-input" class="settings-input" rows="3" style="width:100%;margin-bottom:0.5rem;" placeholder="e.g. What are the elements of self-defence?" aria-label="Ask AI question"></textarea>
-      <label class="checkbox-item" style="margin:0 0 0.75rem;font-size:0.85rem;">
-        <input type="checkbox" id="ai-ask-include-offences"> Include offence names/statutes from this note
-      </label>
-      <div style="display:flex;flex-wrap:wrap;gap:0.5rem;">
-        <button type="button" id="ai-ask-send" class="btn btn-primary">Send</button>
-        <button type="button" id="ai-ask-copy-last" class="btn btn-secondary">Copy last answer</button>
-        <button type="button" id="ai-ask-copy-thread" class="btn btn-secondary">Copy thread</button>
-        <button type="button" id="ai-ask-append-law" class="btn btn-secondary" disabled title="Append disabled until sources are present">Append last to Law / Elements</button>
-        <button type="button" id="ai-ask-clear" class="btn btn-secondary">Clear thread</button>
-        <button type="button" id="ai-ask-close" class="btn btn-secondary">Close</button>
+  <div id="ai-ask-modal" class="ai-dialog-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="ai-ask-title">
+    <div class="ai-dialog ai-dialog--ask" role="document">
+      <div class="ai-dialog-header">
+        <h2 id="ai-ask-title">Ask AI</h2>
+        <p id="ai-ask-accuracy-banner" class="settings-hint ai-dialog-warn">Sources required. Unsourced case law is blocked. Web-sourced drafts are for solicitor verification — not legal advice. You control what is sent; do not paste client names or privileged instructions unless you intend to.</p>
       </div>
-      <p class="settings-hint" style="margin:0.75rem 0 0;">Cmd/Ctrl+Enter to send. Answers are not legal advice. Nothing is written into the note until you Copy or Append.</p>
+      <div class="ai-dialog-body">
+        <div id="ai-ask-thread" class="ai-ask-thread"></div>
+        <label for="ai-ask-input" class="settings-hint ai-ask-input-label">Your question</label>
+        <textarea id="ai-ask-input" class="settings-input ai-ask-input" rows="3" placeholder="e.g. What are the elements of self-defence?" aria-label="Ask AI question"></textarea>
+        <label class="checkbox-item ai-ask-include">
+          <input type="checkbox" id="ai-ask-include-offences"> Include offence names/statutes from this note
+        </label>
+      </div>
+      <div class="ai-dialog-footer">
+        <div class="ai-dialog-actions ai-dialog-actions--ask">
+          <button type="button" id="ai-ask-send" class="btn btn-primary">Send</button>
+          <button type="button" id="ai-ask-copy-last" class="btn btn-secondary">Copy last answer</button>
+          <button type="button" id="ai-ask-copy-thread" class="btn btn-secondary">Copy thread</button>
+          <button type="button" id="ai-ask-append-law" class="btn btn-secondary" disabled title="Append disabled until sources are present">Append last to Law / Elements</button>
+          <button type="button" id="ai-ask-clear" class="btn btn-secondary">Clear thread</button>
+          <button type="button" id="ai-ask-close" class="btn btn-secondary">Close</button>
+        </div>
+        <p class="settings-hint ai-dialog-footer-hint">Cmd/Ctrl+Enter to send. Answers are not legal advice. Nothing is written into the note until you Copy or Append.</p>
+      </div>
     </div>
   </div>
 

@@ -279,6 +279,49 @@ const MIGRATIONS = [
       );
     },
   },
+  {
+    version: 3,
+    name: 'standard-station-mileages-exact',
+    up(ctx) {
+      // Re-assert canonical base mileages (Tonbridge + Medway custody stations).
+      // Exact codes only — repairs live-road drift (45.8 / 46.6) back to 46.
+      const {
+        canonicalStandardMileageStatements,
+      } = require('../lib/stationMileage');
+      canonicalStandardMileageStatements().forEach(function (stmt) {
+        ctx.run(stmt.sql, stmt.params);
+      });
+    },
+  },
+  {
+    version: 4,
+    name: 'data-safety-outbox-revisions',
+    up(ctx) {
+      // Idempotent mutation IDs on persistent outbox (survive restart; ack before clear).
+      ctx.add('sync_queue', 'mutation_id TEXT DEFAULT NULL');
+      ctx.run('CREATE INDEX IF NOT EXISTS idx_sync_queue_mutation ON sync_queue(mutation_id);');
+
+      // Pragmatic local revision history (metadata + content hash; no note bodies).
+      ctx.run(`CREATE TABLE IF NOT EXISTS record_revisions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        attendance_id INTEGER NOT NULL,
+        sync_id TEXT,
+        sync_version INTEGER,
+        status TEXT,
+        content_hash TEXT NOT NULL,
+        deleted_at TEXT,
+        source TEXT DEFAULT 'local_save',
+        created_at TEXT NOT NULL
+      );`);
+      ctx.run('CREATE INDEX IF NOT EXISTS idx_record_revisions_att ON record_revisions(attendance_id, id DESC);');
+      ctx.run('CREATE INDEX IF NOT EXISTS idx_record_revisions_sync ON record_revisions(sync_id, sync_version);');
+
+      // Baseline for fail-safe sudden-count-drop monitor.
+      ctx.run(
+        "INSERT OR IGNORE INTO settings (key, value) VALUES ('dataSafetyLastActiveCount', '0')"
+      );
+    },
+  },
 ];
 
 const LATEST_VERSION = MIGRATIONS.length

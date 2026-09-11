@@ -34,7 +34,7 @@ const STANDALONE_SRC = fs.readFileSync(path.join(ROOT, 'renderer/views/officerEm
 describe('officerEmailsPanel — silent failure path instrumentation (source)', () => {
   it('wraps openOutlookDraft promise with a .catch so IPC rejections surface', () => {
     assert.ok(
-      /openOutlookDraft\(selectedDraftId(?:,\s*collectFields\(\))?\)[\s\S]{0,2000}\.catch\(/.test(PANEL_SRC),
+      /openOutlookDraft\(selectedDraftId\)[\s\S]{0,2000}\.catch\(/.test(PANEL_SRC),
       'openOutlookDraft must be followed by a .catch handler'
     );
   });

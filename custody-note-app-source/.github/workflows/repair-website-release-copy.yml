@@ -1,0 +1,86 @@
+# Repair website releases.json (from app changelog) + Mac download copy after release.
+# Uses GH_PAT only (no VERCEL_TOKEN). Website git push auto-deploys when linked;
+# also touch force-deploy trigger afterward if VERCEL_TOKEN is available.
+name: Repair website release copy
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+    paths:
+      - '.github/trigger-repair-website-release-copy'
+      - 'scripts/repair-website-release-copy.mjs'
+
+permissions:
+  contents: read
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout app
+        uses: actions/checkout@v4
+
+      - name: Require GH_PAT
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GH_PAT}" ]; then
+            echo "::error::Set GH_PAT in custody-note-app Actions secrets."
+            exit 1
+          fi
+
+      - name: Checkout website master
+        uses: actions/checkout@v4
+        with:
+          repository: robertcashman-bit/custody-note-website
+          path: custody-note-website
+          token: ${{ secrets.GH_PAT }}
+          ref: master
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install app dependencies
+        run: npm ci
+
+      - name: Repair releases.json + Mac copy
+        env:
+          WEBSITE_ROOT: ${{ github.workspace }}/custody-note-website
+        run: node scripts/repair-website-release-copy.mjs
+
+      - name: Commit and push website
+        working-directory: custody-note-website
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          VERSION=$(node -p "require('${{ github.workspace }}/package.json').version")
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "No website changes."
+            exit 0
+          fi
+          git add -A
+          git commit -m "Repair: sync releases.json v${VERSION} + Mac download copy"
+          git pull --rebase origin master || true
+          git push origin HEAD:master
+          echo "Pushed $(git rev-parse --short HEAD)"
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: repair-website-release-copy-report
+          path: |
+            custody-note-website/.repair-website-release-copy-report.json
+            custody-note-website/data/releases.json
+            custody-note-website/app/download/page.tsx
+            custody-note-website/components/MacDownloadPicker.tsx
+          if-no-files-found: ignore

@@ -34,6 +34,23 @@
  */
 const crypto = require('crypto');
 const { encryptSyncEnvelope } = require('../lib/syncRecordCrypto');
+const {
+  assertPushAccepted,
+  createRateLimitGate,
+  isRateLimitError,
+  RATE_LIMIT_COOLDOWN_MS,
+} = require('../lib/syncPushAck');
+const { normalizeLicenceKeyForSync } = require('../lib/licenceKeyNormalize');
+const {
+  buildMutationId,
+  mayClearOutboxEntry,
+  isAmbiguousPushAck,
+} = require('../lib/syncMutationId');
+const {
+  SYNC_SKIP_REASONS,
+  buildCycleHeartbeat,
+  isHardSkipReason,
+} = require('../lib/syncCycleAudit');
 
 const SYNC_POLL_INTERVAL_MS = 10000;
 const SYNC_REQUEST_TIMEOUT_MS = 30000;
@@ -47,6 +64,7 @@ const MAX_RECORDS_PER_CYCLE = PUSH_HTTP_BATCH_SIZE * MAX_PUSH_ROUNDS_PER_CYCLE;
 const HEALTH_CHECK_SKIP_WINDOW_MS = 60_000;
 const BLOCKED_RECOVERY_COOLDOWN_MS = 30 * 60_000;
 const MAX_BLOCKED_AUTO_RECOVERIES = 3;
+const RATE_LIMITED_SLOW_POLL_MS = 30_000;
 
 /** Classify errors: retryable vs permanent */
 function isRetryableError(err) {
@@ -55,7 +73,10 @@ function isRetryableError(err) {
   const code = err.code || err.statusCode;
   if (code === 'ETIMEDOUT' || code === 'ECONNREFUSED' || code === 'ENOTFOUND' || code === 'ECONNRESET' ||
       code === 'ENETUNREACH' || code === 'EAI_AGAIN') return true;
+  if (code === 'PUSH_INCOMPLETE') return true;
   if (msg.includes('timeout') || msg.includes('network') || msg.includes('aborted')) return true;
+  // Rate-limit bodies often say "Too many requests" without embedding "429".
+  if (msg.includes('too many requests') || msg.includes('rate limit')) return true;
   const m = msg.match(/server error (\d+)/i);
   const status = code || (m && parseInt(m[1], 10));
   if (status >= 500 || status === 429) return true;
@@ -87,6 +108,7 @@ function generateCorrelationId() {
  *   onStatusChange (status) → called with connectivity/sync status
  *   sendToRenderer (channel, data) → IPC to renderer
  *   syncPull () → Promise
+ *   logSyncAttempt (optional)
  */
 function createSyncWorker(ctx) {
   let _timer = null;
@@ -94,7 +116,67 @@ function createSyncWorker(ctx) {
   let _connectivityState = 'unknown';
   let _lastSyncAt = null;
   let _lastSuccessfulPushAt = 0;
+  let _lastVerifiedCloudPushAt = null;
+  // ok:null = never attempted this session (NOT a failed push). ok:false only after a real failure.
+  let _lastPushStats = { attempted: 0, written: 0, ok: null, at: null, error: null };
   let _lastError = null;
+  let _lastCycleAt = null;
+  let _lastSkipReason = null;
+  let _lastSkipDetail = null;
+  let _lastSkipLogAt = 0;
+  let _lastSkipLogReason = null;
+  let _preferOutboxDrain = false;
+  let _gateWakeTimer = null;
+  let _slowPollActive = false;
+  const SKIP_ATTEMPT_LOG_COOLDOWN_MS = 60_000;
+  const rateLimitGate = createRateLimitGate({
+    cooldownMs: (ctx && ctx.rateLimitCooldownMs) || RATE_LIMIT_COOLDOWN_MS,
+    ...(ctx && ctx.rateLimitGateOptions ? ctx.rateLimitGateOptions : {}),
+  });
+
+  function ensurePollInterval() {
+    if (!_timer) return;
+    const wantSlow = rateLimitGate.isBlocked();
+    if (wantSlow === _slowPollActive) return;
+    clearInterval(_timer);
+    _slowPollActive = wantSlow;
+    const interval = wantSlow ? RATE_LIMITED_SLOW_POLL_MS : SYNC_POLL_INTERVAL_MS;
+    _timer = setInterval(() => runCyclePublic().catch(() => {}), interval);
+  }
+
+  function scheduleWakeAfterGate() {
+    if (_gateWakeTimer) return;
+    const wait = rateLimitGate.remainingMs();
+    if (wait <= 0) return;
+    _gateWakeTimer = setTimeout(() => {
+      _gateWakeTimer = null;
+      ensurePollInterval();
+      runCyclePublic().catch(() => {});
+    }, wait + 25);
+    if (_gateWakeTimer && typeof _gateWakeTimer.unref === 'function') _gateWakeTimer.unref();
+  }
+
+  /** Restore queue rows to pending without burning retry budget (rate-limit pause). */
+  function restorePendingKeepRetries(id, error) {
+    const errMsg = error && (error.message || String(error))
+      ? (error.message || String(error)).slice(0, 500)
+      : 'Too many requests';
+    ctx.dbRun(
+      'UPDATE sync_queue SET status=?, error=?, last_attempt=? WHERE id=?',
+      ['pending', errMsg, Date.now(), id]
+    );
+    ctx.flushDb && ctx.flushDb();
+  }
+
+  function engageRateLimitFromError(err) {
+    const tripped = rateLimitGate.noteError(err);
+    if (tripped) {
+      _preferOutboxDrain = true;
+      ensurePollInterval();
+      scheduleWakeAfterGate();
+    }
+    return tripped;
+  }
 
   function setConnectivity(state) {
     if (_connectivityState !== state) {
@@ -105,6 +187,68 @@ function createSyncWorker(ctx) {
 
   function notifyRenderer(payload) {
     if (ctx.sendToRenderer) ctx.sendToRenderer('sync-status-changed', payload);
+  }
+
+  /**
+   * Every cycle — including hard skips — must leave an auditable heartbeat so
+   * Settings / diagnostics never go silent for days (Mac Air-2 2026-09 class).
+   */
+  function recordCycleOutcome(reason, detail) {
+    const heartbeat = buildCycleHeartbeat({
+      at: new Date().toISOString(),
+      reason,
+      detail,
+      rateLimitRemainingMs: rateLimitGate.remainingMs(),
+      connectivity: _connectivityState,
+    });
+    _lastCycleAt = heartbeat.lastSyncCycleAt;
+    _lastSkipReason = heartbeat.lastSyncSkipReason;
+    _lastSkipDetail = heartbeat.lastSyncSkipDetail;
+    if (isHardSkipReason(reason) || reason === SYNC_SKIP_REASONS.ERROR) {
+      _lastError = detail || heartbeat.lastSyncSkipDetail || _lastError;
+    }
+    if (ctx.persistSyncCycle) {
+      try {
+        ctx.persistSyncCycle(heartbeat);
+      } catch (e) {
+        console.warn('[SyncWorker] persistSyncCycle failed:', e && e.message ? e.message : e);
+      }
+    }
+    // Persist heartbeat every skip; log sync_attempts at most once/minute per reason
+    // so a 5-minute 429 gate does not fill the 100-row attempts table.
+    if (ctx.logSyncAttempt && isHardSkipReason(reason)) {
+      const now = Date.now();
+      const sameReason = _lastSkipLogReason === reason;
+      if (!sameReason || now - _lastSkipLogAt >= SKIP_ATTEMPT_LOG_COOLDOWN_MS) {
+        _lastSkipLogAt = now;
+        _lastSkipLogReason = reason;
+        try {
+          ctx.logSyncAttempt(
+            generateCorrelationId(),
+            'cycle',
+            0,
+            false,
+            heartbeat.lastSyncSkipReason + (detail ? ': ' + String(detail).slice(0, 200) : '')
+          );
+        } catch (_) {}
+      }
+    }
+    notifyRenderer({
+      status: reason === SYNC_SKIP_REASONS.RATE_LIMITED
+        ? 'rate_limited'
+        : (isHardSkipReason(reason) ? 'error' : 'synced'),
+      lastError: _lastError,
+      retryable: reason === SYNC_SKIP_REASONS.RATE_LIMITED || reason === SYNC_SKIP_REASONS.OFFLINE || reason === SYNC_SKIP_REASONS.API_UNREACHABLE,
+      rateLimited: reason === SYNC_SKIP_REASONS.RATE_LIMITED,
+      rateLimitRemainingMs: rateLimitGate.remainingMs(),
+      authRequired: reason === SYNC_SKIP_REASONS.AUTH_REQUIRED,
+      lastSyncCycleAt: _lastCycleAt,
+      lastSyncSkipReason: _lastSkipReason,
+      connectivity: _connectivityState,
+      localSafe: true,
+      waitingForSync: reason === SYNC_SKIP_REASONS.RATE_LIMITED || reason === SYNC_SKIP_REASONS.OFFLINE,
+    });
+    return heartbeat;
   }
 
   /**
@@ -141,22 +285,53 @@ function createSyncWorker(ctx) {
    *  would succeed, markSynced would fail to find the id, and the newer local
    *  change would never be queued). We now skip entries in 'syncing' so the
    *  in-flight push can complete, then enqueue the new version fresh.
+   *
+   *  Mutation IDs are idempotent per sync_id+sync_version+operation. Ambiguous
+   *  acks must retry with the same mutationId; never dequeue before confirmed ack.
    */
   function enqueue(recordId, operation, payload) {
     if (!ctx.db) return null;
     const id = generateQueueId();
     const now = Date.now();
-    const payloadStr = typeof payload === 'string' ? payload : JSON.stringify(payload || {});
+    const op = operation || 'upsert';
+    let mutationId = null;
+    let rowMeta = null;
+    try {
+      rowMeta = ctx.dbGet(
+        'SELECT sync_id, sync_version FROM attendances WHERE id=?',
+        [recordId]
+      );
+    } catch (_) {}
+    mutationId = buildMutationId({
+      syncId: rowMeta && rowMeta.sync_id,
+      syncVersion: rowMeta && rowMeta.sync_version,
+      operation: op,
+      recordId,
+    });
+    const basePayload = typeof payload === 'string'
+      ? (() => { try { return JSON.parse(payload); } catch (_) { return { raw: payload }; } })()
+      : (payload && typeof payload === 'object' ? { ...payload } : {});
+    basePayload.mutationId = basePayload.mutationId || mutationId;
+    const payloadStr = JSON.stringify(basePayload);
     try {
       // Leave syncing rows alone; delete every other prior entry for this record.
+      // Never delete 'syncing' before ack — that would drop an in-flight mutation.
       ctx.dbRun(
         "DELETE FROM sync_queue WHERE record_id=? AND status IN ('pending','failed','blocked','synced')",
         [String(recordId)]
       );
-      ctx.dbRun(
-        'INSERT INTO sync_queue (id, record_id, operation, payload, created_at, retry_count, last_attempt, status, error) VALUES (?,?,?,?,?,0,?,?,?)',
-        [id, String(recordId), operation || 'upsert', payloadStr, now, now, 'pending', null]
-      );
+      try {
+        ctx.dbRun(
+          'INSERT INTO sync_queue (id, record_id, operation, payload, created_at, retry_count, last_attempt, status, error, mutation_id) VALUES (?,?,?,?,?,0,?,?,?,?)',
+          [id, String(recordId), op, payloadStr, now, now, 'pending', null, mutationId]
+        );
+      } catch (colErr) {
+        // Pre-migration DBs: mutation_id column may be absent — payload still carries it.
+        ctx.dbRun(
+          'INSERT INTO sync_queue (id, record_id, operation, payload, created_at, retry_count, last_attempt, status, error) VALUES (?,?,?,?,?,0,?,?,?)',
+          [id, String(recordId), op, payloadStr, now, now, 'pending', null]
+        );
+      }
       ctx.flushDb && ctx.flushDb();
       return id;
     } catch (e) {
@@ -188,8 +363,14 @@ function createSyncWorker(ctx) {
     ctx.dbRun('UPDATE sync_queue SET status=?, last_attempt=? WHERE id=?', ['syncing', Date.now(), id]);
   }
 
-  /** Mark item synced. Only clears sync_dirty if the version hasn't changed during push. */
-  function markSynced(id, recordId, pushedVersion) {
+  /** Mark item synced. Only clears sync_dirty if the version hasn't changed during push.
+   *  Requires confirmed ack (caller must use assertPushAccepted / mayClearOutboxEntry).
+   */
+  function markSynced(id, recordId, pushedVersion, ackMeta) {
+    if (ackMeta && mayClearOutboxEntry(ackMeta) === false) {
+      console.warn('[SyncWorker] Refusing markSynced without confirmed ack for', id);
+      return false;
+    }
     ctx.dbRun('UPDATE sync_queue SET status=?, error=NULL WHERE id=?', ['synced', id]);
     if (recordId && pushedVersion != null) {
       ctx.dbRun('UPDATE attendances SET sync_dirty=0 WHERE id=? AND sync_version=?', [recordId, pushedVersion]);
@@ -200,6 +381,7 @@ function createSyncWorker(ctx) {
       ctx.resolveSyncConflictsForRecord(recordId, 'local_push_succeeded');
     }
     ctx.flushDb && ctx.flushDb();
+    return true;
   }
 
   /** Mark item failed or blocked. Always increments retry_count to track attempts. */
@@ -258,19 +440,30 @@ function createSyncWorker(ctx) {
     if (!apiUrl) throw new Error('No API URL');
     const data = ctx.readLicenceData && ctx.readLicenceData();
     if (!data || !data.key) throw new Error('No licence');
+    const licenceKey = normalizeLicenceKeyForSync(data.key);
+    if (!licenceKey) throw new Error('No licence');
     const payloads = queueItems.map((item) => buildPushPayload(item));
     const correlationId = generateCorrelationId();
     const resp = await ctx.httpPost(
       `${apiUrl.replace(/\/$/, '')}/api/sync/push`,
       {
-        key: data.key,
+        key: licenceKey,
         machineId: ctx.getMachineId(),
         records: payloads.map((p) => p.record),
       },
       { timeout: SYNC_REQUEST_TIMEOUT_MS, correlationId }
     );
-    if (!resp || !resp.ok) throw new Error(resp && resp.error ? resp.error : 'Push failed');
-    return payloads;
+    if (isAmbiguousPushAck(resp, payloads.length)) {
+      const err = new Error('Push unconfirmed: ambiguous acknowledgement — safe retry');
+      err.code = 'PUSH_INCOMPLETE';
+      err.statusCode = 503;
+      throw err;
+    }
+    const expectedSyncIds = payloads
+      .map((p) => p && p.record && p.record.syncId)
+      .filter(Boolean);
+    assertPushAccepted(resp, payloads.length, { expectedSyncIds });
+    return { payloads, resp };
   }
 
   /**
@@ -290,25 +483,113 @@ function createSyncWorker(ctx) {
       if (items.length === 0) break;
       if (totalProcessed === 0) notifyRenderer({ status: 'syncing' });
       try {
-        const payloads = await pushRecordBatch(items);
+        const batchResult = await pushRecordBatch(items);
+        const payloads = batchResult.payloads || batchResult;
+        const resp = batchResult.resp || { ok: true, written: payloads.length };
+        const writtenIds = Array.isArray(resp.written)
+          ? new Set(resp.written.map((v) => String(v)))
+          : null;
+        const writtenCount = writtenIds
+          ? writtenIds.size
+          : Number(resp.written);
         for (const payload of payloads) {
-          markSynced(payload.queueId, payload.recordId, payload.capturedVersion);
-          totalProcessed++;
+          const syncId = payload && payload.record && payload.record.syncId
+            ? String(payload.record.syncId)
+            : null;
+          // When server returns per-id written list, only clear matching rows.
+          if (writtenIds && syncId && !writtenIds.has(syncId)) {
+            markFailed(payload.queueId, new Error('Push ack omitted this syncId'), true);
+            continue;
+          }
+          const cleared = markSynced(payload.queueId, payload.recordId, payload.capturedVersion, {
+            confirmed: true,
+            ambiguous: false,
+            written: Number.isFinite(writtenCount) ? writtenCount : payloads.length,
+            sentCount: payloads.length,
+          });
+          if (cleared !== false) totalProcessed++;
         }
         _lastSyncAt = new Date().toISOString();
         _lastSuccessfulPushAt = Date.now();
+        _lastVerifiedCloudPushAt = new Date().toISOString();
+        _lastPushStats = {
+          attempted: payloads.length,
+          written: Number.isFinite(writtenCount) ? writtenCount : payloads.length,
+          ok: true,
+          at: _lastVerifiedCloudPushAt,
+          error: null,
+        };
         _lastError = null;
+        rateLimitGate.clear();
         setConnectivity('api_available');
+        if (ctx.logSyncAttempt) {
+          ctx.logSyncAttempt(generateCorrelationId(), 'push', payloads.length, true, null);
+        }
       } catch (e) {
+        if (isRateLimitError(e)) {
+          // Keep outbox intact: do not burn retry_count on 429.
+          for (const item of items) {
+            restorePendingKeepRetries(item.id, e);
+          }
+          _lastError = e && e.message ? e.message : String(e);
+          _lastPushStats = {
+            attempted: items.length,
+            written: 0,
+            ok: false,
+            at: new Date().toISOString(),
+            error: _lastError,
+          };
+          _lastSuccessfulPushAt = 0;
+          engageRateLimitFromError(e);
+          notifyRenderer({
+            status: 'rate_limited',
+            lastError: _lastError,
+            retryable: true,
+            rateLimited: true,
+            rateLimitRemainingMs: rateLimitGate.remainingMs(),
+            localSafe: true,
+            waitingForSync: true,
+            lastSyncSkipReason: SYNC_SKIP_REASONS.RATE_LIMITED,
+          });
+          if (ctx.logSyncAttempt) {
+            ctx.logSyncAttempt(generateCorrelationId(), 'push', items.length, false, _lastError);
+          }
+          setConnectivity('internet_available_api_unreachable');
+          break;
+        }
         const retryable = isRetryableError(e);
         for (const item of items) {
           markFailed(item.id, e, retryable);
         }
         _lastError = e && e.message ? e.message : String(e);
+        _lastPushStats = {
+          attempted: items.length,
+          written: 0,
+          ok: false,
+          at: new Date().toISOString(),
+          error: _lastError,
+        };
         // H32 — invalidate the "recent successful push" cache on any error so
         // the next cycle actually hits /api/health instead of blindly
         // claiming api_available for up to 60 seconds.
         _lastSuccessfulPushAt = 0;
+        if (rateLimitGate.noteError(e)) {
+          _preferOutboxDrain = true;
+          ensurePollInterval();
+          scheduleWakeAfterGate();
+          notifyRenderer({
+            status: 'error',
+            lastError: _lastError,
+            retryable: true,
+            rateLimited: true,
+            rateLimitRemainingMs: rateLimitGate.remainingMs(),
+            localSafe: true,
+            waitingForSync: true,
+          });
+        }
+        if (ctx.logSyncAttempt) {
+          ctx.logSyncAttempt(generateCorrelationId(), 'push', items.length, false, _lastError);
+        }
         if (!retryable) setConnectivity('auth_required');
         else setConnectivity('internet_available_api_unreachable');
         notifyRenderer({ status: 'error', lastError: _lastError, retryable });
@@ -391,23 +672,92 @@ function createSyncWorker(ctx) {
    * Health check no longer blocks processing — only 'offline' and 'auth_required'
    * are hard stops. 'internet_available_api_unreachable' still attempts push
    * (the per-item error handling will decide if it's truly unreachable).
+   *
+   * CRITICAL: every exit path records a durable cycle heartbeat (including skips).
+   * Empty-cloud auto-heal runs AFTER the in-progress lock is released so drain
+   * cycles can push (nested runCycle would no-op on _inProgress).
    */
   async function runCycle() {
-    if (_inProgress) return;
+    if (_inProgress) {
+      // Do not overwrite a live cycle's heartbeat with in_progress spam every 10s.
+      return { skipped: true, reason: SYNC_SKIP_REASONS.IN_PROGRESS };
+    }
     _inProgress = true;
+    let outcomeReason = SYNC_SKIP_REASONS.OK;
+    let outcomeDetail = null;
+    let pushed = 0;
+    let pullResult = null;
+    let considerHeal = false;
     try {
+      if (rateLimitGate.isBlocked()) {
+        outcomeReason = SYNC_SKIP_REASONS.RATE_LIMITED;
+        outcomeDetail = rateLimitGate.reason() || 'Too many requests. Please try again later.';
+        _lastError = outcomeDetail;
+        scheduleWakeAfterGate();
+        recordCycleOutcome(outcomeReason, outcomeDetail);
+        return { skipped: true, reason: outcomeReason };
+      }
+      if (_slowPollActive) {
+        _slowPollActive = false;
+        ensurePollInterval();
+      }
       const conn = await checkConnectivity();
       setConnectivity(conn);
-      if (conn === 'offline' || conn === 'auth_required') {
-        return;
+      if (conn === 'offline') {
+        outcomeReason = SYNC_SKIP_REASONS.OFFLINE;
+        outcomeDetail = 'No sync API URL / offline';
+        recordCycleOutcome(outcomeReason, outcomeDetail);
+        return { skipped: true, reason: outcomeReason };
+      }
+      if (conn === 'auth_required') {
+        outcomeReason = SYNC_SKIP_REASONS.AUTH_REQUIRED;
+        outcomeDetail = 'Activate licence / sign in to sync';
+        recordCycleOutcome(outcomeReason, outcomeDetail);
+        return { skipped: true, reason: outcomeReason };
       }
       await ensureCanonicalKeyOnce();
       recoverStuckItems();
-      await processBatch();
+      const batch = await processBatch();
+      pushed = (batch && batch.processed) || 0;
+      if (rateLimitGate.isBlocked()) {
+        // Do not spam /api/sync/pull into the same rate-limit budget after a 429.
+        outcomeReason = SYNC_SKIP_REASONS.RATE_LIMITED;
+        outcomeDetail = rateLimitGate.reason() || _lastError || 'Too many requests';
+        recordCycleOutcome(outcomeReason, outcomeDetail);
+        return { skipped: true, reason: outcomeReason, pushed };
+      }
+      // Prefer draining pending outbox before pull when a rate-limit window opens.
+      if (_preferOutboxDrain && ctx.db) {
+        const pendingRow = ctx.dbGet(
+          "SELECT COUNT(*) as c FROM sync_queue WHERE status IN ('pending','syncing')"
+        ) || { c: 0 };
+        if ((pendingRow.c || 0) > 0) {
+          outcomeReason = SYNC_SKIP_REASONS.OK_PUSHED;
+          outcomeDetail = 'Draining outbox before pull after rate-limit window';
+          recordCycleOutcome(outcomeReason, outcomeDetail);
+          return { skipped: false, reason: outcomeReason, pushed };
+        }
+        _preferOutboxDrain = false;
+      }
       if (ctx.syncPull) {
-        const pullResult = await ctx.syncPull().catch((e) => {
+        let pullFailed = false;
+        pullResult = await ctx.syncPull().catch((e) => {
+          pullFailed = true;
           _lastError = e && e.message ? e.message : String(e);
-          notifyRenderer({ status: 'error', lastError: _lastError, retryable: isRetryableError(e) });
+          if (engageRateLimitFromError(e)) {
+            notifyRenderer({
+              status: 'rate_limited',
+              lastError: _lastError,
+              retryable: true,
+              rateLimited: true,
+              rateLimitRemainingMs: rateLimitGate.remainingMs(),
+              localSafe: true,
+              waitingForSync: true,
+              lastSyncSkipReason: SYNC_SKIP_REASONS.RATE_LIMITED,
+            });
+          } else {
+            notifyRenderer({ status: 'error', lastError: _lastError, retryable: isRetryableError(e) });
+          }
           return { pulled: 0, decryptFailed: 0, received: 0 };
         });
         if (pullResult && pullResult.pulled > 0 && ctx.sendToRenderer) {
@@ -426,17 +776,135 @@ function createSyncWorker(ctx) {
           });
           notifyRenderer({});
         }
+        // Healthy pull-only cycle with clear outbox: drop sticky session errors
+        // so the footer does not keep "Sync needs attention" after recovery.
+        if (!pullFailed && ctx.db) {
+          try {
+            const pendingRow = ctx.dbGet(
+              "SELECT COUNT(*) as c FROM sync_queue WHERE status IN ('pending','syncing','failed','blocked')"
+            ) || { c: 0 };
+            const dirtyRow = ctx.dbGet('SELECT COUNT(*) as c FROM attendances WHERE sync_dirty=1') || { c: 0 };
+            if ((pendingRow.c || 0) === 0 && (dirtyRow.c || 0) === 0) {
+              _lastError = null;
+            }
+          } catch (_) {}
+        }
+        if (pullFailed) {
+          outcomeReason = rateLimitGate.isBlocked()
+            ? SYNC_SKIP_REASONS.RATE_LIMITED
+            : SYNC_SKIP_REASONS.ERROR;
+          outcomeDetail = _lastError;
+        } else if (pushed > 0) {
+          outcomeReason = SYNC_SKIP_REASONS.OK_PUSHED;
+          considerHeal = true;
+        } else if (pullResult && (pullResult.pulled > 0 || pullResult.received > 0)) {
+          outcomeReason = SYNC_SKIP_REASONS.OK_PULLED;
+          considerHeal = true;
+        } else {
+          outcomeReason = SYNC_SKIP_REASONS.OK_EMPTY_OUTBOX;
+          considerHeal = true;
+        }
+      } else if (pushed > 0) {
+        outcomeReason = SYNC_SKIP_REASONS.OK_PUSHED;
+        considerHeal = true;
+      } else {
+        outcomeReason = SYNC_SKIP_REASONS.OK_EMPTY_OUTBOX;
+        considerHeal = true;
       }
+
+      // Record pre-heal heartbeat so skips/success are visible even if heal is slow.
+      if (!considerHeal || !ctx.maybeEmptyCloudAutoHeal) {
+        recordCycleOutcome(outcomeReason, outcomeDetail);
+      }
+      return {
+        skipped: false,
+        reason: outcomeReason,
+        pushed,
+        pullResult,
+        _considerHeal: considerHeal,
+        _outcomeReason: outcomeReason,
+        _outcomeDetail: outcomeDetail,
+      };
+    } catch (e) {
+      outcomeReason = SYNC_SKIP_REASONS.ERROR;
+      outcomeDetail = e && e.message ? e.message : String(e);
+      _lastError = outcomeDetail;
+      recordCycleOutcome(outcomeReason, outcomeDetail);
+      return { skipped: false, reason: outcomeReason, error: outcomeDetail };
     } finally {
       _inProgress = false;
     }
   }
 
+  /**
+   * Wrapper: core cycle then empty-cloud auto-heal with the lock released.
+   * Pass { skipHeal: true } from drainPendingSyncUploads to avoid recursion.
+   */
+  async function runCyclePublic(opts) {
+    const skipHeal = !!(opts && opts.skipHeal);
+    const result = await runCycle();
+    if (!result || !result._considerHeal) {
+      return result;
+    }
+    if (skipHeal || !ctx.maybeEmptyCloudAutoHeal) {
+      recordCycleOutcome(result._outcomeReason, result._outcomeDetail);
+      return {
+        skipped: false,
+        reason: result._outcomeReason,
+        pushed: result.pushed,
+        pullResult: result.pullResult,
+      };
+    }
+    let outcomeReason = result._outcomeReason || SYNC_SKIP_REASONS.OK_EMPTY_OUTBOX;
+    let outcomeDetail = result._outcomeDetail || null;
+    try {
+      const heal = await ctx.maybeEmptyCloudAutoHeal({
+        pullResult: result.pullResult,
+        pushed: result.pushed,
+        connectivity: _connectivityState,
+      });
+      if (heal && heal.ran) {
+        if (heal.ok && !heal.skipped) {
+          outcomeReason = SYNC_SKIP_REASONS.OK_PUSHED;
+          outcomeDetail = 'empty_cloud_heal_verified';
+          _lastError = null;
+        } else if (heal.reason === 'heal_backoff') {
+          outcomeReason = SYNC_SKIP_REASONS.HEAL_BACKOFF;
+          outcomeDetail = heal.error || 'Empty-cloud heal backoff';
+        } else if (heal.skipped) {
+          // keep prior ok reason
+        } else if (heal.ok === false) {
+          outcomeReason = SYNC_SKIP_REASONS.HEAL_PENDING;
+          outcomeDetail = heal.error || heal.code || 'Empty-cloud heal pending';
+          _lastError = outcomeDetail;
+        }
+      }
+    } catch (healErr) {
+      console.warn('[SyncWorker] empty-cloud auto-heal failed:', healErr && healErr.message ? healErr.message : healErr);
+    }
+    recordCycleOutcome(outcomeReason, outcomeDetail);
+    return {
+      skipped: false,
+      reason: outcomeReason,
+      pushed: result.pushed,
+      pullResult: result.pullResult,
+    };
+  }
+
+  /**
+   * Wrapper that runs the core cycle then empty-cloud auto-heal with the lock released.
+   * @deprecated internal name kept briefly — use runCyclePublic via export.
+   */
+  async function runCycleWithHeal() {
+    return runCyclePublic();
+  }
+
   function start() {
     if (_timer) return;
     _recoverBlockedOnStartup();
-    runCycle().catch(() => {});
-    _timer = setInterval(() => runCycle().catch(() => {}), SYNC_POLL_INTERVAL_MS);
+    runCyclePublic().catch(() => {});
+    _slowPollActive = false;
+    _timer = setInterval(() => runCyclePublic().catch(() => {}), SYNC_POLL_INTERVAL_MS);
   }
 
   /** On app start, reset all blocked items to pending once. A new app version
@@ -461,14 +929,38 @@ function createSyncWorker(ctx) {
   function stop() {
     if (_timer) clearInterval(_timer);
     _timer = null;
+    _slowPollActive = false;
+    if (_gateWakeTimer) {
+      clearTimeout(_gateWakeTimer);
+      _gateWakeTimer = null;
+    }
+    if (_scheduleSoonTimer) {
+      clearTimeout(_scheduleSoonTimer);
+      _scheduleSoonTimer = null;
+    }
   }
 
   let _scheduleSoonTimer = null;
   function scheduleSoon() {
+    // While rate-limited: coalesce wakes onto the gate expiry (no hammering).
+    if (rateLimitGate.isBlocked()) {
+      scheduleWakeAfterGate();
+      notifyRenderer({
+        status: 'rate_limited',
+        coalesced: true,
+        rateLimited: true,
+        rateLimitRemainingMs: rateLimitGate.remainingMs(),
+        localSafe: true,
+        waitingForSync: true,
+        lastSyncSkipReason: SYNC_SKIP_REASONS.RATE_LIMITED,
+        lastError: _lastError,
+      });
+      return;
+    }
     if (_scheduleSoonTimer) return;
     _scheduleSoonTimer = setTimeout(() => {
       _scheduleSoonTimer = null;
-      runCycle().catch(() => {});
+      runCyclePublic().catch(() => {});
     }, SCHEDULE_SOON_DEBOUNCE_MS);
   }
 
@@ -507,6 +999,15 @@ function createSyncWorker(ctx) {
       lastError: _lastError,
       inProgress: _inProgress,
       lastSuccessfulPushAt: _lastSuccessfulPushAt || null,
+      lastVerifiedCloudPushAt: _lastVerifiedCloudPushAt,
+      lastPush: { ..._lastPushStats },
+      rateLimit: rateLimitGate.snapshot(),
+      lastSyncCycleAt: _lastCycleAt,
+      lastSyncSkipReason: _lastSkipReason,
+      lastSyncSkipDetail: _lastSkipDetail,
+      preferOutboxDrain: _preferOutboxDrain,
+      localSafe: true,
+      waitingForSync: !!(rateLimitGate.isBlocked() || (pending.c || 0) > 0),
       queueItems,
       conflictItems,
     };
@@ -527,10 +1028,53 @@ function createSyncWorker(ctx) {
         );
       }
       if (stuck.length > 0) ctx.flushDb && ctx.flushDb();
+      rateLimitGate.clear();
       return stuck.length;
     } catch (e) {
       return 0;
     }
+  }
+
+  /**
+   * After a DB restore / file swap, drop in-flight cycle state so markSynced
+   * from a pre-restore push cannot clear dirty flags on the new database.
+   * Caller should stop()+recreate the worker for a full reset; this clears
+   * soft state when the same instance must keep running.
+   */
+  function resetRuntimeState(reason) {
+    _inProgress = false;
+    _lastError = null;
+    _lastSuccessfulPushAt = 0;
+    _canonicalKeyDone = false;
+    _canonicalKeyLastTry = 0;
+    rateLimitGate.clear();
+    console.info('[SyncWorker] Runtime state reset:', reason || 'manual');
+  }
+
+  /** After licence activation: clear auth sticky state and resume immediately. */
+  function notifyAuthRecovered() {
+    if (_connectivityState === 'auth_required') {
+      setConnectivity('unknown');
+    }
+    rateLimitGate.clear();
+    _lastError = null;
+    _lastSkipReason = null;
+    _lastSkipDetail = null;
+    scheduleSoon();
+  }
+
+  /** Wait for an in-flight runCycle to finish (Full re-sync must not race cursor). */
+  async function waitUntilIdle(timeoutMs = 60000) {
+    const limit = Math.max(0, Number(timeoutMs) || 0);
+    const start = Date.now();
+    while (_inProgress) {
+      if (Date.now() - start >= limit) {
+        console.warn('[SyncWorker] waitUntilIdle timed out after', limit, 'ms');
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    return !_inProgress;
   }
 
   return {
@@ -538,9 +1082,12 @@ function createSyncWorker(ctx) {
     stop,
     enqueue,
     scheduleSoon,
-    runCycle,
+    runCycle: runCyclePublic,
     getDiagnostics,
     forceRetryAll,
+    resetRuntimeState,
+    notifyAuthRecovered,
+    waitUntilIdle,
     getConnectivity: () => _connectivityState,
   };
 }
@@ -549,6 +1096,7 @@ module.exports = {
   createSyncWorker,
   generateQueueId,
   isRetryableError,
+  assertPushAccepted,
   getNextAttemptMs,
   SYNC_POLL_INTERVAL_MS,
   SCHEDULE_SOON_DEBOUNCE_MS,
@@ -561,4 +1109,9 @@ module.exports = {
   MAX_RECORDS_PER_CYCLE,
   BLOCKED_RECOVERY_COOLDOWN_MS,
   MAX_BLOCKED_AUTO_RECOVERIES,
+  RATE_LIMIT_COOLDOWN_MS,
+  mayClearOutboxEntry,
+  isAmbiguousPushAck,
+  buildMutationId,
+  SYNC_SKIP_REASONS,
 };

@@ -140,12 +140,13 @@ function createMockCtx(overrides = {}) {
     httpPost: async (url, body, opts) => {
       httpPostCalls.push({ url, body, opts, timestamp: Date.now() });
       if (httpPostDelayMs > 0) await new Promise(r => setTimeout(r, httpPostDelayMs));
-      if (httpPostBehaviour === 'succeed') return { ok: true, written: 1 };
+      const writtenCount = body && Array.isArray(body.records) ? body.records.length : 1;
+      if (httpPostBehaviour === 'succeed') return { ok: true, written: writtenCount };
       if (httpPostBehaviour === 'timeout') { const e = new Error('Timeout'); e.code = 'ETIMEDOUT'; throw e; }
       if (httpPostBehaviour === 'connrefused') { const e = new Error('Connection refused'); e.code = 'ECONNREFUSED'; throw e; }
       if (httpPostBehaviour === 'badrequest') { const e = new Error('Server error 400'); e.statusCode = 400; throw e; }
       if (typeof httpPostBehaviour === 'function') return httpPostBehaviour(url, body, opts);
-      return { ok: true, written: 1 };
+      return { ok: true, written: writtenCount };
     },
     httpGetWithTimeout: async () => ({ statusCode: 200, ok: true }),
     onStatusChange: () => {},
@@ -291,10 +292,11 @@ describe('Sync Engine: Queue recovery (batch processing)', () => {
   it('stops batch on first network error', async () => {
     const mock = createMockCtx();
     let callCount = 0;
-    mock.ctx.httpPost = async () => {
+    mock.ctx.httpPost = async (url, body) => {
       callCount++;
       if (callCount === 2) { const e = new Error('Timeout'); e.code = 'ETIMEDOUT'; throw e; }
-      return { ok: true, written: 1 };
+      const writtenCount = body && Array.isArray(body.records) ? body.records.length : 1;
+      return { ok: true, written: writtenCount };
     };
     const firstBatch = PUSH_HTTP_BATCH_SIZE;
     const secondBatch = 5;
@@ -362,13 +364,14 @@ describe('Sync Engine: Race conditions', () => {
     const mock = createMockCtx();
     mock.addAttendance(1, { sync_version: 1, sync_dirty: 1 });
     let pushIntercepted = false;
-    mock.ctx.httpPost = async () => {
+    mock.ctx.httpPost = async (url, body) => {
       if (!pushIntercepted) {
         pushIntercepted = true;
         mock.tables.attendances[0].sync_version = 2;
         mock.tables.attendances[0].sync_dirty = 1;
       }
-      return { ok: true, written: 1 };
+      const writtenCount = body && Array.isArray(body.records) ? body.records.length : 1;
+      return { ok: true, written: writtenCount };
     };
     const worker = createSyncWorker(mock.ctx);
     worker.enqueue('1', 'upsert', {});

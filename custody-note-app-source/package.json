@@ -1,8 +1,8 @@
 {
   "name": "custody-note",
-  "version": "1.9.71",
-  "lastUpdated": "2026-08-23",
-  "buildTime": "2026-08-23T12:00:00.000Z",
+  "version": "1.9.93",
+  "lastUpdated": "2026-09-11",
+  "buildTime": "2026-09-11T13:28:11.781Z",
   "description": "Custody Note – LAA-compliant custody note app",
   "main": "main.js",
   "scripts": {
@@ -36,6 +36,8 @@
     "test:e2e": "playwright test",
     "test:laa": "node --test tests/laaFormsManifest.test.js tests/laaFormsSync.test.js tests/attendancePicker.source.test.js && playwright test tests/e2e/laa-home-forms.spec.ts",
     "test:unit": "node scripts/run-unit-tests.js",
+    "test:data-safety": "node scripts/run-data-safety-tests.js",
+    "inventory:sync-storage": "node scripts/inventory-sync-storage.mjs",
     "test:deep": "node --test tests/deepAudit.test.js",
     "audit:app": "node --test tests/deepAudit.test.js && node -c main.js && node -c preload.js",
     "prepare-trial": "node scripts/prepare-trial.js",
@@ -175,7 +177,7 @@
     ],
     "publish": {
       "provider": "github",
-      "owner": "robertdavidcashman-droid",
+      "owner": "robertcashman-bit",
       "repo": "custody-note-app",
       "releaseType": "draft"
     }

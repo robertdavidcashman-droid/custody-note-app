@@ -47,11 +47,12 @@ describe('update-cycle persistence', () => {
       mainJs,
       /Custody Note could not load the existing attendance database\. To protect your records, the app has stopped instead of opening a blank database\./
     );
+    assert.match(mainJs, /Enter your recovery password/);
     assert.doesNotMatch(mainJs, /The app will start with a fresh database/);
   });
 
   it('never generates a new master key while reading an existing encrypted database', () => {
-    assert.match(mainJs, /let masterKeyHex = getOrCreateMasterKey\(\{ allowCreate: false \}\);/);
+    assert.match(mainJs, /getMasterKey: \(\) => getOrCreateMasterKey\(\{ allowCreate: false \}\)/);
     const matches = mainJs.match(/getOrCreateMasterKey\(\{ allowCreate: false \}\)/g) || [];
     assert.ok(matches.length >= 2, 'Expected read paths to disable key generation');
   });

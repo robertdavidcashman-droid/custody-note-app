@@ -623,19 +623,21 @@ var LAA = {
         { key: 'voluntaryInterview', label: 'Voluntary Interview?', type: 'select', options: ['Yes','No'] },
         { key: '_note_voluntary', label: 'If voluntary interview, arrest/detention grounds and PACE clock do not apply.', type: 'sectionNote', showIf: { field: 'voluntaryInterview', value: 'Yes' } },
         { key: 'groundsForArrest', label: 'Grounds for Arrest (PACE s.24)', type: 'checkboxGroup', cols: 2, allowOther: true, showIf: { field: 'voluntaryInterview', value: 'No' }, options: [
-          'To ascertain the person\'s name/address',
-          'To prevent physical injury to self or others',
-          'To prevent damage to property',
+          'To ascertain the person\'s name',
+          'To ascertain the person\'s address',
+          'To prevent causing physical injury to himself or any other person',
+          'To prevent suffering physical injury',
+          'To prevent causing loss of or damage to property',
           'To prevent an offence against public decency',
-          'To protect a child or vulnerable person',
-          'To allow prompt and effective investigation',
-          'To exercise search powers under PACE',
-          'To prevent disappearance of the person'
+          'To prevent causing an unlawful obstruction of the highway',
+          'To protect a child or other vulnerable person',
+          'To allow the prompt and effective investigation of the offence or of the person\'s conduct',
+          'To prevent any prosecution being hindered by the disappearance of the person'
         ] },
+        { key: '_note_arrest_search', label: 'PACE search powers may support the investigation ground (Code G para 2.9(e)); they are not a separate s.24 necessity criterion.', type: 'sectionNote', showIf: { field: 'voluntaryInterview', value: 'No' } },
         { key: 'groundsForDetention', label: 'Grounds for Detention (PACE s.37)', type: 'checkboxGroup', cols: 2, allowOther: true, showIf: { field: 'voluntaryInterview', value: 'No' }, options: [
-          'To secure or preserve evidence',
-          'To obtain evidence by questioning',
-          'Insufficient evidence to charge \u2013 further investigation needed'
+          'To secure or preserve evidence relating to an offence for which the person is under arrest',
+          'To obtain such evidence by questioning the person'
         ] },
         { key: 'dateOfArrest', label: 'Date of Arrest', type: 'date', showIf: { field: 'voluntaryInterview', value: 'No' } },
         { key: 'timeOfArrest', label: 'Time of Arrest', type: 'time', showIf: { field: 'voluntaryInterview', value: 'No' } },
@@ -1321,7 +1323,9 @@ var LAA = {
           'CN08 \u2013 Fixed Penalty Notice',
           'CN09 \u2013 Released no bail',
           'CN10 \u2013 Bail varied / extended',
-          'CN11 \u2013 Bail not varied / extended'
+          'CN11 \u2013 Bail not varied / extended',
+          'CN12 \u2013 Pre-charge engagement agreed and concludes before investigation ends',
+          'CN13 \u2013 Pre-charge engagement not agreed'
         ], cols: 2 },
         { key: 'furtherAttendance', label: 'Further attendance likely?', type: 'select', options: ['Yes','No'] },
         { key: '_note_spec974', label: 'Spec 9.74: If telephone advice is followed by attendance, claim INVC only (not both INVB + INVC).', type: 'sectionNote', showIf: { field: 'furtherAttendance', value: 'Yes' } },
@@ -1741,8 +1745,11 @@ var LAA = {
         { key: 'handedBackToDSCCReason', label: 'Reason handed back to DSCC', type: 'textarea', placeholder: 'Required per Spec 9.53', cols: 2, showIf: { field: 'outcomeDecision', value: 'Handed back to DSCC' } },
         { key: 'nonAttendanceReason', label: 'Reason for non-attendance (exceptional circumstances)', type: 'textarea', placeholder: 'Required per Spec 9.39/9.44', cols: 2, showIf: { field: 'outcomeDecision', value: 'Did not attend (exceptional circumstances)' } },
         { key: 'outcomeCode', label: 'Outcome Code (LAA)', type: 'select', options: [
-          'CN04 \u2013 No further action','CN05 \u2013 Simple caution / reprimand / warning','CN06 \u2013 Charge / Summons','CN07 \u2013 Conditional caution','CN08 \u2013 Fixed penalty notice',
+          'CN01 \u2013 No further instructions',
+          'CN04 \u2013 No further action','CN05 \u2013 Simple caution / reprimand / warning','CN06 \u2013 Charge / Summons','CN07 \u2013 Conditional Caution','CN08 \u2013 Fixed Penalty Notice',
           'CN09 \u2013 Released no bail','CN10 \u2013 Bail varied / extended','CN11 \u2013 Bail not varied / extended',
+          'CN12 \u2013 Pre-charge engagement agreed and concludes before investigation ends',
+          'CN13 \u2013 Pre-charge engagement not agreed',
           'Draft'
         ], cols: 2 },
         { key: 'stageReachedOrFeeCode', label: 'Stage reached / Fee code', type: 'text', placeholder: 'e.g. INVC', cols: 2 },
@@ -3002,6 +3009,12 @@ var REQUIRED_FIELD_KEYS = [
       totPark += visitPk;
       totDisb += visitDisbsAmt;
       var label = 'Visit ' + (idx + 1) + (v.label ? ' (' + esc(v.label) + ')' : '');
+      var miCell = '\u2014';
+      if (visitMi > 0) {
+        miCell = (window.StationMileage && window.StationMileage.formatMilesForDisplay)
+          ? window.StationMileage.formatMilesForDisplay(visitMi)
+          : String(visitMi);
+      }
       tbl +=
         '<tr>' +
           '<td><button type="button" class="visit-breakdown-link" data-vbk-idx="' + idx + '">' + label + '</button></td>' +
@@ -3010,7 +3023,7 @@ var REQUIRED_FIELD_KEYS = [
           '<td>' + _fmtMins(travelMins) + '</td>' +
           '<td>' + _fmtMins(waitMins) + '</td>' +
           '<td>' + _fmtMins(adviceMins) + '</td>' +
-          '<td>' + (visitMi > 0 ? visitMi.toFixed(1) : '\u2014') + '</td>' +
+          '<td>' + miCell + '</td>' +
           '<td>' + (visitPk > 0 ? _fmtMoney(visitPk) : '\u2014') + '</td>' +
           '<td>' + (visitDisbsAmt > 0 ? _fmtMoney(visitDisbsAmt) + ' (' + visitDisbs.length + ')' : '\u2014') + '</td>' +
         '</tr>';
@@ -3025,12 +3038,18 @@ var REQUIRED_FIELD_KEYS = [
         '</tr>';
       totDisb += generalAmt;
     }
+    var totMiCell = '\u2014';
+    if (totMiles > 0) {
+      totMiCell = (window.StationMileage && window.StationMileage.formatMilesForDisplay)
+        ? window.StationMileage.formatMilesForDisplay(totMiles)
+        : String(totMiles);
+    }
     tbl +=
       '<tr class="totals">' +
         '<td colspan="2">All visits</td>' +
         '<td>\u2014</td>' +
         '<td colspan="3">' + _fmtMins(totMins) + ' total</td>' +
-        '<td>' + (totMiles > 0 ? totMiles.toFixed(1) : '\u2014') + '</td>' +
+        '<td>' + totMiCell + '</td>' +
         '<td>' + (totPark > 0 ? _fmtMoney(totPark) : '\u2014') + '</td>' +
         '<td>' + (totDisb > 0 ? _fmtMoney(totDisb) : '\u2014') + '</td>' +
       '</tr>';
@@ -3066,26 +3085,41 @@ var REQUIRED_FIELD_KEYS = [
   /* ─── Auto-fill mileage from station table ─── */
   function autoFillMileageFromStation(stationId) {
     if (!stationId || !window.api || !window.api.stationMileageGet) return;
+    var existingMiles = '';
     if (window.StationVisits) {
       window.StationVisits.ensureStationVisits(formData);
       var v0 = formData.stationVisits[0];
-      if (parseFloat(v0.milesClaimable) > 0) return;
+      existingMiles = v0 && v0.milesClaimable != null ? v0.milesClaimable : '';
+      if (parseFloat(existingMiles) > 0) return;
     } else {
-      var existing = parseFloat(formData.milesClaimable);
-      if (existing > 0) return;
+      existingMiles = formData.milesClaimable;
+      if (parseFloat(existingMiles) > 0) return;
     }
     window.api.stationMileageGet(stationId).then(function (r) {
-      if (r && r.mileage_from_base != null && r.mileage_from_base > 0) {
-        if (window.StationVisits && formData.stationVisits && formData.stationVisits[0]) {
-          formData.stationVisits[0].milesClaimable = String(r.mileage_from_base);
-          window.StationVisits.syncLegacyMirror(formData);
-          setFieldValue('milesClaimable', formData.milesClaimable || r.mileage_from_base);
-        } else {
-          formData.milesClaimable = String(r.mileage_from_base);
-          setFieldValue('milesClaimable', r.mileage_from_base);
-        }
-        recalcTotal();
+      var SM = window.StationMileage;
+      var standard = r && r.mileage_from_base != null ? r.mileage_from_base : null;
+      var resolved = SM && typeof SM.resolveMilesForAutofill === 'function'
+        ? SM.resolveMilesForAutofill({
+            standardMiles: standard,
+            existingMiles: existingMiles,
+            stationCode: formData.policeStationCode || '',
+            // Live/calculated road distance must never silently replace a standard.
+            allowLiveOverride: false,
+          })
+        : (standard != null && standard > 0 ? standard : null);
+      if (resolved == null || !(resolved > 0)) return;
+      var exact = SM && typeof SM.formatExactMiles === 'function'
+        ? SM.formatExactMiles(resolved)
+        : String(resolved);
+      if (window.StationVisits && formData.stationVisits && formData.stationVisits[0]) {
+        formData.stationVisits[0].milesClaimable = exact;
+        window.StationVisits.syncLegacyMirror(formData);
+        setFieldValue('milesClaimable', formData.milesClaimable || exact);
+      } else {
+        formData.milesClaimable = exact;
+        setFieldValue('milesClaimable', exact);
       }
+      recalcTotal();
     }).catch(function () {});
   }
 
@@ -3291,48 +3325,17 @@ var REQUIRED_FIELD_KEYS = [
       return;
     }
     el.style.display = '';
-    var pending = st.pendingChanges || 0;
-    var failed = st.failedCount || 0;
-    var blocked = st.blockedCount || 0;
-    var conflicts = st.conflictCount || 0;
-    if (conflicts > 0) {
-      setFooterIndicator(el, conflicts + ' conflict' + (conflicts === 1 ? '' : 's'), 'offline', 'Sync found newer remote changes but kept your local edits safe. Click to review and resolve.');
-      el.style.cursor = 'pointer';
-    } else if (pending === 0 && st.lastSync) {
-      var lp = st.lastPull || {};
-      var decryptFailed = lp.decryptFailed || 0;
-      var received = lp.received || 0;
-      var merged = lp.merged || 0;
-      var total = st.totalRecords || 0;
-      if (decryptFailed > 0) {
-        setFooterIndicator(el, decryptFailed + ' decrypt failed', 'offline', 'Remote records could not be decrypted. Use Settings \u2192 Backup \u2192 Recover from Cloud (Security tab) or Full re-sync from cloud.');
-        el.style.cursor = 'pointer';
-      } else if (total === 0 && received === 0) {
-        setFooterIndicator(el, 'No remote records', 'backup-ok', 'Pull succeeded but no records from other devices yet. On the computer with your data, use Push all pending now and wait for 0 pending.');
-        el.style.cursor = '';
-      } else if (merged > 0) {
-        setFooterIndicator(el, 'Synced ' + formatSyncTime(st.lastSync) + ' (' + merged + ' new)', 'synced');
-        el.style.cursor = '';
-      } else if (received > 0 && merged === 0) {
-        setFooterIndicator(el, 'Up to date', 'synced', 'Checked cloud \u2014 local records are current.');
-        el.style.cursor = '';
-      } else {
-        setFooterIndicator(el, 'Synced ' + formatSyncTime(st.lastSync), 'synced');
-        el.style.cursor = '';
-      }
-    } else if (blocked > 0) {
-      setFooterIndicator(el, blocked + ' auto-retrying', 'offline', (st.lastError || '') + ' — will auto-retry. Click to retry now.');
-      el.style.cursor = 'pointer';
-    } else if (failed > 0) {
-      setFooterIndicator(el, failed + ' retrying', 'offline', (st.lastError || '') + ' — click to retry sync.');
-      el.style.cursor = 'pointer';
-    } else if (pending > 0) {
-      setFooterIndicator(el, pending + ' pending', 'syncing');
-      el.style.cursor = '';
-    } else {
-      setFooterIndicator(el, 'Waiting to sync', 'backup-ok');
-      el.style.cursor = '';
+    var chips = (typeof FooterStatusChips !== 'undefined' && FooterStatusChips.deriveSyncFooterChip)
+      ? FooterStatusChips.deriveSyncFooterChip(st)
+      : null;
+    if (chips) {
+      setFooterIndicator(el, chips.text, chips.variant, chips.title || '');
+      el.style.cursor = chips.cursor != null ? chips.cursor : '';
+      return;
     }
+    // Fallback if script failed to load (should not happen in packaged app).
+    setFooterIndicator(el, 'Waiting to sync', 'backup-ok');
+    el.style.cursor = '';
   }
 
   function updateSyncStatusIndicator(data) {
@@ -3349,8 +3352,18 @@ var REQUIRED_FIELD_KEYS = [
       refreshSyncCounts();
     } else if (data.status === 'syncing') {
       setFooterIndicator(el, 'Syncing\u2026', 'syncing');
+    } else if (data.status === 'rate_limited' || (data.status === 'error' && data.rateLimited)) {
+      _syncRetryableErrorCount = 0;
+      setFooterIndicator(
+        el,
+        'Safe locally — sync waiting',
+        'backup-ok',
+        data.lastError || 'Saved on this device. Cloud sync is briefly rate-limited and will retry automatically. Nothing was dropped.'
+      );
     } else if (data.status === 'error') {
-      if (!data.retryable) {
+      if (data.authRequired || data.lastSyncSkipReason === 'auth_required') {
+        setFooterIndicator(el, 'Activate licence to sync', 'offline', data.lastError || 'Activate licence / sign in to sync');
+      } else if (!data.retryable) {
         setFooterIndicator(el, 'Sync auto-retrying', 'offline', data.lastError || '');
       } else {
         _syncRetryableErrorCount++;
@@ -3370,12 +3383,15 @@ var REQUIRED_FIELD_KEYS = [
     window.api.syncStatus().then(function(st) {
       applySyncSnapshot(st || {});
       try { refreshCrossDeviceSyncPanel(st || {}); } catch (_) {}
+      try { refreshHomeEmptyCloudAlarm(st || {}); } catch (_) {}
     }).catch(function(e) { console.error('[sync-status]', e); });
   }
 
   function refreshCrossDeviceSyncPanel(st) {
     var statusEl = document.getElementById('cross-device-sync-status');
     var section = document.getElementById('cross-device-sync-section');
+    var hintEl = document.getElementById('cross-device-sync-recovery-hint');
+    var healthEl = document.getElementById('cross-device-sync-health');
     if (!statusEl || !section) return;
     if (!st || !st.enabled) {
       section.style.display = 'none';
@@ -3384,7 +3400,14 @@ var REQUIRED_FIELD_KEYS = [
     section.style.display = '';
     var lines = [];
     lines.push('Local records: ' + (st.totalRecords != null ? st.totalRecords : '\u2014'));
-    if (st.lastSync) lines.push('Last pull: ' + formatSyncTime(st.lastSync));
+    if (st.syncPhase) lines.push('Phase: ' + st.syncPhase);
+    if (st.lastSyncCycleAt) lines.push('Last cycle: ' + formatSyncTime(st.lastSyncCycleAt));
+    else if (st.lastSync) lines.push('Last pull: ' + formatSyncTime(st.lastSync));
+    if (st.lastSyncSkipReason && st.lastSyncSkipReason !== 'ok' && st.lastSyncSkipReason !== 'ok_empty_outbox' &&
+        st.lastSyncSkipReason !== 'ok_pushed' && st.lastSyncSkipReason !== 'ok_pulled') {
+      lines.push('Cycle: ' + (st.lastSyncSkipLabel || st.lastSyncSkipReason));
+    }
+    if (st.authRequired) lines.push('Action needed: activate licence / sign in');
     var pending = st.pendingChanges || 0;
     var dirty = st.dirtyPushCount || 0;
     if (pending > 0) lines.push('Upload queue: ' + pending + ' pending');
@@ -3394,13 +3417,79 @@ var REQUIRED_FIELD_KEYS = [
     if (lp.received > 0) {
       lines.push('Last pull received ' + lp.received + ', merged ' + (lp.merged || 0));
     }
+    if (st.lastVerifiedCloudInventory != null) {
+      lines.push('Cloud inventory: ' + st.lastVerifiedCloudInventory);
+    }
+    if (st.emptyCloudHeal && st.emptyCloudHeal.status && st.emptyCloudHeal.status !== 'idle') {
+      lines.push('Empty-cloud heal: ' + st.emptyCloudHeal.status +
+        (st.emptyCloudHeal.lastResult ? ' (' + st.emptyCloudHeal.lastResult + ')' : '') +
+        (st.emptyCloudHeal.attemptCount ? ' attempt ' + st.emptyCloudHeal.attemptCount : ''));
+    }
     if (lp.decryptFailed > 0) {
       lines.push('Warning: ' + lp.decryptFailed + ' record(s) could not be decrypted');
     }
     if (st.conflictCount > 0) lines.push('Open conflicts: ' + st.conflictCount);
     if (st.lastError) lines.push('Last error: ' + st.lastError);
+    if (st.rateLimit && st.rateLimit.blocked) {
+      lines.push('Rate limited (~' + Math.ceil((st.rateLimit.remainingMs || 0) / 60000) + 'm remaining)' +
+        ((pending + dirty) > 0 ? ' — ' + (pending + dirty) + ' still waiting to upload' : ' — resumes automatically'));
+    }
+    if (st.lastPush && st.lastPush.at) {
+      lines.push('Last push: ' + (st.lastPush.ok ? ('ok wrote ' + (st.lastPush.written || 0)) : ('failed — ' + (st.lastPush.error || 'error'))));
+    }
+    var emptyCloud = !!(st.emptyCloudAlarm || st.localFullCloudEmpty || st.suggestReuploadAll || (st.health && st.health.cloudLikelyEmpty));
+    var alarmMsg = st.emptyCloudAlarmMessage ||
+      (st.health && st.health.emptyCloudAlarmMessage) ||
+      'Records are still on this device, but the cloud has none for this licence. Use Re-upload all — do not use Full re-sync while the cloud is empty.';
     statusEl.textContent = lines.join(' \u00b7 ');
-    statusEl.style.color = (lp.decryptFailed > 0 || st.failedCount > 0) ? '#b45309' : '';
+    var warnColor = emptyCloud || lp.decryptFailed > 0 || st.failedCount > 0 || st.emptyLargeDb ||
+      (st.rateLimit && st.rateLimit.blocked) || (st.lastPush && st.lastPush.ok === false && (pending + dirty) > 0) ||
+      st.syncHealthy === false || st.authRequired;
+    statusEl.style.color = warnColor ? (emptyCloud || st.authRequired ? '#b91c1c' : '#b45309') : '';
+    if (healthEl) {
+      var h = st.health || {};
+      healthEl.textContent =
+        'Health: local=' + (h.localCount != null ? h.localCount : (st.totalRecords || 0)) +
+        ' · last cloud pull received=' + (h.lastCloudPullReceived != null ? h.lastCloudPullReceived : (lp.received || 0)) +
+        ' · inventory=' + (h.lastVerifiedCloudInventory != null ? h.lastVerifiedCloudInventory : (st.lastVerifiedCloudInventory != null ? st.lastVerifiedCloudInventory : '?')) +
+        ' · pending uploads=' + (h.pendingUploads != null ? h.pendingUploads : (pending + dirty)) +
+        ' · schema v' + (st.schemaVersion != null ? st.schemaVersion : (h.schemaVersion != null ? h.schemaVersion : '?')) +
+        (st.lastSyncCycleAt ? ' · last cycle ' + formatSyncTime(st.lastSyncCycleAt) : '') +
+        (h.cloudLikelyEmpty || emptyCloud ? ' · ERROR: cloud empty for this licence' : '') +
+        (st.authRequired ? ' · AUTH REQUIRED' : '') +
+        (h.healthy === false || st.syncHealthy === false ? ' · not healthy' : '');
+      healthEl.style.color = (h.cloudLikelyEmpty || emptyCloud || st.authRequired) ? '#b91c1c' : '';
+    }
+    if (hintEl) {
+      if (st.authRequired) {
+        hintEl.style.display = '';
+        hintEl.style.color = '#b91c1c';
+        hintEl.textContent = 'Activate your licence (Settings → Licence) to resume cloud sync. Sync restarts automatically after activation.';
+      } else if (emptyCloud) {
+        hintEl.style.display = '';
+        hintEl.style.color = '#b91c1c';
+        hintEl.textContent = 'ERROR: ' + alarmMsg;
+      } else if (st.emptyLargeDb) {
+        hintEl.style.display = '';
+        hintEl.style.color = '#b45309';
+        hintEl.textContent = 'Recovery: database file is about ' + Math.round((st.dbFileBytes || 0) / 1024) + ' KB but lists 0 records. Restore a local/cloud backup, or on the computer with your data use Re-upload all local records to cloud, then Full re-sync here.';
+      } else if (st.rateLimit && st.rateLimit.blocked && (pending + dirty) > 0) {
+        hintEl.style.display = '';
+        hintEl.style.color = '#b45309';
+        hintEl.textContent = 'Upload paused (rate limited). ' + (pending + dirty) +
+          ' local record(s) are still waiting for a confirmed cloud write. Retry Push all pending / Re-upload all after the cooldown — do not assume they left this device.';
+      } else if (st.lastPush && st.lastPush.ok === false && (pending + dirty) > 0) {
+        hintEl.style.display = '';
+        hintEl.style.color = '#b45309';
+        hintEl.textContent = 'Last push did not confirm a durable cloud write (' +
+          (st.lastPush.error || 'unconfirmed') + '). ' + (pending + dirty) +
+          ' record(s) remain dirty on this device. Use Push all pending now or Re-upload all.';
+      } else {
+        hintEl.style.display = 'none';
+        hintEl.style.color = '#b45309';
+        hintEl.textContent = '';
+      }
+    }
   }
 
   function formatSyncTime(iso) {
@@ -3642,6 +3731,15 @@ var REQUIRED_FIELD_KEYS = [
   function showView(name) {
     var now = Date.now();
     if (name === _currentView && now - _showViewCooldown < 100) return;
+    /* Views / workflow helpers that live in deferred scripts — wait once if needed. */
+    var needsDeferred = (name === 'authorities' && typeof loadAuthorities !== 'function')
+      || (name === 'station-mileage' && typeof loadStationMileage !== 'function')
+      || (name === 'matter-billing' && typeof mountWorkflowInline !== 'function');
+    if (needsDeferred && typeof window.__cnEnsureDeferredScripts === 'function') {
+      _showViewCooldown = now;
+      window.__cnEnsureDeferredScripts().then(function () { showView(name); }).catch(function () { showView(name); });
+      return;
+    }
     _showViewCooldown = now;
     var prevView = _currentView;
     _currentView = name;
@@ -4131,19 +4229,61 @@ var REQUIRED_FIELD_KEYS = [
     openBtn.dataset.action = 'open-record';
   }
 
+  function refreshHomeEmptyCloudAlarm(st) {
+    var alarmEl = document.getElementById('home-empty-cloud-alarm');
+    if (!alarmEl) return;
+    var emptyCloud = !!(st && (st.emptyCloudAlarm || st.localFullCloudEmpty || st.suggestReuploadAll || (st.health && st.health.cloudLikelyEmpty)));
+    if (emptyCloud && (st.totalRecords || 0) > 0) {
+      alarmEl.style.display = '';
+      var body = document.getElementById('home-empty-cloud-alarm-body');
+      if (body) {
+        body.textContent = st.emptyCloudAlarmMessage ||
+          (st.health && st.health.emptyCloudAlarmMessage) ||
+          'Records are still on this device, but the cloud has none for this licence. Use Re-upload all — do not use Full re-sync while the cloud is empty.';
+      }
+    } else {
+      alarmEl.style.display = 'none';
+    }
+  }
+
   function loadHomeRecent() {
     var apiFn = (window.api && window.api.attendanceHomeStats) || (window.api && window.api.attendanceList);
     if (!apiFn) return;
     apiFn().then(function(rows) {
       var list = document.getElementById('home-recent-list');
       var statsEl = document.getElementById('home-stats');
+      var recoveryEl = document.getElementById('home-empty-db-recovery');
       if (!list) return;
       if (!rows || !rows.length) {
         list.innerHTML = '<li class="home-recent-empty">No records yet. Create your first attendance above.</li>';
         if (statsEl) statsEl.textContent = '';
         loadHomeActiveMatters([]);
         loadHomeFocus([]);
+        if (window.api && window.api.syncStatus) {
+          window.api.syncStatus().then(function(st) {
+            if (recoveryEl) {
+              if (st && st.emptyLargeDb) {
+                recoveryEl.style.display = '';
+                var body = document.getElementById('home-empty-db-recovery-body');
+                if (body) {
+                  body.textContent = 'Local database is about ' + Math.round((st.dbFileBytes || 0) / 1024) +
+                    ' KB but Home lists no attendances. Restore from another computer\'s backup, Full re-sync from cloud, or on the machine that still has your notes use Re-upload all local records to cloud.';
+                }
+              } else {
+                recoveryEl.style.display = 'none';
+              }
+            }
+            refreshHomeEmptyCloudAlarm(st);
+          }).catch(function() {
+            if (recoveryEl) recoveryEl.style.display = 'none';
+            refreshHomeEmptyCloudAlarm(null);
+          });
+        }
         return;
+      }
+      if (recoveryEl) recoveryEl.style.display = 'none';
+      if (window.api && window.api.syncStatus) {
+        window.api.syncStatus().then(refreshHomeEmptyCloudAlarm).catch(function() { refreshHomeEmptyCloudAlarm(null); });
       }
       var sorted = rows.slice().sort(function(a, b) { return (b.updated_at || b.created_at || '').localeCompare(a.updated_at || a.created_at || ''); });
       var HOME_RECENT_LIMIT = 10;
@@ -4982,7 +5122,12 @@ var REQUIRED_FIELD_KEYS = [
       persistFirmContactPromise.then(function() {
         return window.api.attendanceSave({ id: null, data: formData, status: 'draft' });
       }).then(id => {
-        currentAttendanceId = id;
+        var norm = normalizeAttendanceSaveResult(id);
+        if (norm.error) {
+          showToast(norm.message || norm.error || 'Failed to save quick capture', 'error', 5000);
+          return;
+        }
+        currentAttendanceId = norm.id;
         if (firmId) rememberQuickCaptureFirmId(firmId);
         saveQuickCaptureRecentContact({
           firmId: firmId,
@@ -5253,6 +5398,7 @@ var REQUIRED_FIELD_KEYS = [
   var EDITOR_ACTIVITY_DEBOUNCE_MS = 10000;
 
   function scheduleQuietSave() {
+    markFormDirtyForDiskIndicator();
     clearTimeout(_quietSaveDebounceTimer);
     _quietSaveDebounceTimer = setTimeout(quietSave, QUIET_SAVE_DEBOUNCE_MS);
     if (window.api && window.api.reportEditorActivity) {
@@ -5278,7 +5424,7 @@ var REQUIRED_FIELD_KEYS = [
     _draftSaveInFlight = true;
     _lastQuietSaveStart = Date.now();
     showSavingIndicator();
-    window.api.attendanceSave({ id: currentAttendanceId, data: data, status: 'draft' }).then(result => {
+    attendanceSaveDetailed({ id: currentAttendanceId, data: data, status: 'draft' }).then(result => {
       /* Invalidate cache on save */
       if (currentAttendanceId && _recordCache.has(currentAttendanceId)) {
         _recordCache.delete(currentAttendanceId);
@@ -5289,15 +5435,17 @@ var REQUIRED_FIELD_KEYS = [
         currentRecordStatus = 'finalised';
         return;
       }
-      if (typeof result === 'number' || typeof result === 'string') {
-        currentAttendanceId = result;
+      var normalized = normalizeAttendanceSaveResult(result);
+      if (normalized.id != null) {
+        currentAttendanceId = normalized.id;
         if (window.OfficerEmailsPanel && typeof window.OfficerEmailsPanel.attachToCustodyNote === 'function') {
           try { window.OfficerEmailsPanel.attachToCustodyNote(currentAttendanceId); } catch (_) {}
         }
       }
-      showAutoSaveIndicator();
-      var savedEl = document.getElementById('form-last-saved');
-      if (savedEl) savedEl.textContent = 'Saved ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      showAutoSaveIndicator({ durable: normalized.durable, pendingSync: normalized.pendingSync });
+      if (normalized.durable === false) {
+        showToast('Saved in memory but disk write may not have finished — press Save now', 'warning', 5000);
+      }
     }).catch(function(e) {
       console.error('[quietSave]', e); showToast('Auto-save failed — your changes may not be saved', 'warning', 5000);
       ['autosave-indicator', 'header-autosave'].forEach(function(id) {
@@ -5335,17 +5483,41 @@ var REQUIRED_FIELD_KEYS = [
     }
   }
 
-  function showAutoSaveIndicator() {
+  function showAutoSaveIndicator(opts) {
     var now = new Date();
     _lastQuietSaveDurationMs = _lastQuietSaveStart ? (now.getTime() - _lastQuietSaveStart) : null;
-    _lastDbWrite = now.toISOString();
-    var txt = '\u2713 Saved on this computer ' + pad2(now.getHours()) + ':' + pad2(now.getMinutes());
+    var durable = !(opts && opts.durable === false);
+    if (durable) _lastDbWrite = now.toISOString();
+    var pendingSync = !!(opts && opts.pendingSync);
+    var centralConfirmed = !!(opts && opts.centralConfirmed);
+    var dirty = !!(opts && opts.dirty);
+    var txt;
+    if (dirty) {
+      txt = 'Unsaved changes…';
+    } else if (durable && centralConfirmed) {
+      txt = '\u2713 Safe locally + central ' + pad2(now.getHours()) + ':' + pad2(now.getMinutes());
+    } else if (durable) {
+      txt = '\u2713 Safe locally ' + pad2(now.getHours()) + ':' + pad2(now.getMinutes());
+      if (pendingSync) txt += ' \u00b7 pending central sync';
+    } else {
+      txt = 'Not on disk yet — use Save now';
+    }
+    var title = dirty
+      ? 'Edits are on screen only until the next successful disk write.'
+      : (durable
+        ? (centralConfirmed
+          ? 'Durable on this computer and acknowledged by the central account store at ' + (_lastDbWrite || 'unknown') + '.'
+          : (pendingSync
+            ? 'Last successful disk write at ' + (_lastDbWrite || 'unknown') + '. Central account sync still pending.'
+            : 'Last successful disk write at ' + (_lastDbWrite || 'unknown') + '.'))
+        : 'Save reached memory but disk flush did not complete — press Save now.');
     ['autosave-indicator', 'header-autosave'].forEach(function(id) {
       var el = document.getElementById(id);
       if (!el) return;
       el.textContent = txt;
-      el.removeAttribute('data-autosave-error');
-      el.title = 'Last draft save written to this device. Finalised records do not autosave.';
+      if (durable && !dirty) el.removeAttribute('data-autosave-error');
+      else if (!durable || dirty) el.setAttribute('data-autosave-error', '1');
+      el.title = title;
       el.classList.add('visible');
     });
     var footerWrap = document.getElementById('footer-autosave-wrap');
@@ -5354,6 +5526,48 @@ var REQUIRED_FIELD_KEYS = [
       footerWrap.style.display = '';
       footerEl.textContent = txt;
     }
+    var savedEl = document.getElementById('form-last-saved');
+    if (savedEl && durable && !dirty) {
+      savedEl.textContent = centralConfirmed
+        ? ('Safe locally + central ' + now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))
+        : ('Safe locally ' + now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) +
+          (pendingSync ? ' · pending central sync' : ''));
+    } else if (savedEl && dirty) {
+      savedEl.textContent = 'Unsaved changes';
+    }
+  }
+
+  function markFormDirtyForDiskIndicator() {
+    showAutoSaveIndicator({ dirty: true, durable: false, pendingSync: false });
+  }
+
+  function normalizeAttendanceSaveResult(result) {
+    if (window.CustodyNoteAttendanceSave && typeof window.CustodyNoteAttendanceSave.normalize === 'function') {
+      return window.CustodyNoteAttendanceSave.normalize(result);
+    }
+    if (result == null) return { id: null, durable: false, pendingSync: false, error: null };
+    if (typeof result === 'number' || typeof result === 'string') {
+      // Preload attendanceSave unwraps to bare id; main still flushed via finishAttendanceSaveResult.
+      return { id: result, durable: true, pendingSync: true, error: null };
+    }
+    if (typeof result === 'object') {
+      return {
+        id: result.id != null ? result.id : null,
+        durable: result.durable === true,
+        pendingSync: result.pendingSync !== false && !result.error,
+        error: result.error || null,
+        message: result.message || null,
+      };
+    }
+    return { id: null, durable: false, pendingSync: false, error: 'invalid_result' };
+  }
+
+  /** Prefer detailed save (durable meta); fall back to numeric unwrap API. */
+  function attendanceSaveDetailed(payload) {
+    if (window.api && typeof window.api.attendanceSaveDetailed === 'function') {
+      return window.api.attendanceSaveDetailed(payload);
+    }
+    return window.api.attendanceSave(payload);
   }
 
   function showSettingsSavedToast() {
@@ -7265,7 +7479,9 @@ var REQUIRED_FIELD_KEYS = [
       src._convertedToCustodyAt = new Date().toISOString();
       formData = src;
       var voluntaryId = currentAttendanceId;
-      window.api.attendanceSave({ id: voluntaryId, data: src, status: (src.status || 'draft') }).then(function(savedId) {
+      window.api.attendanceSave({ id: voluntaryId, data: src, status: (src.status || 'draft') }).then(function(savedResult) {
+        var savedNorm = normalizeAttendanceSaveResult(savedResult);
+        var savedId = savedNorm.id;
         var arrestDt = (src.arrestTimeIfConverted || '').trim();
         var arrestDate = arrestDt.length >= 10 ? arrestDt.slice(0, 10) : src.date;
         var arrestTime = arrestDt.length >= 16 ? arrestDt.slice(11, 16) : '';
@@ -7562,6 +7778,11 @@ var REQUIRED_FIELD_KEYS = [
     var voluntaryConcluded = d.attendanceMode === 'voluntary' ? (volOd && volOd !== 'Ongoing / Unknown') : false;
     if (!hasOutcomeDecision) w.push('Outcome missing');
     if (voluntaryConcluded && !(d.outcomeCode || '').trim()) w.push('Outcome code missing (matter concluded)');
+    var _DSWarn = (typeof window !== 'undefined' && window.DefenceSummary) ? window.DefenceSummary : null;
+    if (_DSWarn && typeof _DSWarn.getOutcomeCodeMismatchError === 'function') {
+      var _mismatch = _DSWarn.getOutcomeCodeMismatchError(d.outcomeDecision, d.outcomeCode);
+      if (_mismatch) w.push(_mismatch);
+    }
     if (d.attendanceMode === 'voluntary') {
       if (d.instructionSource === 'dscc' && !(d.dsccRef || '').trim() && d.dsccNotificationStatus === 'missing' && !(d.dsccReferenceMissingReason || '').trim() && d.dsccPrivateMatter !== 'Yes') w.push('DSCC reference or reason missing');
       if (d.attendanceSubType === 'voluntary_non_police_body' && !d.constablePresent) w.push('Constable present? required for non-police body');
@@ -7625,6 +7846,11 @@ var REQUIRED_FIELD_KEYS = [
     if (!od) w.push('Outcome');
     var voluntaryConcluded = d.attendanceMode === 'voluntary' ? (od && od !== 'Ongoing / Unknown') : false;
     if (voluntaryConcluded && !(d.outcomeCode || '').trim()) w.push('Outcome code');
+    var _DSHard = (typeof window !== 'undefined' && window.DefenceSummary) ? window.DefenceSummary : null;
+    if (_DSHard && typeof _DSHard.getOutcomeCodeMismatchError === 'function') {
+      var _hardMismatch = _DSHard.getOutcomeCodeMismatchError(d.outcomeDecision, d.outcomeCode);
+      if (_hardMismatch) w.push('Outcome code vs decision mismatch');
+    }
     var mins = parseInt((d.totalMinutes || '').toString(), 10);
     if (isNaN(mins) || mins <= 0) w.push('Time recording');
     if (d.attendanceMode === 'voluntary') {
@@ -7781,15 +8007,22 @@ var REQUIRED_FIELD_KEYS = [
      * button mounts the 3-step workflow inline. We auto-start the
      * workflow when entering the screen if the note is already finalised
      * so the user lands directly in step 1. */
-    if (typeof showView === 'function') {
-      showView('matter-billing');
+    var go = function () {
+      if (typeof showView === 'function') {
+        showView('matter-billing');
+        return;
+      }
+      if (typeof openWorkflow === 'function') {
+        openWorkflow();
+      } else if (typeof openBillingPanel === 'function') {
+        openBillingPanel();
+      }
+    };
+    if (typeof window.__cnEnsureDeferredScripts === 'function' && typeof mountWorkflowInline !== 'function') {
+      window.__cnEnsureDeferredScripts().then(go).catch(go);
       return;
     }
-    if (typeof openWorkflow === 'function') {
-      openWorkflow();
-    } else if (typeof openBillingPanel === 'function') {
-      openBillingPanel();
-    }
+    go();
   }
   window.promptBeforeOpeningBilling = promptBeforeOpeningBilling;
 
@@ -8546,6 +8779,104 @@ var REQUIRED_FIELD_KEYS = [
     }
   }
 
+  /**
+   * Map legacy abbreviated PACE ground labels (pre v1.9.75) onto the current
+   * statutory s.24 / s.37 option strings. Unmapped values are left as-is
+   * (including existing "Other: …" entries).
+   */
+  function migrateLegacyPaceGrounds(data) {
+    if (!data || typeof data !== 'object') return;
+    var ARREST_MAP = {
+      "To ascertain the person's name/address": [
+        "To ascertain the person's name",
+        "To ascertain the person's address"
+      ],
+      'To prevent physical injury to self or others': [
+        'To prevent causing physical injury to himself or any other person'
+      ],
+      'To prevent damage to property': [
+        'To prevent causing loss of or damage to property'
+      ],
+      'To protect a child or vulnerable person': [
+        'To protect a child or other vulnerable person'
+      ],
+      'To allow prompt and effective investigation': [
+        "To allow the prompt and effective investigation of the offence or of the person's conduct"
+      ],
+      'To exercise search powers under PACE': [
+        "To allow the prompt and effective investigation of the offence or of the person's conduct"
+      ],
+      'To prevent disappearance of the person': [
+        'To prevent any prosecution being hindered by the disappearance of the person'
+      ]
+    };
+    var DETENTION_MAP = {
+      'To secure or preserve evidence': [
+        'To secure or preserve evidence relating to an offence for which the person is under arrest'
+      ],
+      'To obtain evidence by questioning': [
+        'To obtain such evidence by questioning the person'
+      ]
+    };
+    var INSUFFICIENT_RE = /^Insufficient evidence to charge\s*[–—-]?\s*further investigation needed$/i;
+
+    function migratePipe(raw, map, otherRe) {
+      if (!raw || typeof raw !== 'string') return raw;
+      var parts = raw.split('|').filter(Boolean);
+      if (!parts.length) return raw;
+      var out = [];
+      var seen = Object.create(null);
+      var changed = false;
+      function add(v) {
+        if (!v || seen[v]) return;
+        seen[v] = true;
+        out.push(v);
+      }
+      for (var i = 0; i < parts.length; i++) {
+        var p = parts[i];
+        if (map[p]) {
+          map[p].forEach(add);
+          changed = true;
+        } else if (otherRe && otherRe.test(p)) {
+          add('Other: ' + p);
+          changed = true;
+        } else {
+          add(p);
+        }
+      }
+      return changed ? out.join('|') : raw;
+    }
+
+    if (data.groundsForArrest) {
+      var a = migratePipe(data.groundsForArrest, ARREST_MAP, null);
+      if (a !== data.groundsForArrest) data.groundsForArrest = a;
+    }
+    if (data.groundsForDetention) {
+      var d = migratePipe(data.groundsForDetention, DETENTION_MAP, INSUFFICIENT_RE);
+      if (d !== data.groundsForDetention) data.groundsForDetention = d;
+    }
+  }
+
+  /**
+   * Custody §8 has no outcomeCode field. Drafts that still hold a leftover
+   * investigation CN from an earlier decision (e.g. Charged → Bail without charge)
+   * would fail finalise with no on-form control to clear it — apply the same clear
+   * used when the user changes outcomeDecision.
+   */
+  function migrateStaleFirstGrantBailOutcomeCode(data) {
+    if (!data || typeof data !== 'object') return;
+    var DS = (typeof window !== 'undefined' && window.DefenceSummary) ? window.DefenceSummary : null;
+    if (!DS || typeof DS.resolveOutcomeCodeOnDecisionChange !== 'function') return;
+    if (typeof DS.isFirstGrantPoliceBailDecision !== 'function') return;
+    if (!DS.isFirstGrantPoliceBailDecision(data.outcomeDecision)) return;
+    /* Only auto-clear when the form has no visible outcomeCode control (custody). */
+    if (data._formType === 'telephone' || data.attendanceMode === 'voluntary') return;
+    var resolved = DS.resolveOutcomeCodeOnDecisionChange(data.outcomeDecision, data.outcomeCode);
+    if (resolved !== (data.outcomeCode || '').trim()) {
+      data.outcomeCode = resolved;
+    }
+  }
+
   function renderForm(data) {
     const form = document.getElementById('attendance-form');
     if (!form) return;
@@ -8562,6 +8893,14 @@ var REQUIRED_FIELD_KEYS = [
     if (!formData.oicEmail && formData.oicForceNo && String(formData.oicForceNo).indexOf('@') >= 0) {
       formData.oicEmail = formData.oicForceNo;
     }
+
+    // Backward-compat: map pre-s.24/s.37 statutory ground labels onto the current options
+    // so saved checkbox values still display and are not wiped on collect/save.
+    migrateLegacyPaceGrounds(formData);
+
+    // Backward-compat: custody has no outcomeCode control — clear leftover investigation
+    // CNs when the decision is already first-grant police bail (same as decision-change).
+    migrateStaleFirstGrantBailOutcomeCode(formData);
 
     // Backward-compat: older records have medication text but no medicationRequired selector.
     if (!formData.medicationRequired && formData.medication) {
@@ -8749,6 +9088,16 @@ var REQUIRED_FIELD_KEYS = [
               if (!formData.courtTime) {
                 formData.courtTime = '10:00';
                 setFieldValue('courtTime', '10:00');
+              }
+            }
+            /* Auto-suggest LAA outcome code from decision (never CN09 for bail).
+               Switching to first-grant bail clears ANY leftover suggested CN (not only CN09). */
+            var _DS = (typeof window !== 'undefined' && window.DefenceSummary) ? window.DefenceSummary : null;
+            if (_DS && typeof _DS.resolveOutcomeCodeOnDecisionChange === 'function') {
+              var _resolvedCode = _DS.resolveOutcomeCodeOnDecisionChange(formData.outcomeDecision, formData.outcomeCode);
+              if (_resolvedCode !== (formData.outcomeCode || '').trim()) {
+                formData.outcomeCode = _resolvedCode;
+                setFieldValueSilent('outcomeCode', _resolvedCode);
               }
             }
           }
@@ -9867,7 +10216,7 @@ var REQUIRED_FIELD_KEYS = [
               '</div>' +
               '<div class="form-group"><label>Waiting notes</label><textarea class="form-input" rows="2" data-sv-field="waitingTimeNotes" placeholder="Optional"></textarea></div>' +
               '<div class="form-row-2col">' +
-                '<div class="form-group"><label>Miles (this visit)</label><input type="number" class="form-input" step="0.1" data-sv-field="milesClaimable" placeholder="0"></div>' +
+                '<div class="form-group"><label>Miles (this visit)</label><input type="number" class="form-input" step="any" data-sv-field="milesClaimable" placeholder="0"></div>' +
                 '<div class="form-group"><label>Parking (\u00a3, this visit)</label><input type="number" class="form-input" step="0.01" data-sv-field="parkingCost" placeholder="0.00"></div>' +
               '</div>' +
               '<div class="form-group"><label>Notes for this visit</label><textarea class="form-input" rows="2" data-sv-field="notes" placeholder="What happened on this trip (e.g. DSCC accept, ID parade)"></textarea></div>' +
@@ -11453,20 +11802,17 @@ var REQUIRED_FIELD_KEYS = [
     let val = data[f.key];
     if (f.defaultValue != null) { val = f.defaultValue; input.readOnly = true; }
     if (val != null && val !== '') input.value = val;
-    if (f.key === 'courtName') {
+    if (f.key === 'courtName' || f.key === 'crm14CourtName') {
       const acWrap = document.createElement('div');
       acWrap.className = 'offence-autocomplete-wrap';
       acWrap.style.position = 'relative';
-      const dd = document.createElement('div');
-      dd.className = 'offence-autocomplete-dropdown';
       acWrap.appendChild(input);
-      acWrap.appendChild(dd);
       wrap.appendChild(acWrap);
       const courtHint = document.createElement('p');
       courtHint.className = 'field-hint court-name-hint';
       courtHint.textContent = 'Type 2+ letters for magistrates court suggestions (England and Wales).';
       wrap.appendChild(courtHint);
-      initCourtAutocomplete(input, dd);
+      initCourtAutocomplete(input, { fieldKey: f.key });
     } else if (f.type === 'email') {
       const emailWrap = document.createElement('div');
       emailWrap.className = 'email-field-wrap';
@@ -11971,137 +12317,28 @@ var REQUIRED_FIELD_KEYS = [
     grid.appendChild(wrap);
   }
 
-  function initCourtAutocomplete(input, dropdown) {
-    dropdown.classList.add('court-autocomplete-dropdown');
-
-    function positionCourtDropdown() {
-      if (!dropdown.classList.contains('open')) return;
-      var rect = input.getBoundingClientRect();
-      dropdown.style.position = 'fixed';
-      dropdown.style.left = Math.max(8, rect.left) + 'px';
-      dropdown.style.top = (rect.bottom + 2) + 'px';
-      dropdown.style.width = Math.max(rect.width, 280) + 'px';
-      dropdown.style.right = 'auto';
-      dropdown.style.zIndex = '5000';
+  /**
+   * Court name typeahead — delegates to lib/courtAutocomplete.js.
+   * Dropdown is portaled to document.body so .attendance-form /
+   * .form-section contain:layout + transform cannot clip or mis-position it.
+   */
+  function initCourtAutocomplete(input, opts) {
+    opts = opts || {};
+    var fieldKey = opts.fieldKey || input.getAttribute('data-field') || input.name || 'courtName';
+    if (!window.CourtAutocomplete || typeof window.CourtAutocomplete.initCourtAutocomplete !== 'function') {
+      console.error('[initCourtAutocomplete] CourtAutocomplete module missing');
+      return null;
     }
-
-    function resetCourtDropdownPosition() {
-      dropdown.style.position = '';
-      dropdown.style.left = '';
-      dropdown.style.top = '';
-      dropdown.style.width = '';
-      dropdown.style.right = '';
-      dropdown.style.zIndex = '';
-    }
-
-    function setSuggestions(query, opts) {
-      opts = opts || {};
-      var rawQ = String(query || '').trim();
-      var normFn = window.MagistratesCourtsSearch && window.MagistratesCourtsSearch.normalizeCourtSearchQuery;
-      var q = normFn ? normFn(rawQ) : rawQ;
-      dropdown.innerHTML = '';
-      var searchFn = window.MagistratesCourtsSearch && window.MagistratesCourtsSearch.searchMagistratesCourts;
-
-      function showHint(text) {
-        var hintEl = document.createElement('div');
-        hintEl.className = 'offence-autocomplete-hint';
-        hintEl.style.padding = '10px 12px';
-        hintEl.style.fontSize = '0.88rem';
-        hintEl.style.color = '#64748b';
-        hintEl.textContent = text;
-        dropdown.appendChild(hintEl);
-        dropdown.classList.add('open');
-        positionCourtDropdown();
-      }
-
-      if (!rawQ) {
-        showHint('Type at least 2 letters to search magistrates courts in England and Wales.');
-        return;
-      }
-
-      if (rawQ.length < 2) {
-        showHint('Type at least 2 letters to search.');
-        return;
-      }
-
-      if (!searchFn) {
-        showHint('Court search is unavailable — restart the app and try again.');
-        return;
-      }
-
-      if (!magistratesCourts.length) {
-        if (opts.loading) {
-          showHint('Loading magistrates courts…');
-          return;
-        }
-        if (opts.loadFailed) {
-          showHint('Court list failed to load — restart the app. You can still type the court name manually.');
-          return;
-        }
-        showHint('Loading magistrates courts…');
-        ensureMagistratesCourtsLoaded().then(function() {
-          if (document.activeElement === input) {
-            setSuggestions(input.value, { loading: false, loadFailed: !magistratesCourts.length });
-          }
-        });
-        return;
-      }
-
-      var items = searchFn(magistratesCourts, q, 20);
-      if (!items.length) {
-        showHint("No courts match '" + rawQ + "' — try a different spelling.");
-        return;
-      }
-      items.forEach(function(name) {
-        const opt = document.createElement('div');
-        opt.className = 'offence-autocomplete-option';
-        opt.textContent = name;
-        opt.addEventListener('mousedown', function(e) {
-          e.preventDefault();
-          input.value = name;
-          formData.courtName = name;
-          input.dispatchEvent(new Event('input', { bubbles: true }));
-          input.dispatchEvent(new Event('change', { bubbles: true }));
-          dropdown.classList.remove('open');
-          resetCourtDropdownPosition();
-        });
-        dropdown.appendChild(opt);
-      });
-      dropdown.classList.add('open');
-      positionCourtDropdown();
-    }
-
-    function runSuggestions(opts) {
-      setSuggestions(input.value, opts);
-    }
-
-    var _courtDebounce = null;
-    var _courtScrollReposition = function() { positionCourtDropdown(); };
-
-    input.addEventListener('focus', function() {
-      ensureMagistratesCourtsLoaded().finally(function() {
-        runSuggestions({ loading: !magistratesCourts.length, loadFailed: !magistratesCourts.length });
-      });
-      window.addEventListener('scroll', _courtScrollReposition, true);
-      window.addEventListener('resize', _courtScrollReposition);
-    });
-    input.addEventListener('input', function() {
-      clearTimeout(_courtDebounce);
-      _courtDebounce = setTimeout(function() { runSuggestions(); }, 80);
-    });
-    input.addEventListener('blur', function() {
-      setTimeout(function() {
-        dropdown.classList.remove('open');
-        resetCourtDropdownPosition();
-        window.removeEventListener('scroll', _courtScrollReposition, true);
-        window.removeEventListener('resize', _courtScrollReposition);
-      }, 180);
-    });
-    input.addEventListener('keydown', function(e) {
-      if (e.key === 'Escape') {
-        dropdown.classList.remove('open');
-        resetCourtDropdownPosition();
-      }
+    return window.CourtAutocomplete.initCourtAutocomplete(input, {
+      fieldKey: fieldKey,
+      formData: formData,
+      getCourts: function() { return magistratesCourts; },
+      ensureLoaded: ensureMagistratesCourtsLoaded,
+      searchApi: window.MagistratesCourtsSearch,
+      portalRoot: document.body,
+      onSelect: function(name) {
+        formData[fieldKey] = name;
+      },
     });
   }
 
@@ -12899,7 +13136,7 @@ var REQUIRED_FIELD_KEYS = [
       if (status === 'finalised') {
         console.log('[FINALISE] IPC attempt #' + attemptNum + ': id=' + currentAttendanceId);
       }
-      window.api.attendanceSave({ id: currentAttendanceId, data: data, status: status || 'draft' }).then(result => {
+      attendanceSaveDetailed({ id: currentAttendanceId, data: data, status: status || 'draft' }).then(result => {
         /* Invalidate cache on save */
         if (currentAttendanceId && _recordCache.has(currentAttendanceId)) {
           _recordCache.delete(currentAttendanceId);
@@ -12940,11 +13177,18 @@ var REQUIRED_FIELD_KEYS = [
             return;
           }
         }
-        if (typeof result === 'number' || typeof result === 'string') {
-          currentAttendanceId = result;
+        var normalizedSave = normalizeAttendanceSaveResult(result);
+        if (normalizedSave.id != null) {
+          currentAttendanceId = normalizedSave.id;
           if (window.OfficerEmailsPanel && typeof window.OfficerEmailsPanel.attachToCustodyNote === 'function') {
             try { window.OfficerEmailsPanel.attachToCustodyNote(currentAttendanceId); } catch (_) {}
           }
+        }
+        if (status !== 'finalised' && status !== 'completed') {
+          showAutoSaveIndicator({
+            durable: normalizedSave.durable,
+            pendingSync: normalizedSave.pendingSync,
+          });
         }
         if (status === 'finalised') {
           /* Verify the DB actually persisted the finalised status */
@@ -13074,6 +13318,13 @@ var REQUIRED_FIELD_KEYS = [
   }
 
   /* ─── VALIDATION: TELEPHONE ADVICE FORM (INVB) ─── */
+  function pushOutcomeCodeMismatchError(m, section) {
+    var DS = (typeof window !== 'undefined' && window.DefenceSummary) ? window.DefenceSummary : null;
+    if (!DS || typeof DS.getOutcomeCodeMismatchError !== 'function') return;
+    var msg = DS.getOutcomeCodeMismatchError(formData.outcomeDecision, formData.outcomeCode);
+    if (msg) m.push({ key: 'outcomeCode', label: msg, section: section });
+  }
+
   function validateTelephoneForm() {
     var m = [];
     var telDecision = (formData.outcomeDecision || '').trim();
@@ -13107,9 +13358,16 @@ var REQUIRED_FIELD_KEYS = [
       if (!val || (typeof val === 'string' && !val.trim())) m.push(r);
     });
     if (telCaseConcluded) {
-      if (!(formData.outcomeCode || '').trim()) m.push({ key: 'outcomeCode', label: 'Outcome Code', section: 2 });
+      /* First-grant police bail has no LAA investigation CN — blank outcomeCode is valid. */
+      var _DSTel = (typeof window !== 'undefined' && window.DefenceSummary) ? window.DefenceSummary : null;
+      var telFirstGrantBail = _DSTel && typeof _DSTel.isFirstGrantPoliceBailDecision === 'function'
+        && _DSTel.isFirstGrantPoliceBailDecision(telDecision);
+      if (!telFirstGrantBail && !(formData.outcomeCode || '').trim()) {
+        m.push({ key: 'outcomeCode', label: 'Outcome Code', section: 2 });
+      }
       if (!(formData.caseConcludedDate || '').trim()) m.push({ key: 'caseConcludedDate', label: 'Case concluded date', section: 2 });
     }
+    pushOutcomeCodeMismatchError(m, 2);
     if (formData.firstContactWithin45Mins === 'No') {
       var c45t = (formData.firstContactOver45MinsReasonCode || '').trim();
       if (!c45t) m.push({ key: 'firstContactOver45MinsReasonCode', label: 'Reason for delay (>45 mins)', section: 1 });
@@ -13159,6 +13417,7 @@ var REQUIRED_FIELD_KEYS = [
     if (volCaseConcluded && !(formData.outcomeCode || '').trim()) {
       m.push({ key: 'outcomeCode', label: 'Outcome code', section: 7 });
     }
+    pushOutcomeCodeMismatchError(m, 7);
     if (formData.instructionSource === 'dscc' && !(formData.dsccRef || '').trim() && formData.dsccNotificationStatus === 'missing' && !(formData.dsccReferenceMissingReason || '').trim() && formData.dsccPrivateMatter !== 'Yes') {
       m.push({ key: 'dsccReferenceMissingReason', label: 'Reason if DSCC reference missing', section: 0 });
     }
@@ -13331,6 +13590,20 @@ var REQUIRED_FIELD_KEYS = [
     if (bailOutcome === 'Bail without charge' && bailDate && attDate && bailDate < attDate) {
       m.push({ key: 'bailDate', label: 'Bail return date is before attendance date', section: 7 });
     }
+
+    /* Custody has no outcomeCode control — clear leftover CNs on first-grant bail
+       before mismatch check so drafts are not blocked with a hidden field error. */
+    var _DSAtt = (typeof window !== 'undefined' && window.DefenceSummary) ? window.DefenceSummary : null;
+    if (_DSAtt && typeof _DSAtt.isFirstGrantPoliceBailDecision === 'function'
+        && _DSAtt.isFirstGrantPoliceBailDecision(formData.outcomeDecision)
+        && typeof _DSAtt.resolveOutcomeCodeOnDecisionChange === 'function') {
+      var _attResolved = _DSAtt.resolveOutcomeCodeOnDecisionChange(formData.outcomeDecision, formData.outcomeCode);
+      if (_attResolved !== (formData.outcomeCode || '').trim()) {
+        formData.outcomeCode = _attResolved;
+      }
+    }
+
+    pushOutcomeCodeMismatchError(m, 7);
 
     return m;
   }
@@ -15616,6 +15889,16 @@ pdfAuditFooterHtml(d, settings) +
         lines.push('Last error:    ' + (diag.lastError || status.lastError || 'none'));
         lines.push('In progress:   ' + (diag.inProgress ? 'yes' : 'no'));
         lines.push('Last push ok:  ' + (diag.lastSuccessfulPushAt ? new Date(diag.lastSuccessfulPushAt).toISOString() : 'never'));
+        lines.push('Sync phase:    ' + (status.syncPhase || (status.health && status.health.syncPhase) || '—'));
+        lines.push('Schema ver:    ' + (status.schemaVersion != null ? status.schemaVersion : '—'));
+        if (status.health) {
+          lines.push('Health local:  ' + status.health.localCount);
+          lines.push('Health pull:   ' + status.health.lastCloudPullReceived + (status.health.pulledFromEpoch ? ' (from-epoch)' : ''));
+          lines.push('Cloud invent.: ' + (status.health.lastVerifiedCloudInventory != null ? status.health.lastVerifiedCloudInventory : (status.lastVerifiedCloudInventory != null ? status.lastVerifiedCloudInventory : 'unknown')));
+          lines.push('Health pending:' + status.health.pendingUploads);
+          lines.push('Cloud empty?:  ' + (status.health.cloudLikelyEmpty || status.emptyCloudAlarm ? 'ERROR — re-upload all' : 'no'));
+          lines.push('Sync healthy?: ' + (status.health.healthy === false || status.syncHealthy === false ? 'NO' : 'yes'));
+        }
         lines.push('');
         lines.push('=== BACKUP ===');
         lines.push('State:         ' + (backup.state || 'unknown'));
@@ -15860,10 +16143,32 @@ pdfAuditFooterHtml(d, settings) +
         return;
       }
 
-      /* Cmd/Ctrl+S = quiet save (does not exit — matches custody-desk safety) */
+      /* Cmd/Ctrl+S = Save now (disk flush + verified backup) */
       if (modPressed(e) && e.key === 's') {
         e.preventDefault();
-        quietSave();
+        var saveBtn = document.getElementById('form-backup-now-btn') || document.getElementById('header-backup-now-btn');
+        if (typeof window.handleSaveNowClick === 'function' && saveBtn) window.handleSaveNowClick(saveBtn);
+        else if (window.api && window.api.persistAndBackup) {
+          quietSave();
+          window.api.persistAndBackup().then(function(res) {
+            if (res && res.userMessage && res.userMessage.message) {
+              var lvl = res.userMessage.level || (res.noteDurable ? 'success' : 'error');
+              showToast(res.userMessage.message, lvl, 8000);
+            } else if (res && res.noteDurable && res.centralConfirmed) {
+              showToast('Safe locally + central copy confirmed', 'success', 7000);
+            } else if (res && res.noteDurable && res.backupOk) {
+              showToast('Safe locally. Backup written. Central confirmation pending.', 'success', 7000);
+            } else if (res && res.noteDurable) {
+              showToast('Safe locally; backup or sync not fully confirmed', 'warning', 9000);
+            } else {
+              showToast((res && res.userMessage && res.userMessage.message) || 'Save now failed', 'error', 9000);
+            }
+          }).catch(function(err) {
+            showToast('Save now failed: ' + (err && err.message), 'error');
+          });
+        } else {
+          quietSave();
+        }
       }
       if (modPressed(e) && e.key === 'ArrowRight') {
         e.preventDefault();
@@ -16810,27 +17115,27 @@ pdfAuditFooterHtml(d, settings) +
     function applyBackupStatus(bs) {
       _footerBackupSnapshot = bs || null;
       if (!backupStatusEl) return;
-      if (!bs || bs.state === 'not-initialised') {
-        setFooterIndicator(backupStatusEl, 'Backup starting\u2026', '');
+      try {
+        var degBanner = document.getElementById('home-backup-degraded');
+        var degBody = document.getElementById('home-backup-degraded-body');
+        var degraded = !!(bs && (bs.lastDegradedReason || bs.lastSkipReason === 'backup-folder-missing' || bs.lastSkipReason === 'export-failed' || bs.state === 'error'));
+        if (degBanner) {
+          degBanner.style.display = degraded ? '' : 'none';
+          if (degraded && degBody) {
+            degBody.textContent = 'Backup issue: ' + (bs.lastDegradedReason || bs.lastSkipReason || bs.lastError || 'unknown') +
+              '. Effective folder: ' + (bs.backupFolder || 'unknown') +
+              '. Last success: ' + (bs.lastSuccessAt ? new Date(bs.lastSuccessAt).toLocaleString() : 'never') + '.';
+          }
+        }
+      } catch (_) {}
+      var chip = (typeof FooterStatusChips !== 'undefined' && FooterStatusChips.deriveBackupFooterChip)
+        ? FooterStatusChips.deriveBackupFooterChip(bs)
+        : null;
+      if (chip && chip.handled) {
+        setFooterIndicator(backupStatusEl, chip.text, chip.variant, chip.title || '');
         return true;
       }
-      if (bs.state === 'running') {
-        setFooterIndicator(backupStatusEl, 'Backup running', 'backup-active');
-      } else if (bs.state === 'deferred') {
-        setFooterIndicator(backupStatusEl, 'Backup idle', 'backup-ok');
-      } else if (bs.state === 'error') {
-        setFooterIndicator(backupStatusEl, 'Backup retrying', 'offline', bs.lastError || '');
-      } else if (bs.quickDirty || bs.hourlyDirty) {
-        var noFolder = bs.lastSkipReason === 'backup-folder-missing' || bs.lastSkipReason === 'db-missing' || bs.lastSkipReason === 'export-failed';
-        if (noFolder) {
-          setFooterIndicator(backupStatusEl, 'Backup off', 'offline');
-        } else {
-          setFooterIndicator(backupStatusEl, 'Backup queued', 'backup-active');
-        }
-      } else {
-        return false;
-      }
-      return true;
+      return false;
     }
 
     function updateBackupStatus(snapshot) {
@@ -16865,6 +17170,113 @@ pdfAuditFooterHtml(d, settings) +
     if (window.api && window.api.onBackupStatusChanged) {
       window.api.onBackupStatusChanged(function(data) { updateBackupStatus(data); });
     }
+    if (window.api && window.api.onBackupDegraded) {
+      window.api.onBackupDegraded(function(payload) {
+        try {
+          showToast((payload && payload.message) || 'Local backup protection is degraded', 'warning', 8000);
+          updateBackupStatus();
+          refreshBackupEffectivePaths();
+        } catch (_) {}
+      });
+    }
+    if (window.api && window.api.onBackupPathCorrected) {
+      window.api.onBackupPathCorrected(function(notice) {
+        try {
+          var msg = (notice && notice.message) || 'Backup folder path was corrected for this computer.';
+          if (notice && notice.previous) msg += ' Previous: ' + notice.previous;
+          if (notice && notice.next) msg += ' Now: ' + notice.next;
+          showToast(msg, 'warning', 12000);
+          // Keep notice durable in Settings until the user dismisses it.
+          refreshBackupEffectivePaths();
+          updateBackupStatus();
+        } catch (_) {}
+      });
+    }
+
+    function refreshBackupEffectivePaths() {
+      if (!window.api || !window.api.getSettings) return;
+      window.api.getSettings().then(function(s) {
+        var bf = document.getElementById('setting-backup-folder');
+        var effective = (s && (s.effectiveBackupFolder || s.backupFolder)) || '';
+        if (bf) bf.value = effective;
+        var meta = document.getElementById('settings-backup-effective-meta');
+        if (meta) {
+          var intervalMin = s && s.backupQuickMinIntervalMs ? Math.round(s.backupQuickMinIntervalMs / 60000) : 2;
+          meta.textContent = 'Effective local path: ' + (effective || '(none)') +
+            ' · Quick every ~' + intervalMin + ' min (generational) · Hourly archives retained' +
+            (s && s.defaultBackupFolder ? ' · Default: ' + s.defaultBackupFolder : '');
+        }
+        var off = document.getElementById('settings-offsite-effective-path');
+        if (off) {
+          var ofp = (s && (s.effectiveOffsiteBackupFolder || s.offsiteBackupFolder)) || '';
+          off.textContent = ofp ? ('Off-site effective path: ' + ofp) : 'Off-site backup: none configured';
+        }
+        var deg = document.getElementById('settings-backup-degraded-banner');
+        var ackBtn = document.getElementById('settings-backup-path-ack');
+        if (deg) {
+          if (s && s.backupDegraded && s.backupDegraded.reason) {
+            deg.style.display = '';
+            deg.textContent = 'Backup degraded: ' + s.backupDegraded.reason + '. Confirm the folder above and run Backup now.';
+          } else if (s && s.backupPathCorrection) {
+            deg.style.display = '';
+            deg.textContent = (s.backupPathCorrection.message || 'Backup path was auto-corrected.') +
+              (s.backupPathCorrection.previous ? ' Previous: ' + s.backupPathCorrection.previous : '') +
+              (s.backupPathCorrection.next ? ' → ' + s.backupPathCorrection.next : '');
+          } else {
+            deg.style.display = 'none';
+            deg.textContent = '';
+          }
+        }
+        if (ackBtn) {
+          ackBtn.style.display = (s && s.backupPathCorrection) ? '' : 'none';
+        }
+      }).catch(function() {});
+      if (window.api.backupStatus) {
+        window.api.backupStatus().then(function(bs) {
+          var statusEl = document.getElementById('settings-backup-last-status');
+          if (statusEl && bs) {
+            statusEl.textContent =
+              'Last success: ' + (bs.lastSuccessAt ? new Date(bs.lastSuccessAt).toLocaleString() : 'never') +
+              ' · Last failure: ' + (bs.lastFailure || bs.lastDegradedReason || 'none') +
+              (bs.quickGenerationCount != null ? (' · Quick snapshots on disk: ' + bs.quickGenerationCount) : '') +
+              (bs.latestFileVerified === false ? ' · Latest verify FAILED' : (bs.latestFileVerified ? ' · Latest verified OK' : ''));
+          }
+          var meta = document.getElementById('settings-backup-effective-meta');
+          if (meta && bs && meta.textContent.indexOf('Last success:') === -1) {
+            meta.textContent = (meta.textContent || '') +
+              ' · Last success: ' + (bs.lastSuccessAt ? new Date(bs.lastSuccessAt).toLocaleString() : 'never');
+          }
+        }).catch(function() {});
+      }
+    }
+    window.refreshBackupEffectivePaths = refreshBackupEffectivePaths;
+    document.addEventListener('view-settings-shown', function() { refreshBackupEffectivePaths(); });
+    document.getElementById('settings-backup-path-ack')?.addEventListener('click', function() {
+      if (!window.api || !window.api.backupAcknowledgePathCorrection) return;
+      window.api.backupAcknowledgePathCorrection().then(function() {
+        refreshBackupEffectivePaths();
+        showToast('Backup path notice dismissed', 'info', 2500);
+      }).catch(function() {});
+    });
+    document.getElementById('setting-backup-open-folder')?.addEventListener('click', function() {
+      if (!window.api || !window.api.backupOpenFolder) return;
+      window.api.backupOpenFolder('local').then(function(r) {
+        if (!r || !r.ok) showToast((r && r.error) || 'Could not open backup folder', 'error');
+      }).catch(function(e) { showToast(e && e.message || 'Could not open backup folder', 'error'); });
+    });
+    document.getElementById('setting-offsite-open-folder')?.addEventListener('click', function() {
+      if (!window.api || !window.api.backupOpenFolder) return;
+      window.api.backupOpenFolder('offsite').then(function(r) {
+        if (!r || !r.ok) showToast((r && r.error) || 'No off-site folder configured', 'error');
+      }).catch(function(e) { showToast(e && e.message || 'Could not open off-site folder', 'error'); });
+    });
+    document.getElementById('home-backup-degraded-settings')?.addEventListener('click', function() {
+      try {
+        if (typeof showView === 'function') showView('settings');
+        var tab = document.querySelector('.settings-tab[data-stab="backup"]');
+        if (tab) tab.click();
+      } catch (_) {}
+    });
     /* App version, build date (from package) and when this build first ran on this computer */
     if (window.api.getAppVersion) {
       window.api.getAppVersion().then(function(info) {
@@ -16925,13 +17337,27 @@ pdfAuditFooterHtml(d, settings) +
       }).catch(function(e) { console.error('[bank-holidays]', e); });
     }
 
-    /* Splash: hide when data ready + min 1.5s elapsed, or immediately if first-launch */
+    /* Splash: hide when home-critical data is ready + min time elapsed.
+       Do not wait on magistrates courts or LAA reference JSON — home/lock/
+       first-launch do not need them; court typeahead ensure-loads on focus. */
     var splashDataReady = false;
     var splashMinReached = false;
     var splashMinMs = 600;
+    var _bootRendererT0 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    function _bootRendererMark(name) {
+      try {
+        var ms = Math.round(((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now()) - _bootRendererT0);
+        console.log('[Boot] renderer-' + name + ' ' + ms);
+      } catch (_) {}
+    }
     function tryHideSplash() {
       if (!document.getElementById('splash')) return;
-      if (splashDataReady && splashMinReached) hideSplash();
+      if (splashDataReady && splashMinReached) {
+        _bootRendererMark('splash-hide');
+        hideSplash();
+        _bootRendererMark('first-interactive');
+        console.log('[Boot] BOOT_DONE');
+      }
     }
     setTimeout(function () {
       splashMinReached = true;
@@ -16941,20 +17367,34 @@ pdfAuditFooterHtml(d, settings) +
     Promise.all([
       window.api.stationsList(),
       window.api.firmsList(),
-      window.api.loadReferenceData(),
-      loadMagistratesCourts(),
-    ]).then(([s, f, rd]) => {
+    ]).then(function (pair) {
+      var s = pair[0];
+      var f = pair[1];
       stations = s;
       setFirmsList(f);
-      refData = rd || {};
       loadRecentStations();
       splashDataReady = true;
       tryHideSplash();
     }).catch(function(err) {
-      console.error('[init] Failed to load stations/firms/refData:', err);
+      console.error('[init] Failed to load stations/firms:', err);
       splashDataReady = true;
       tryHideSplash();
     });
+
+    /* Deferred — must not block splash hide / first interactive. */
+    if (window.api && window.api.loadReferenceData) {
+      window.api.loadReferenceData().then(function (rd) {
+        refData = rd || {};
+      }).catch(function (err) {
+        console.error('[init] loadReferenceData failed:', err);
+        refData = {};
+      });
+    }
+    try {
+      loadMagistratesCourts();
+    } catch (err) {
+      console.error('[init] loadMagistratesCourts schedule failed:', err);
+    }
 
     /* First-launch setup check: hide splash immediately so user can complete setup */
     window._billingDefaults = {};
@@ -17159,29 +17599,142 @@ pdfAuditFooterHtml(d, settings) +
       });
     });
 
-    function handleBackupNowClick(btn) {
-      if (!btn || btn.classList.contains('backing-up')) return;
+    function handleSaveNowClick(btn) {
+      if (!btn || btn.classList.contains('backing-up') || btn.classList.contains('saving-now')) return;
+      var formView = document.getElementById('view-form');
+      var onForm = formView && formView.classList.contains('active');
+      btn.classList.add('saving-now');
       btn.classList.add('backing-up');
       var origText = btn.innerHTML;
-      btn.innerHTML = '&#128190; Saving…';
-      quietSave();
-      var backupFn = window.api.flushAndBackup || window.api.backupNow;
-      backupFn().then(function() {
-        return window.api.backupNow();
-      }).then(function() {
-        btn.innerHTML = '&#10003; Backed up';
-        showToast('Backup completed', 'success');
-        setTimeout(function() { btn.innerHTML = origText; btn.classList.remove('backing-up'); }, 2000);
-      }).catch(function(err) {
-        btn.innerHTML = origText;
-        btn.classList.remove('backing-up');
-        showToast('Backup failed: ' + (err && err.message ? err.message : 'Unknown error'), 'error', 5000);
+      btn.innerHTML = 'Saving\u2026';
+      btn.disabled = true;
+
+      function finishBtn(label, keepMs) {
+        btn.innerHTML = label || origText;
+        setTimeout(function() {
+          btn.innerHTML = origText;
+          btn.classList.remove('backing-up');
+          btn.classList.remove('saving-now');
+          btn.disabled = false;
+        }, keepMs || 2200);
+      }
+
+      function runPersistBackup(afterNoteOk) {
+        var apiFn = (window.api && (window.api.persistAndBackup || window.api.flushAndBackup));
+        if (!apiFn) {
+          showToast(afterNoteOk
+            ? 'Note saved to this computer, but backup API is unavailable'
+            : 'Save now unavailable', 'warning', 7000);
+          finishBtn(afterNoteOk ? 'Note saved' : origText, 2500);
+          return;
+        }
+        Promise.resolve(apiFn()).then(function(res) {
+          if (!res || typeof res === 'string') {
+            // Legacy flush-and-backup may still return a string path on older builds.
+            showToast('Safe locally. Backup written. Central confirmation pending.', 'success', 6000);
+            showAutoSaveIndicator({ durable: true, pendingSync: true });
+            finishBtn('Safe locally', 2500);
+            return;
+          }
+          var um = res.userMessage || null;
+          var headline = (um && um.headline) || null;
+          var state = (res.forceSaveState || (um && um.state) || '');
+          if (res.noteDurable && res.centralConfirmed && res.backupOk !== false) {
+            var okCentral = (um && um.message) || 'Safe locally + central copy confirmed';
+            showToast(okCentral, 'success', 8000);
+            showAutoSaveIndicator({ durable: true, pendingSync: false, centralConfirmed: true });
+            finishBtn(headline || 'Central OK', 2800);
+            try { if (typeof refreshBackupEffectivePaths === 'function') refreshBackupEffectivePaths(); } catch (_) {}
+            return;
+          }
+          if (res.noteDurable && res.backupOk) {
+            var okMsg = (um && um.message) || (
+              'Safe locally. Backup written to ' + (res.backupPath || res.effectiveBackupFolder || 'Backups')
+            );
+            var toastLevel = (um && um.level) || 'success';
+            if (state === 'waiting_for_internet' || state === 'syncing' || state === 'sync_problem_local_safe') {
+              toastLevel = state === 'sync_problem_local_safe' ? 'warning' : 'info';
+            }
+            showToast(okMsg, toastLevel, 8000);
+            showAutoSaveIndicator({
+              durable: true,
+              pendingSync: !res.centralConfirmed,
+              centralConfirmed: !!res.centralConfirmed,
+            });
+            finishBtn(headline || 'Safe locally', 2800);
+            try { if (typeof refreshBackupEffectivePaths === 'function') refreshBackupEffectivePaths(); } catch (_) {}
+            return;
+          }
+          if (res.noteDurable && !res.backupOk) {
+            var warnMsg = (um && um.message) || (
+              'Safe locally, but backup failed' + (res.error || res.backupError ? ': ' + (res.error || res.backupError) : '')
+            );
+            showToast(warnMsg, 'warning', 10000);
+            showAutoSaveIndicator({ durable: true, pendingSync: true });
+            finishBtn('Backup failed', 3500);
+            try { updateBackupStatus(); } catch (_) {}
+            return;
+          }
+          var errMsg = (um && um.message) || (res.error || 'Could not save note to disk');
+          showToast(errMsg, 'error', 10000);
+          showAutoSaveIndicator({ durable: false, pendingSync: false });
+          finishBtn('Attention', 3500);
+        }).catch(function(err) {
+          showToast('Save now failed: ' + (err && err.message ? err.message : 'Unknown error'), 'error', 8000);
+          finishBtn(origText, 500);
+        });
+      }
+
+      if (!onForm || isNoteLockedForEditing()) {
+        // Global / settings Backup: still force disk flush + verified backup.
+        runPersistBackup(false);
+        return;
+      }
+
+      var data = getFormData();
+      if (!hasMeaningfulData(data)) {
+        showToast('Nothing to save — enter some details first, or use Backup from Settings for a DB snapshot', 'warning', 5000);
+        finishBtn(origText, 500);
+        return;
+      }
+      if (_finalising) {
+        showToast('Finalise in progress — wait, then try Save now', 'info', 4000);
+        finishBtn(origText, 500);
+        return;
+      }
+
+      attendanceSaveDetailed({ id: currentAttendanceId, data: data, status: 'draft' }).then(function(result) {
+        if (result && typeof result === 'object' && result.error === 'locked') {
+          showToast('This record is finalised and cannot be modified', 'error', 6000);
+          finishBtn(origText, 500);
+          return;
+        }
+        var normalized = normalizeAttendanceSaveResult(result);
+        if (normalized.error) {
+          showToast('Failed to save note: ' + (normalized.message || normalized.error), 'error', 7000);
+          finishBtn(origText, 500);
+          return;
+        }
+        if (normalized.id != null) currentAttendanceId = normalized.id;
+        if (!normalized.durable) {
+          showToast('Note did not finish writing to disk — backup not attempted. Try Save now again.', 'error', 9000);
+          showAutoSaveIndicator({ durable: false, pendingSync: true });
+          finishBtn('Disk failed', 3500);
+          return;
+        }
+        showAutoSaveIndicator({ durable: true, pendingSync: true });
+        runPersistBackup(true);
+      }).catch(function(e) {
+        showToast('Failed to save note: ' + (e && e.message ? e.message : e), 'error', 7000);
+        finishBtn(origText, 500);
       });
     }
-    document.getElementById('backup-now-btn')?.addEventListener('click', function() { handleBackupNowClick(this); });
-    document.getElementById('form-backup-now-btn')?.addEventListener('click', function() { handleBackupNowClick(this); });
-    document.getElementById('header-backup-now-btn')?.addEventListener('click', function() { handleBackupNowClick(this); });
-    document.getElementById('settings-quick-backup')?.addEventListener('click', function() { handleBackupNowClick(this); });
+
+    document.getElementById('backup-now-btn')?.addEventListener('click', function() { handleSaveNowClick(this); });
+    document.getElementById('form-backup-now-btn')?.addEventListener('click', function() { handleSaveNowClick(this); });
+    document.getElementById('header-backup-now-btn')?.addEventListener('click', function() { handleSaveNowClick(this); });
+    document.getElementById('settings-quick-backup')?.addEventListener('click', function() { handleSaveNowClick(this); });
+    window.handleSaveNowClick = handleSaveNowClick;
     document.getElementById('settings-quick-cloud')?.addEventListener('click', function() {
       var btn = this;
       if (!window.api || !window.api.cloudBackupCheckEntitlement) return;
@@ -17496,10 +18049,37 @@ pdfAuditFooterHtml(d, settings) +
       if (statusEl) { statusEl.textContent = 'Full re-sync running\u2026'; statusEl.style.color = '#d97706'; }
       window.api.syncFullResync().then(function(res) {
         if (res && res.ok) {
-          showToast('Full re-sync complete', 'success');
-          if (statusEl) { statusEl.textContent = 'Full re-sync finished'; statusEl.style.color = 'green'; }
+          var received = res.received || 0;
+          var merged = res.merged || 0;
+          var decryptFailed = res.decryptFailed || 0;
+          var noKey = res.noMasterKeySkipped || 0;
+          if (decryptFailed > 0 || noKey > 0) {
+            showToast(
+              'Full re-sync received ' + received + ' but could not apply ' + (decryptFailed + noKey) + ' (decrypt/key). Check Security \u2192 Recover from Cloud.',
+              'error'
+            );
+            if (statusEl) {
+              statusEl.textContent = 'Received ' + received + ', merged ' + merged + ', decrypt/key issues ' + (decryptFailed + noKey);
+              statusEl.style.color = '#b45309';
+            }
+          } else if (received === 0) {
+            showToast('Full re-sync: no remote records for this licence. On the Mac with your notes use Re-upload all local records to cloud, then retry here.', 'info');
+            if (statusEl) {
+              statusEl.textContent = 'No remote records (received 0). Use Re-upload all on the device with data.';
+              statusEl.style.color = '#b45309';
+            }
+          } else {
+            showToast('Full re-sync complete — received ' + received + ', merged ' + merged, 'success');
+            if (statusEl) {
+              statusEl.textContent = 'Full re-sync: received ' + received + ', merged ' + merged;
+              statusEl.style.color = 'green';
+            }
+          }
           try { loadHomeRecent(); } catch (_) {}
           try { refreshList(); } catch (_) {}
+        } else if (res && res.rateLimited) {
+          showToast('Full re-sync rate-limited — wait a few minutes and try again', 'error');
+          if (statusEl) { statusEl.textContent = res.error || 'Rate limited'; statusEl.style.color = '#dc2626'; }
         } else {
           showToast('Full re-sync failed: ' + (res && res.error || 'Unknown error'), 'error');
           if (statusEl) { statusEl.textContent = res && res.error ? res.error : 'Failed'; statusEl.style.color = '#dc2626'; }
@@ -17532,6 +18112,134 @@ pdfAuditFooterHtml(d, settings) +
       }).finally(function() { btn.disabled = false; });
     });
 
+    document.getElementById('btn-sync-reupload-all')?.addEventListener('click', function() {
+      if (!window.api || !window.api.syncReuploadAll) return;
+      var btn = this;
+      var statusEl = document.getElementById('cross-device-sync-action-status');
+      if (!confirm('Mark ALL local records dirty and re-upload them to the cloud? Use this after a manual database file copy, or when other devices still show No remote records while this computer has your notes.')) return;
+      btn.disabled = true;
+      if (statusEl) { statusEl.textContent = 'Re-uploading all local records\u2026'; statusEl.style.color = '#d97706'; }
+      window.api.syncReuploadAll().then(function(res) {
+        if (res && res.ok) {
+          showToast('Re-upload verified: cloud received ' + (res.verifyReceived || 0), 'success');
+          if (statusEl) {
+            statusEl.textContent = 'Marked ' + (res.marked || 0) + ' — cloud verify received ' + (res.verifyReceived || 0) +
+              (res.lastError ? ' — last error: ' + res.lastError : '');
+            statusEl.style.color = res.lastError ? '#b45309' : 'green';
+          }
+          try { loadHomeRecent(); } catch (_) {}
+        } else {
+          var errMsg = (res && res.error) || 'Unknown error';
+          showToast('Re-upload failed: ' + errMsg, 'error');
+          if (statusEl) {
+            statusEl.textContent = (res && res.code ? res.code + ': ' : '') + errMsg;
+            statusEl.style.color = '#dc2626';
+          }
+        }
+        refreshSyncCounts();
+      }).catch(function(err) {
+        showToast('Re-upload failed: ' + (err && err.message || err), 'error');
+        if (statusEl) { statusEl.textContent = ''; }
+      }).finally(function() { btn.disabled = false; });
+    });
+
+    document.getElementById('btn-sync-open-diagnostics')?.addEventListener('click', function() {
+      try {
+        var ov = document.getElementById('sync-diagnostics-overlay');
+        if (!ov) {
+          showToast('Sync diagnostics panel not available', 'error');
+          return;
+        }
+        if (typeof populateDiagnosticsPanel === 'function') populateDiagnosticsPanel();
+        ov.style.display = 'flex';
+      } catch (e) {
+        showToast('Could not open sync diagnostics', 'error');
+      }
+    });
+
+    document.getElementById('btn-sync-export-index')?.addEventListener('click', function() {
+      if (!window.api || !window.api.syncExportRecordIndex) return;
+      var btn = this;
+      var statusEl = document.getElementById('cross-device-sync-action-status');
+      btn.disabled = true;
+      if (statusEl) { statusEl.textContent = 'Exporting record index\u2026'; statusEl.style.color = '#d97706'; }
+      window.api.syncExportRecordIndex().then(function(res) {
+        if (!res || !res.ok) {
+          showToast('Export failed: ' + ((res && res.error) || 'Unknown error'), 'error');
+          if (statusEl) { statusEl.textContent = (res && res.error) || 'Export failed'; statusEl.style.color = '#dc2626'; }
+          return;
+        }
+        var blob = new Blob([JSON.stringify(res, null, 2)], { type: 'application/json' });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = 'custody-note-record-index-' + new Date().toISOString().slice(0, 10) + '.json';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function() { try { URL.revokeObjectURL(url); a.remove(); } catch (_) {} }, 500);
+        showToast('Exported ' + (res.totalRecords || 0) + ' record index entries (no note text)', 'success');
+        if (statusEl) {
+          statusEl.textContent = 'Exported index: ' + (res.totalRecords || 0) + ' active / ' + (res.recordCountIncludingDeleted || 0) + ' including deleted';
+          statusEl.style.color = 'green';
+        }
+      }).catch(function(err) {
+        showToast('Export failed: ' + (err && err.message || err), 'error');
+        if (statusEl) { statusEl.textContent = ''; }
+      }).finally(function() { btn.disabled = false; });
+    });
+
+    document.getElementById('btn-sync-integrity-check')?.addEventListener('click', function() {
+      if (!window.api || !window.api.syncIntegrityCheck) {
+        showToast('Integrity check not available', 'error');
+        return;
+      }
+      var btn = this;
+      var statusEl = document.getElementById('cross-device-sync-action-status');
+      btn.disabled = true;
+      if (statusEl) { statusEl.textContent = 'Running integrity check\u2026'; statusEl.style.color = '#d97706'; }
+      window.api.syncIntegrityCheck().then(function(res) {
+        if (!res || res.ok === false) {
+          showToast('Integrity check failed: ' + ((res && res.error) || 'Unknown error'), 'error');
+          if (statusEl) { statusEl.textContent = (res && res.error) || 'Integrity check failed'; statusEl.style.color = '#dc2626'; }
+          return;
+        }
+        var disc = (res.discrepancies && res.discrepancies.length) || 0;
+        var msg = 'Local active=' + (res.localActive || 0) +
+          ', dirty=' + (res.localDirty || 0) +
+          ', cloud inventory=' + (res.cloudInventoryCount == null ? 'unknown' : res.cloudInventoryCount) +
+          ', discrepancies=' + disc +
+          ' (no auto-delete)';
+        if (res.cloudEmptyProven) {
+          showToast('Integrity: cloud empty vs local notes — use Re-upload all. Nothing deleted.', 'warning', 8000);
+        } else if (disc > 0) {
+          showToast('Integrity: ' + disc + ' discrepancy(ies) reported. Nothing deleted.', 'warning', 7000);
+        } else {
+          showToast('Integrity check complete — no discrepancies flagged', 'success');
+        }
+        if (statusEl) {
+          statusEl.textContent = msg;
+          statusEl.style.color = disc > 0 || res.cloudEmptyProven ? '#b45309' : 'green';
+        }
+      }).catch(function(err) {
+        showToast('Integrity check failed: ' + (err && err.message || err), 'error');
+        if (statusEl) { statusEl.textContent = ''; }
+      }).finally(function() { btn.disabled = false; });
+    });
+
+    document.getElementById('home-empty-db-recovery-settings')?.addEventListener('click', function() {
+      try {
+        if (typeof showView === 'function') showView('settings');
+        var tab = document.querySelector('.settings-tab[data-stab="backup"]');
+        if (tab) tab.click();
+      } catch (_) {}
+    });
+    document.getElementById('home-empty-cloud-alarm-settings')?.addEventListener('click', function() {
+      try {
+        if (typeof showView === 'function') showView('settings');
+        var tab = document.querySelector('.settings-tab[data-stab="backup"]');
+        if (tab) tab.click();
+      } catch (_) {}
+    });
     document.getElementById('settings-save-btn')?.addEventListener('click', function() {
       if (typeof saveSettings === 'function') saveSettings();
     });
@@ -17900,7 +18608,11 @@ pdfAuditFooterHtml(d, settings) +
         if (status) status.textContent = 'Restoring…';
         window.api.localBackupRestore({ filePath: filePath }).then(function(result) {
           if (result.ok) {
-            if (status) status.textContent = '✓ Restored successfully — reloading…';
+            var marked = result.marked != null ? result.marked : '?';
+            var queued = result.queued != null ? result.queued : '?';
+            if (status) {
+              status.textContent = '✓ Restored — marked ' + marked + ' dirty / queued ' + queued + ' for cloud upload — reloading…';
+            }
             setTimeout(function() { location.reload(); }, 1500);
           } else {
             if (status) status.textContent = 'Error: ' + (result.error || 'Restore failed');
@@ -18251,8 +18963,15 @@ pdfAuditFooterHtml(d, settings) +
       window.api.onCloudBackupStatusChanged(function(data) {
         var footerEl = document.getElementById('cloud-backup-footer-status');
         var homeWarning = document.getElementById('home-cloud-backup-warning');
+        var managedChip = (typeof FooterStatusChips !== 'undefined' && FooterStatusChips.deriveManagedCloudBackupFooterChip)
+          ? FooterStatusChips.deriveManagedCloudBackupFooterChip(data)
+          : null;
         if (data && data.enabled) {
-          if (footerEl) { setFooterIndicator(footerEl, 'AWS backup on', 'backup-ok'); footerEl.style.cursor = ''; }
+          if (footerEl) {
+            if (managedChip) setFooterIndicator(footerEl, managedChip.text, managedChip.variant, managedChip.title || '');
+            else setFooterIndicator(footerEl, 'AWS backup on', 'backup-ok');
+            footerEl.style.cursor = managedChip && managedChip.cursor != null ? managedChip.cursor : '';
+          }
           if (homeWarning) homeWarning.style.display = 'none';
           var checking = document.getElementById('cloud-backup-checking');
           var notSub = document.getElementById('cloud-backup-not-subscribed');
@@ -18269,7 +18988,11 @@ pdfAuditFooterHtml(d, settings) +
           var cloudSt = document.getElementById('backup-dest-cloud-status');
           if (cloudSt) { cloudSt.textContent = 'Active — backing up automatically'; cloudSt.style.color = '#059669'; }
         } else {
-          if (footerEl) { setFooterIndicator(footerEl, 'Local only', 'warning'); footerEl.style.cursor = 'pointer'; }
+          if (footerEl) {
+            if (managedChip) setFooterIndicator(footerEl, managedChip.text, managedChip.variant, managedChip.title || '');
+            else setFooterIndicator(footerEl, 'Local backups', 'backup-ok');
+            footerEl.style.cursor = managedChip && managedChip.cursor != null ? managedChip.cursor : 'pointer';
+          }
           if (homeWarning) {
             (function() {
               try {
@@ -18307,12 +19030,23 @@ pdfAuditFooterHtml(d, settings) +
       window.api.cloudBackupStatus().then(function(status) {
         var footerEl = document.getElementById('cloud-backup-footer-status');
         var homeWarning = document.getElementById('home-cloud-backup-warning');
+        var managedChip = (typeof FooterStatusChips !== 'undefined' && FooterStatusChips.deriveManagedCloudBackupFooterChip)
+          ? FooterStatusChips.deriveManagedCloudBackupFooterChip(status)
+          : null;
         if (status && status.enabled) {
-          if (footerEl) { setFooterIndicator(footerEl, 'AWS backup on', 'backup-ok'); footerEl.style.cursor = ''; }
+          if (footerEl) {
+            if (managedChip) setFooterIndicator(footerEl, managedChip.text, managedChip.variant, managedChip.title || '');
+            else setFooterIndicator(footerEl, 'AWS backup on', 'backup-ok');
+            footerEl.style.cursor = managedChip && managedChip.cursor != null ? managedChip.cursor : '';
+          }
           if (homeWarning) homeWarning.style.display = 'none';
           if (typeof checkCloudBackupAndPromptRestore === 'function') checkCloudBackupAndPromptRestore();
         } else {
-          if (footerEl) { setFooterIndicator(footerEl, 'Local only', 'warning'); footerEl.style.cursor = 'pointer'; }
+          if (footerEl) {
+            if (managedChip) setFooterIndicator(footerEl, managedChip.text, managedChip.variant, managedChip.title || '');
+            else setFooterIndicator(footerEl, 'Local backups', 'backup-ok');
+            footerEl.style.cursor = managedChip && managedChip.cursor != null ? managedChip.cursor : 'pointer';
+          }
           /* Show warning only if user has not permanently dismissed it (DB + legacy localStorage). */
           function applyHomeCloudBannerVisibility(s) {
             try {
@@ -18620,10 +19354,12 @@ pdfAuditFooterHtml(d, settings) +
         delete data.created_at;
         delete data.updated_at;
         window.api.attendanceSave({ data: data, status: 'draft' }).then(function(id) {
-          if (id && id.error) { showToast(id.message || id.error || 'Save failed', 'error'); return; }
+          var norm = normalizeAttendanceSaveResult(id);
+          if (norm.error) { showToast(norm.message || norm.error || 'Save failed', 'error'); return; }
+          if (norm.id == null) { showToast('Save failed: no id returned', 'error'); return; }
           navigateTo('home');
-          openAttendance(id);
-          showToast('Record imported and opened', 'success');
+          openAttendance(norm.id);
+          showToast(norm.durable ? 'Record imported and saved locally' : 'Record imported (disk flush pending)', 'success');
         }).catch(function(e) { showToast('Save failed: ' + (e && e.message), 'error'); });
       }).catch(function(e) { showToast('Import failed: ' + (e && e.message), 'error'); });
     });
@@ -18640,10 +19376,12 @@ pdfAuditFooterHtml(d, settings) +
       delete data.created_at;
       delete data.updated_at;
       window.api.attendanceSave({ data: data, status: 'draft' }).then(function(id) {
-        if (id && id.error) { showToast(id.message || id.error || 'Save failed', 'error'); return; }
+        var norm = normalizeAttendanceSaveResult(id);
+        if (norm.error) { showToast(norm.message || norm.error || 'Save failed', 'error'); return; }
+        if (norm.id == null) { showToast('Save failed: no id returned', 'error'); return; }
         navigateTo('home');
-        openAttendance(id);
-        showToast('Record imported and opened', 'success');
+        openAttendance(norm.id);
+        showToast(norm.durable ? 'Record imported and saved locally' : 'Record imported (disk flush pending)', 'success');
       }).catch(function(e) { showToast('Save failed: ' + (e && e.message), 'error'); });
     }
 
@@ -20142,15 +20880,35 @@ pdfAuditFooterHtml(d, settings) +
     } catch (_) {}
   }
 
+  function _formContextBarHasClientText(ctx) {
+    if (!ctx) return false;
+    var left = ctx.querySelector('.context-left');
+    if (!left) {
+      /* Unexpected structure — fail closed if any text is present. */
+      return !!(ctx.textContent || '').trim();
+    }
+    var leftText = String(left.textContent || '').replace(/\s+/g, ' ').trim();
+    /* Empty/new forms always render Client/Station em-dash placeholders
+       (optionally preceded by an INVB Tel or Voluntary badge). */
+    var placeholderOnly = /^(INVB Tel|Voluntary)?Client:\u2014Station:\u2014$/.test(leftText);
+    if (!placeholderOnly) return true;
+    /* Outcome chip sits in the right pane and is real case content. */
+    if (ctx.querySelector('.outcome-chip')) return true;
+    return false;
+  }
+
   function _gatherCredentialFreeBlankerState() {
     var formView = document.getElementById('view-form');
     var listView = document.getElementById('view-list');
     var homeView = document.getElementById('view-home');
     var qcView = document.getElementById('view-quickcapture');
+    var officerEmailsView = document.getElementById('view-officer-emails');
     var ctx = document.getElementById('form-context-bar');
     var homeActive = document.getElementById('home-active-matters');
     var homeRecent = document.getElementById('home-recent-list');
     var homeFocusMeta = document.getElementById('home-focus-meta');
+    var scratchpad = document.getElementById('scratchpad');
+    var scratchpadText = document.getElementById('scratchpad-text');
     var listHasRows = false;
     if (listView && listView.classList.contains('active')) {
       /* Rows are plain li[data-id] with .list-item-text children — not .list-item. */
@@ -20166,6 +20924,24 @@ pdfAuditFooterHtml(d, settings) +
           break;
         }
       }
+    }
+    var officerEmailsHasClientData = false;
+    if (officerEmailsView && officerEmailsView.classList.contains('active')) {
+      var oesIds = [
+        'oes-client', 'oes-station', 'oes-offence', 'oes-subject', 'oes-body',
+        'oes-recipient', 'oes-to', 'oes-extra', 'oes-bail-date', 'oes-bail-cond'
+      ];
+      for (var oi = 0; oi < oesIds.length; oi++) {
+        var oesEl = document.getElementById(oesIds[oi]);
+        if (oesEl && String(oesEl.value || '').trim()) {
+          officerEmailsHasClientData = true;
+          break;
+        }
+      }
+    }
+    var scratchpadOpenWithText = false;
+    if (scratchpad && !scratchpad.classList.contains('hidden')) {
+      scratchpadOpenWithText = !!(scratchpadText && String(scratchpadText.value || '').trim());
     }
     var homeHasActive = false;
     var homeHasRecent = false;
@@ -20201,11 +20977,14 @@ pdfAuditFooterHtml(d, settings) +
       formViewActive: !!(formView && formView.classList.contains('active')),
       hasOpenAttendance: !!(typeof currentAttendanceId !== 'undefined' && currentAttendanceId),
       hasMeaningfulFormData: meaningful,
-      formContextBarHasText: !!(ctx && (ctx.textContent || '').trim()),
+      formContextBarHasText: _formContextBarHasClientText(ctx),
       listViewActive: !!(listView && listView.classList.contains('active')),
       listHasRows: listHasRows,
       quickCaptureViewActive: !!(qcView && qcView.classList.contains('active')),
       quickCaptureHasClientData: qcHasClientData,
+      officerEmailsViewActive: !!(officerEmailsView && officerEmailsView.classList.contains('active')),
+      officerEmailsHasClientData: officerEmailsHasClientData,
+      scratchpadOpenWithText: scratchpadOpenWithText,
       homeViewActive: !!(homeView && homeView.classList.contains('active')),
       homeHasActiveMatters: homeHasActive,
       homeHasRecentCases: homeHasRecent,
@@ -20213,64 +20992,205 @@ pdfAuditFooterHtml(d, settings) +
     };
   }
 
+  function _quitFromCredentialFreeBlanker() {
+    try {
+      if (window.api && typeof window.api.quitApp === 'function') {
+        window.api.quitApp();
+        return;
+      }
+    } catch (_) {}
+    try {
+      /* Last-resort: force-close via existing close-confirmed path if quit IPC missing. */
+      if (window.api && typeof window.api.confirmClose === 'function') {
+        window.api.confirmClose();
+      }
+    } catch (_) {}
+  }
+
+  function _removeCredentialFreeBlanker(div) {
+    try {
+      if (div && div.parentNode) div.parentNode.removeChild(div);
+    } catch (_) {}
+  }
+
   function _showCredentialFreeBlanker(reason) {
     try {
-      var existing = document.getElementById('cn-credentialfree-blanker');
-      if (existing) return;
       var policy = (typeof window !== 'undefined' && window.SessionBlankerPolicy)
         ? window.SessionBlankerPolicy
         : null;
-      var allowDismiss = true;
-      try {
-        var state = _gatherCredentialFreeBlankerState();
-        if (policy && typeof policy.mayDismissCredentialFreeBlanker === 'function') {
-          allowDismiss = policy.mayDismissCredentialFreeBlanker(state);
-        } else if (state.formViewActive && (state.hasOpenAttendance || state.hasMeaningfulFormData || state.formContextBarHasText)) {
-          allowDismiss = false;
-        } else if (state.listViewActive && state.listHasRows) {
-          allowDismiss = false;
-        } else if (state.quickCaptureViewActive && state.quickCaptureHasClientData) {
-          allowDismiss = false;
-        } else if (state.homeViewActive && (state.homeHasActiveMatters || state.homeHasRecentCases || state.homeFocusHasClientText)) {
-          allowDismiss = false;
-        }
-      } catch (_) {
-        /* Fail closed: if we cannot prove the screen is empty, block dismiss. */
-        allowDismiss = false;
+      var existing = document.getElementById('cn-credentialfree-blanker');
+      if (existing) {
+        var hasEscape = policy && typeof policy.blankerHasEscapeControls === 'function'
+          ? policy.blankerHasEscapeControls(existing)
+          : !!(existing.querySelector('#cn-credentialfree-dismiss')
+            || existing.querySelector('#cn-credentialfree-quit')
+            || existing.querySelector('#cn-credentialfree-unlock-session'));
+        if (hasEscape) return;
+        /* Replace legacy dead-end overlay that offered no way back in. */
+        _removeCredentialFreeBlanker(existing);
       }
+
+      var presentation = null;
+      var gatherFailed = false;
+      var state = {};
+      try {
+        state = _gatherCredentialFreeBlankerState();
+      } catch (_) {
+        gatherFailed = true;
+      }
+      if (policy && typeof policy.resolveCredentialFreeBlankerPresentation === 'function') {
+        presentation = policy.resolveCredentialFreeBlankerPresentation(state, {
+          reason: reason,
+          gatherFailed: gatherFailed,
+        });
+      } else {
+        /* Fallback if policy script failed to load — never dead-end. */
+        var allowDismissFallback = false;
+        if (!gatherFailed) {
+          if (policy && typeof policy.mayDismissCredentialFreeBlanker === 'function') {
+            allowDismissFallback = policy.mayDismissCredentialFreeBlanker(state);
+          } else if (!state.scratchpadOpenWithText
+            && !(state.formViewActive && (state.hasOpenAttendance || state.hasMeaningfulFormData || state.formContextBarHasText))
+            && !(state.listViewActive && state.listHasRows)
+            && !(state.quickCaptureViewActive && state.quickCaptureHasClientData)
+            && !(state.officerEmailsViewActive && state.officerEmailsHasClientData)
+            && !(state.homeViewActive && (state.homeHasActiveMatters || state.homeHasRecentCases || state.homeFocusHasClientText))) {
+            allowDismissFallback = true;
+          }
+        }
+        presentation = allowDismissFallback
+          ? {
+              mode: 'safe-dismiss',
+              allowDismiss: true,
+              offerQuit: false,
+              offerUnlockThisSession: false,
+              heading: 'Session locked',
+              bodyHtml: '<p style="max-width:36rem;line-height:1.5;">Session locked by the OS. No password is set. You can dismiss if nothing sensitive is on screen.</p>',
+              unlockConfirmMessage: 'Client or case data will be visible on screen. Unlock this session anyway?',
+              afterUnlockToast: 'Set a recovery password in Settings > Security so the next lock can be unlocked properly.',
+            }
+          : {
+              mode: 'sensitive-escape',
+              allowDismiss: false,
+              offerQuit: true,
+              offerUnlockThisSession: true,
+              heading: 'Session locked',
+              bodyHtml: '<p style="max-width:36rem;line-height:1.5;">Session locked by the OS. No password is set and client data may be on screen. Quit and reopen, or unlock this session, then set a recovery password in Settings &gt; Security.</p>',
+              unlockConfirmMessage: 'Client or case data will be visible on screen. Unlock this session anyway?',
+              afterUnlockToast: 'Set a recovery password in Settings > Security so the next lock can be unlocked properly.',
+            };
+      }
+
       var div = document.createElement('div');
       div.id = 'cn-credentialfree-blanker';
       div.setAttribute('role', 'alertdialog');
       div.setAttribute('aria-modal', 'true');
+      div.setAttribute('data-blanker-mode', presentation.mode || '');
+      /* pointer-events auto on the overlay; do NOT capture Cmd+Q / Alt+F4 —
+         those are handled by the OS / Electron app menu and main process. */
       div.style.cssText =
         'position:fixed;inset:0;z-index:2147483647;background:#0f172a;color:#f8fafc;'
         + 'display:flex;align-items:center;justify-content:center;flex-direction:column;'
         + 'font-family:Segoe UI,Arial,sans-serif;padding:2rem;text-align:center;';
+
+      var btnStyle =
+        'margin:0.4rem;padding:0.55rem 1.25rem;border:1px solid #475569;'
+        + 'background:#1e293b;color:#f8fafc;border-radius:6px;cursor:pointer;font-size:0.95rem;';
+      var primaryBtnStyle =
+        'margin:0.4rem;padding:0.55rem 1.25rem;border:1px solid #38bdf8;'
+        + 'background:#0369a1;color:#f8fafc;border-radius:6px;cursor:pointer;font-size:0.95rem;';
+
       var bodyHtml =
-        '<h2 style="margin:0 0 1rem;font-size:1.5rem;">Session locked</h2>'
-        + '<p style="max-width:36rem;line-height:1.5;">'
-        + 'CustodyNote was locked because the operating system reported a '
-        + (reason ? '<code>' + reason.replace(/[<>&]/g, '') + '</code>' : 'lock event')
-        + '. To unlock, set a recovery password or admin password in Settings &gt; Security '
-        + 'and re-open the app.</p>';
-      if (allowDismiss) {
+        '<h2 style="margin:0 0 1rem;font-size:1.5rem;">'
+        + (presentation.heading || 'Session locked')
+        + '</h2>'
+        + (presentation.bodyHtml || '');
+
+      /* Always offer Quit on sensitive path; also offer Quit on safe-dismiss
+         so Mac Cmd+Q menu failure still has an in-app escape that hits main. */
+      var showQuit = !!(presentation.offerQuit || presentation.allowDismiss);
+      var showUnlock = !!presentation.offerUnlockThisSession;
+      var showDismiss = !!presentation.allowDismiss;
+
+      if (showDismiss && !showUnlock) {
         bodyHtml +=
-          '<button type="button" id="cn-credentialfree-dismiss" '
-          + 'style="margin-top:1.5rem;padding:0.5rem 1.25rem;border:1px solid #475569;'
-          + 'background:#1e293b;color:#f8fafc;border-radius:6px;cursor:pointer;">'
-          + 'Dismiss (no real client data)</button>';
+          '<div style="margin-top:1.5rem;display:flex;flex-wrap:wrap;justify-content:center;gap:0.25rem;">'
+          + '<button type="button" id="cn-credentialfree-dismiss" style="' + btnStyle + '">'
+          + 'Dismiss</button>'
+          + '<button type="button" id="cn-credentialfree-quit" style="' + primaryBtnStyle + '">'
+          + 'Quit Custody Note</button></div>';
       } else {
         bodyHtml +=
-          '<p style="max-width:36rem;margin-top:1.25rem;line-height:1.5;color:#cbd5e1;">'
-          + 'Client or case data may be on screen, so this lock cannot be dismissed. '
-          + 'Set a recovery or admin password in Settings &gt; Security, then unlock properly.</p>';
+          '<div id="cn-credentialfree-actions" style="margin-top:1.5rem;display:flex;flex-wrap:wrap;justify-content:center;gap:0.25rem;">'
+          + '<button type="button" id="cn-credentialfree-quit" style="' + primaryBtnStyle + '">'
+          + 'Quit Custody Note</button>'
+          + (showUnlock
+            ? '<button type="button" id="cn-credentialfree-unlock-session" style="' + btnStyle + '">'
+              + 'Unlock this session</button>'
+            : '')
+          + '</div>'
+          + '<div id="cn-credentialfree-confirm" style="display:none;max-width:36rem;margin-top:1.25rem;">'
+          + '<p style="line-height:1.5;color:#fde68a;" id="cn-credentialfree-confirm-msg"></p>'
+          + '<div style="margin-top:0.75rem;">'
+          + '<button type="button" id="cn-credentialfree-confirm-yes" style="' + primaryBtnStyle + '">Unlock and show data</button>'
+          + '<button type="button" id="cn-credentialfree-confirm-no" style="' + btnStyle + '">Cancel</button>'
+          + '</div></div>';
       }
+
       div.innerHTML = bodyHtml;
       document.body.appendChild(div);
-      var btn = document.getElementById('cn-credentialfree-dismiss');
-      if (btn) btn.addEventListener('click', function() {
-        try { div.parentNode.removeChild(div); } catch (_) {}
-      });
+
+      var dismissBtn = document.getElementById('cn-credentialfree-dismiss');
+      if (dismissBtn) {
+        dismissBtn.addEventListener('click', function() {
+          _removeCredentialFreeBlanker(div);
+        });
+      }
+
+      var quitBtn = document.getElementById('cn-credentialfree-quit');
+      if (quitBtn) {
+        quitBtn.addEventListener('click', function() {
+          _quitFromCredentialFreeBlanker();
+        });
+      }
+
+      var unlockBtn = document.getElementById('cn-credentialfree-unlock-session');
+      var confirmPanel = document.getElementById('cn-credentialfree-confirm');
+      var actionsPanel = document.getElementById('cn-credentialfree-actions');
+      var confirmMsg = document.getElementById('cn-credentialfree-confirm-msg');
+      var confirmYes = document.getElementById('cn-credentialfree-confirm-yes');
+      var confirmNo = document.getElementById('cn-credentialfree-confirm-no');
+      if (unlockBtn && confirmPanel) {
+        unlockBtn.addEventListener('click', function() {
+          if (confirmMsg) {
+            confirmMsg.textContent = presentation.unlockConfirmMessage
+              || 'Client or case data will be visible on screen. Unlock this session anyway?';
+          }
+          if (actionsPanel) actionsPanel.style.display = 'none';
+          confirmPanel.style.display = 'block';
+        });
+      }
+      if (confirmNo && confirmPanel && actionsPanel) {
+        confirmNo.addEventListener('click', function() {
+          confirmPanel.style.display = 'none';
+          actionsPanel.style.display = 'flex';
+        });
+      }
+      if (confirmYes) {
+        confirmYes.addEventListener('click', function() {
+          _removeCredentialFreeBlanker(div);
+          try {
+            if (typeof showToast === 'function') {
+              showToast(
+                presentation.afterUnlockToast
+                  || 'Set a recovery password in Settings > Security so the next lock can be unlocked properly.',
+                'warning',
+                7000
+              );
+            }
+          } catch (_) {}
+        });
+      }
     } catch (_) {}
   }
 
@@ -20408,6 +21328,20 @@ function _showPinTipIfNeeded() {
 function _initCloseGuard() {
   if (!window.api || !window.api.onCheckUnsavedChanges) return;
   window.api.onCheckUnsavedChanges(function() {
+    /* Credential-free blanker sits above confirm dialogs (max z-index).
+       Never open an unsaved-changes prompt behind it — that traps quit
+       (Alt+F4 / window close). Prefer real app quit via IPC. */
+    var blanker = document.getElementById('cn-credentialfree-blanker');
+    if (blanker) {
+      try {
+        if (typeof window.api.quitApp === 'function') {
+          window.api.quitApp();
+          return;
+        }
+      } catch (_) {}
+      try { window.api.confirmClose(); } catch (_) {}
+      return;
+    }
     var formActive = document.getElementById('view-form')?.classList.contains('active');
     var isDirty = formActive && currentRecordStatus === 'draft' && (_draftSaveInFlight || _draftSaveQueued || _quietSaveDebounceTimer);
     if (isDirty) {

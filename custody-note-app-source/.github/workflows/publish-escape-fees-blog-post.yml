@@ -1,0 +1,127 @@
+name: Publish escape fees blog post
+
+# Applies website-blog-payload/police-station-escape-fees-2026 to the private
+# custody-note-website repo and opens a PR.
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - cursor/blog-police-station-escape-fees-292b
+    paths:
+      - scripts/publish-escape-fees-blog-post.mjs
+      - website-blog-payload/police-station-escape-fees-2026/**
+      - .github/workflows/publish-escape-fees-blog-post.yml
+      - .github/trigger-publish-escape-fees-blog
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout app
+        uses: actions/checkout@v4
+
+      - name: Checkout website
+        uses: actions/checkout@v4
+        with:
+          repository: robertcashman-bit/custody-note-website
+          path: custody-note-website
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Apply blog post payload
+        env:
+          WEBSITE_ROOT: ${{ github.workspace }}/custody-note-website
+        run: node scripts/publish-escape-fees-blog-post.mjs
+
+      - name: Word-count and grade-language check
+        run: |
+          set -euo pipefail
+          PAGE=custody-note-website/app/blog/police-station-escape-fees-2026/page.tsx
+          # Approximate body word count from JSX text (strip tags/attrs roughly)
+          WORDS=$(python3 - <<'PY'
+          import re
+          raw=open("custody-note-website/app/blog/police-station-escape-fees-2026/page.tsx",encoding="utf-8").read()
+          # Drop imports/metadata/faqs const blocks above the default export return? count visible copy strings
+          texts=re.findall(r'>([^<{]+)<', raw)
+          body=' '.join(t.strip() for t in texts if t.strip())
+          # also template string paragraphs inside JSX text nodes already covered
+          words=re.findall(r"[A-Za-z0-9'’£]+", body)
+          print(len(words))
+          PY
+          )
+          echo "Approx visible words: $WORDS"
+          # Fail on affirmative grade-fee billing language. FAQ may say grades do NOT apply.
+          if grep -nE "graded fee|higher grade rate|lower grade rate|paid at grade|according to grade|grade A rate|grade B rate|grade C rate" "$PAGE"; then
+            echo "Unexpected affirmative grade-fee language found" >&2
+            exit 1
+          fi
+          # Must state fees are not graded / one fixed fee
+          grep -nE "not graded|are not graded" "$PAGE"
+          grep -n "whoever attended" "$PAGE"
+          test -f custody-note-website/public/images/blog/police-station-escape-fees-2026/featured.jpg
+          test -f custody-note-website/public/images/blog/police-station-escape-fees-2026/og.jpg
+          grep -n 'slug: "police-station-escape-fees-2026"' custody-note-website/lib/staticBlogPosts.ts
+
+      - name: Upload applied website files
+        uses: actions/upload-artifact@v4
+        with:
+          name: escape-fees-blog-applied
+          path: |
+            custody-note-website/app/blog/police-station-escape-fees-2026/page.tsx
+            custody-note-website/lib/staticBlogPosts.ts
+            custody-note-website/public/images/blog/police-station-escape-fees-2026/
+
+      - name: Commit, push branch, open PR on website repo
+        working-directory: custody-note-website
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          set -euo pipefail
+          git config user.name "Cursor Agent"
+          git config user.email "cursoragent@cursor.com"
+          BRANCH="cursor/blog-police-station-escape-fees-292b"
+          git fetch origin
+          DEFAULT_BRANCH=$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@')
+          git checkout -B "$BRANCH" "origin/${DEFAULT_BRANCH}"
+          # Re-apply after branch reset (checkout wiped working tree from apply step)
+          WEBSITE_ROOT="${GITHUB_WORKSPACE}/custody-note-website" node "${GITHUB_WORKSPACE}/scripts/publish-escape-fees-blog-post.mjs"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No website changes to commit"
+          else
+            git commit -m "$(cat <<'EOF'
+          feat(blog): police station escape fees 2026 educational post
+
+          Add /blog/police-station-escape-fees-2026 with featured/OG image,
+          register in staticBlogPosts (Legal Aid), and document the £650
+          threshold — fixed fee not graded; one prep + one travel/waiting rate.
+          EOF
+          )"
+          fi
+          git push -u origin "$BRANCH" --force-with-lease
+          if gh pr view "$BRANCH" --repo robertcashman-bit/custody-note-website >/dev/null 2>&1; then
+            echo "PR already exists"
+            gh pr view "$BRANCH" --repo robertcashman-bit/custody-note-website --json url,title,number
+          else
+            gh pr create --repo robertcashman-bit/custody-note-website \
+              --base "$DEFAULT_BRANCH" \
+              --head "$BRANCH" \
+              --title "feat(blog): Police Station Escape Fees in 2026" \
+              --body "$(cat <<'EOF'
+          ## Summary
+          - New educational post at `/blog/police-station-escape-fees-2026`
+          - Listed on `/blog` via `lib/staticBlogPosts.ts` (Legal Aid, 2026-08-20)
+          - Featured + Open Graph images under `public/images/blog/police-station-escape-fees-2026/`
+          - Billing facts: PS fees not graded; one fixed fee; escape uses one preparation hourly rate and one travel-and-waiting hourly rate; £320 / £650 (ex VAT) per SI 2025/1251 for UFNs from 22 Dec 2025 — confirm on GOV.UK
+
+          ## Test plan
+          - [ ] Preview `/blog/police-station-escape-fees-2026` shows title, featured image, FAQs, download CTA
+          - [ ] `/blog` lists the post under Legal Aid with the correct date
+          - [ ] View source / social debugger shows `og.jpg` as the share image
+          - [ ] No fee-earner grade language for police station rates
+
+          EOF
+          )"
+          fi

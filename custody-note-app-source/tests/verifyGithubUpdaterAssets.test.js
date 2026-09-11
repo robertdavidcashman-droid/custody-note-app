@@ -37,12 +37,18 @@ describe('verify-github-updater-assets helpers', async () => {
 });
 
 describe('release workflow hardening', () => {
-  it('preflights Apple credentials before the Mac build', () => {
+  it('preflights Apple credentials before the Mac build (fail-closed — no skip-notary)', () => {
     assert.match(workflow, /preflight-apple-notary\.mjs/);
-    const preflightIdx = workflow.indexOf('preflight-apple-notary.mjs');
+    assert.doesNotMatch(workflow, /^\s*CN_SKIP_NOTARIZE\s*:/m);
+    assert.doesNotMatch(workflow, /CN_SKIP_NOTARIZE:\s*\$\{\{/);
+    const preflightIdx = workflow.indexOf('id: notary-preflight');
+    assert.ok(preflightIdx !== -1);
+    const preflightBlock = workflow.slice(preflightIdx, preflightIdx + 500);
+    assert.doesNotMatch(preflightBlock, /continue-on-error:\s*true/);
+    const scriptIdx = workflow.indexOf('preflight-apple-notary.mjs');
     const buildIdx = workflow.indexOf('npm run build:mac:signed');
-    assert.ok(preflightIdx !== -1 && buildIdx !== -1);
-    assert.ok(preflightIdx < buildIdx);
+    assert.ok(scriptIdx !== -1 && buildIdx !== -1);
+    assert.ok(scriptIdx < buildIdx);
   });
 
   it('regenerates latest-mac.yml after Mac upload', () => {

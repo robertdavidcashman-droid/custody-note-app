@@ -5,12 +5,16 @@
  *
  * Skips assets that already exist AND match dist/latest-mac.yml checksums.
  * Replaces remote assets when checksums diverge (stale partial upload).
+ *
+ * Draft releases: never verify via public browser_download_url
+ * (`…/releases/download/untagged-…/…` returns HTTP 404 while draft). Always
+ * download through the authenticated Releases API asset URL instead.
  */
 import { createHash } from 'crypto';
 import { execSync } from 'child_process';
 import { existsSync, readFileSync } from 'fs';
 import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -90,14 +94,42 @@ function loadLocalFeedChecksums(dist) {
   return parseLatestMacYml(readFileSync(ymlPath, 'utf8'));
 }
 
-async function remoteSha512(asset, headers) {
-  const res = await fetch(asset.browser_download_url, { headers });
-  if (!res.ok) throw new Error(`download ${asset.name} failed: HTTP ${res.status}`);
-  const buf = Buffer.from(await res.arrayBuffer());
+/**
+ * Prefer the authenticated API asset URL. Public browser_download_url 404s on
+ * draft releases (`/releases/download/untagged-…/…`).
+ */
+function releaseAssetDownloadUrl(asset, releaseIsDraft) {
+  if (!asset) return null;
+  if (asset.url) return asset.url;
+  // Published releases may still expose browser_download_url only in odd payloads.
+  if (!releaseIsDraft && asset.browser_download_url) return asset.browser_download_url;
+  return null;
+}
+
+async function downloadReleaseAssetBuffer(asset, headers, opts = {}) {
+  const releaseIsDraft = Boolean(opts.releaseIsDraft);
+  const url = releaseAssetDownloadUrl(asset, releaseIsDraft);
+  if (!url) {
+    throw new Error(`download ${asset && asset.name ? asset.name : 'asset'} failed: no API asset URL`);
+  }
+  const dlHeaders = {
+    ...headers,
+    // Required so api.github.com/…/releases/assets/{id} returns octets, not JSON metadata.
+    Accept: 'application/octet-stream',
+  };
+  const res = await fetch(url, { headers: dlHeaders, redirect: 'follow' });
+  if (!res.ok) {
+    throw new Error(`download ${asset.name} failed: HTTP ${res.status}`);
+  }
+  return Buffer.from(await res.arrayBuffer());
+}
+
+async function remoteSha512(asset, headers, opts = {}) {
+  const buf = await downloadReleaseAssetBuffer(asset, headers, opts);
   return sha512Base64(buf);
 }
 
-async function deleteAsset(assetId, headers) {
+async function deleteAsset(assetId, headers, repo) {
   const res = await fetch(`https://api.github.com/repos/${repo}/releases/assets/${assetId}`, {
     method: 'DELETE',
     headers,
@@ -107,99 +139,118 @@ async function deleteAsset(assetId, headers) {
   }
 }
 
-loadEnvFile('.env.local');
-const token = resolveGitHubToken();
-const version = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version;
-const tag = `v${version}`;
-const repo = String(process.env.GITHUB_REPOSITORY || '').trim() || 'robertdavidcashman-droid/custody-note-app';
-const headers = {
-  Accept: 'application/vnd.github+json',
-  Authorization: `Bearer ${token}`,
-  'X-GitHub-Api-Version': '2022-11-28',
-  'User-Agent': 'CustodyNote-UploadMacAssets',
-};
+async function main() {
+  loadEnvFile('.env.local');
+  const token = resolveGitHubToken();
+  const version = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version;
+  const tag = `v${version}`;
+  const { fetchReleaseByTag, RELEASE_OWNER, RELEASE_REPO, releaseApiHeaders } =
+    await import('./github-release-api.mjs');
+  const repo = `${RELEASE_OWNER}/${RELEASE_REPO}`;
+  const headers = releaseApiHeaders(token);
 
-const releaseRes = await fetch(`https://api.github.com/repos/${repo}/releases/tags/${tag}`, { headers });
-const release = await releaseRes.json();
-if (!release.id) throw new Error(release.message || 'Release not found');
+  /* Draft releases are invisible to /releases/tags/{tag} — use the helper that
+   * also scans the releases list so post-spctl uploads work while the release
+   * is still draft (CI publish path). */
+  const release = await fetchReleaseByTag(tag, token);
+  if (!release.id) throw new Error(release.message || 'Release not found');
+  const releaseIsDraft = Boolean(release.draft);
 
-const dist = join(root, 'dist');
-const feedChecksums = loadLocalFeedChecksums(dist);
-if (!feedChecksums || feedChecksums.size === 0) {
-  console.warn('[upload-mac-assets] dist/latest-mac.yml missing — uploads may desync checksums.');
-}
-
-const assetByName = new Map((release.assets || []).map((a) => [a.name, a]));
-const files = [
-  `Custody-Note-${version}-arm64.dmg`,
-  `Custody-Note-${version}-arm64.dmg.blockmap`,
-  `Custody-Note-${version}-arm64.zip`,
-  `Custody-Note-${version}-arm64.zip.blockmap`,
-  `Custody-Note-${version}-x64.dmg`,
-  `Custody-Note-${version}-x64.dmg.blockmap`,
-  `Custody-Note-${version}-x64.zip`,
-  `Custody-Note-${version}-x64.zip.blockmap`,
-  'latest-mac.yml',
-];
-
-for (const name of files) {
-  const localPath = join(dist, name);
-  if (!existsSync(localPath)) {
-    console.warn(`[upload-mac-assets] missing locally: ${name}`);
-    continue;
+  const dist = join(root, 'dist');
+  const feedChecksums = loadLocalFeedChecksums(dist);
+  if (!feedChecksums || feedChecksums.size === 0) {
+    console.warn('[upload-mac-assets] dist/latest-mac.yml missing — uploads may desync checksums.');
   }
 
-  const localBody = readFileSync(localPath);
-  const localSha = name === 'latest-mac.yml' ? null : sha512Base64(localBody);
-  const expectedFromFeed = feedChecksums && feedChecksums.get(name);
-  if (expectedFromFeed && localSha && expectedFromFeed !== localSha) {
-    throw new Error(
-      `[upload-mac-assets] dist/${name} does not match dist/latest-mac.yml — rebuild Mac assets before upload.`,
-    );
-  }
+  const assetByName = new Map((release.assets || []).map((a) => [a.name, a]));
+  const files = [
+    `Custody-Note-${version}-arm64.dmg`,
+    `Custody-Note-${version}-arm64.dmg.blockmap`,
+    `Custody-Note-${version}-arm64.zip`,
+    `Custody-Note-${version}-arm64.zip.blockmap`,
+    `Custody-Note-${version}-x64.dmg`,
+    `Custody-Note-${version}-x64.dmg.blockmap`,
+    `Custody-Note-${version}-x64.zip`,
+    `Custody-Note-${version}-x64.zip.blockmap`,
+    'latest-mac.yml',
+  ];
 
-  const existingAsset = assetByName.get(name);
-  if (existingAsset) {
-    if (name === 'latest-mac.yml') {
-      const remoteText = await (await fetch(existingAsset.browser_download_url, { headers })).text();
-      const localText = localBody.toString('utf8');
-      if (remoteText === localText) {
-        console.log(`[upload-mac-assets] skip (unchanged): ${name}`);
-        continue;
-      }
-      console.log(`[upload-mac-assets] replacing stale ${name}…`);
-      await deleteAsset(existingAsset.id, headers);
-    } else if (localSha) {
-      const remoteSha = await remoteSha512(existingAsset, headers);
-      if (remoteSha === localSha) {
-        console.log(`[upload-mac-assets] skip (checksum ok): ${name}`);
-        continue;
-      }
-      console.log(`[upload-mac-assets] replacing checksum mismatch ${name}…`);
-      await deleteAsset(existingAsset.id, headers);
-    } else {
-      console.log(`[upload-mac-assets] skip (exists): ${name}`);
+  for (const name of files) {
+    const localPath = join(dist, name);
+    if (!existsSync(localPath)) {
+      console.warn(`[upload-mac-assets] missing locally: ${name}`);
       continue;
     }
+
+    const localBody = readFileSync(localPath);
+    const localSha = name === 'latest-mac.yml' ? null : sha512Base64(localBody);
+    const expectedFromFeed = feedChecksums && feedChecksums.get(name);
+    if (expectedFromFeed && localSha && expectedFromFeed !== localSha) {
+      throw new Error(
+        `[upload-mac-assets] dist/${name} does not match dist/latest-mac.yml — rebuild Mac assets before upload.`,
+      );
+    }
+
+    const existingAsset = assetByName.get(name);
+    if (existingAsset) {
+      if (name === 'latest-mac.yml') {
+        const remoteBuf = await downloadReleaseAssetBuffer(existingAsset, headers, { releaseIsDraft });
+        const remoteText = remoteBuf.toString('utf8');
+        const localText = localBody.toString('utf8');
+        if (remoteText === localText) {
+          console.log(`[upload-mac-assets] skip (unchanged): ${name}`);
+          continue;
+        }
+        console.log(`[upload-mac-assets] replacing stale ${name}…`);
+        await deleteAsset(existingAsset.id, headers, repo);
+      } else if (localSha) {
+        const remoteSha = await remoteSha512(existingAsset, headers, { releaseIsDraft });
+        if (remoteSha === localSha) {
+          console.log(`[upload-mac-assets] skip (checksum ok): ${name}`);
+          continue;
+        }
+        console.log(`[upload-mac-assets] replacing checksum mismatch ${name}…`);
+        await deleteAsset(existingAsset.id, headers, repo);
+      } else {
+        console.log(`[upload-mac-assets] skip (exists): ${name}`);
+        continue;
+      }
+    }
+
+    console.log(`[upload-mac-assets] uploading ${name}…`);
+    const uploadUrl = `https://uploads.github.com/repos/${repo}/releases/${release.id}/assets?name=${encodeURIComponent(name)}`;
+    const contentType = name.endsWith('.yml') ? 'text/yaml' : 'application/octet-stream';
+    const res = await fetch(uploadUrl, {
+      method: 'POST',
+      headers: {
+        ...headers,
+        'Content-Type': contentType,
+        'Content-Length': String(localBody.length),
+      },
+      body: localBody,
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Upload ${name} failed: HTTP ${res.status} ${text.slice(0, 200)}`);
+    }
+    console.log(`[upload-mac-assets] uploaded ${name}`);
   }
 
-  console.log(`[upload-mac-assets] uploading ${name}…`);
-  const uploadUrl = `https://uploads.github.com/repos/${repo}/releases/${release.id}/assets?name=${encodeURIComponent(name)}`;
-  const contentType = name.endsWith('.yml') ? 'text/yaml' : 'application/octet-stream';
-  const res = await fetch(uploadUrl, {
-    method: 'POST',
-    headers: {
-      ...headers,
-      'Content-Type': contentType,
-      'Content-Length': String(localBody.length),
-    },
-    body: localBody,
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Upload ${name} failed: HTTP ${res.status} ${text.slice(0, 200)}`);
-  }
-  console.log(`[upload-mac-assets] uploaded ${name}`);
+  console.log('[upload-mac-assets] Done.');
 }
 
-console.log('[upload-mac-assets] Done.');
+const isDirectRun = import.meta.url === pathToFileURL(process.argv[1]).href;
+if (isDirectRun) {
+  main().catch((err) => {
+    console.error('[upload-mac-assets] Fatal:', err && err.message ? err.message : err);
+    process.exit(1);
+  });
+}
+
+export {
+  sha512Base64,
+  parseLatestMacYml,
+  releaseAssetDownloadUrl,
+  downloadReleaseAssetBuffer,
+  remoteSha512,
+};

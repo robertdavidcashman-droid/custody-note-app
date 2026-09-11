@@ -82,13 +82,14 @@ describe('Performance — main process', () => {
     assert.ok(schemaSource.includes('deleted_at, archived_at, updated_at'), 'index must cover list filter columns');
   });
 
-  it('configures calmer backup scheduler timings', () => {
-    assert.ok(mainJsSource.includes('quickMinIntervalMs: 30 * 60 * 1000'),
-      'main.js should set a 30 minute quick backup interval');
-    assert.ok(mainJsSource.includes('userIdleGraceMs: 90 * 1000'),
-      'main.js should defer backups until the user is idle for 90 seconds');
-    assert.ok(mainJsSource.includes('periodicCheckMs: 10 * 60 * 1000'),
-      'main.js should reduce periodic backup checks to every 10 minutes');
+  it('configures durable quick backup scheduler timings', () => {
+    // 1.9.85+: ~2 min generational quick backups (was 30 min — too large a crash window).
+    assert.ok(mainJsSource.includes('quickMinIntervalMs: 2 * 60 * 1000'),
+      'main.js should set a ~2 minute quick backup interval');
+    assert.ok(mainJsSource.includes('userIdleGraceMs: 45 * 1000'),
+      'main.js should defer backups until the user is idle for 45 seconds');
+    assert.ok(mainJsSource.includes('periodicCheckMs: 60 * 1000'),
+      'main.js should poll the backup scheduler about every minute');
   });
 });
 

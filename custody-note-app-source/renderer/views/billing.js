@@ -72,7 +72,17 @@ function openBillingPanel() {
     var hasExistingInvoice = !!(invoiceStatus.quickfile_invoice_id);
 
     if (stationMileage && stationMileage.mileage_from_base != null && !milesFromRecord) {
-      milesFromRecord = stationMileage.mileage_from_base;
+      var SM = window.StationMileage;
+      milesFromRecord = SM && typeof SM.resolveMilesForAutofill === 'function'
+        ? SM.resolveMilesForAutofill({
+            standardMiles: stationMileage.mileage_from_base,
+            existingMiles: milesFromRecord,
+            allowLiveOverride: false,
+          })
+        : stationMileage.mileage_from_base;
+      if (SM && typeof SM.normalizeMileageForStorage === 'function') {
+        milesFromRecord = SM.normalizeMileageForStorage(milesFromRecord);
+      }
     }
 
     if (hasExistingInvoice && invoiceStatus.invoice_attendance_fee != null) {
@@ -299,7 +309,13 @@ function _renderBillingPanel(data, recordId, opts) {
               '</div>' +
               '<div class="billing-edit-row">' +
                 '<label for="billing-mileage-miles">Mileage (miles)</label>' +
-                '<input type="number" id="billing-mileage-miles" class="form-input billing-calc-input" value="' + (opts.mileageMiles || 0) + '" step="0.1">' +
+                '<input type="number" id="billing-mileage-miles" class="form-input billing-calc-input" value="' + (function () {
+                  var SM = window.StationMileage;
+                  if (SM && typeof SM.formatExactMiles === 'function' && opts.mileageMiles != null && opts.mileageMiles !== '') {
+                    return SM.formatExactMiles(opts.mileageMiles) || '0';
+                  }
+                  return String(opts.mileageMiles || 0);
+                })() + '" step="any">' +
               '</div>' +
               '<div class="billing-edit-row">' +
                 '<label for="billing-mileage-rate">Mileage Rate (&pound;/mile)</label>' +
